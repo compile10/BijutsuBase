@@ -53,9 +53,6 @@ def get_sync_database_url() -> str:
     """
     Get synchronous database URL for Alembic migrations.
     
-    Psycopg3 automatically handles both sync and async with the same URL,
-    so we just need to remove the +asyncio modifier if present.
-    
     Returns:
         str: Synchronous database URL
     """

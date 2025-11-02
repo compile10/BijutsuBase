@@ -88,3 +88,20 @@ def delete_file_from_disk(file: File) -> None:
     if file_path.exists():
         file_path.unlink()
 
+def delete_thumbnail_from_disk(file: File) -> None:
+    """
+    Delete thumbnail from disk using the generated path.
+    
+    Silently handles cases where thumbnail doesn't exist.
+    
+    Args:
+        file: File model instance
+    """
+    if not file.file_ext:
+        raise ValueError("file_ext must be set before deleting thumbnail from disk")
+    
+    thumbnail_path = generate_file_path(file.sha256_hash, file.file_ext, thumb=True)
+
+    # Delete thumbnail if it exists, ignore if it doesn't
+    if thumbnail_path.exists():
+        thumbnail_path.unlink()

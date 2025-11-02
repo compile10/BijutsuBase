@@ -1,5 +1,6 @@
 """Health check router for BijutsuBase API."""
 from datetime import datetime
+from time import timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -22,6 +23,6 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         "status": "healthy" if db_healthy else "unhealthy",
         "message": "BijutsuBase is running",
         "database": "connected" if db_healthy else "disconnected",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 

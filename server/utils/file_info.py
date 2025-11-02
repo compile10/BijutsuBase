@@ -1,20 +1,20 @@
 """File information utilities for BijutsuBase."""
 from __future__ import annotations
 
-import io
 import json
 import subprocess
+from pathlib import Path
 from typing import Tuple
 
 from PIL import Image
 
 
-def get_image_dimensions(content: bytes) -> Tuple[int, int]:
+def get_image_dimensions(path: Path) -> Tuple[int, int]:
     """
-    Get width and height of an image file from bytes content.
+    Get width and height of an image file from disk.
     
     Args:
-        content: Image file content as bytes
+        path: Path to image file on disk
         
     Returns:
         Tuple of (width, height) in pixels
@@ -23,18 +23,18 @@ def get_image_dimensions(content: bytes) -> Tuple[int, int]:
         IOError: If the file cannot be opened as an image
         ValueError: If the file is not a valid image
     """
-    with Image.open(io.BytesIO(content)) as img:
+    with Image.open(path) as img:
         return img.size  # Returns (width, height)
 
 
-def get_video_dimensions(content: bytes) -> Tuple[int, int]:
+def get_video_dimensions(path: Path) -> Tuple[int, int]:
     """
-    Get width and height of a video file from bytes content.
+    Get width and height of a video file from disk.
     
-    Uses ffprobe to read video metadata from stdin (no disk I/O).
+    Uses ffprobe to read video metadata from file.
     
     Args:
-        content: Video file content as bytes
+        path: Path to video file on disk
         
     Returns:
         Tuple of (width, height) in pixels
@@ -44,24 +44,23 @@ def get_video_dimensions(content: bytes) -> Tuple[int, int]:
         ValueError: If the file is not a valid video or ffprobe is not available
     """
     try:
-        # Use ffprobe to get video dimensions from stdin
+        # Use ffprobe to get video dimensions from file
         cmd = [
             "ffprobe",
             "-v", "error",
             "-select_streams", "v:0",
             "-show_entries", "stream=width,height",
             "-of", "json",
-            "-"  # Read from stdin
+            str(path)  # Read from file path
         ]
         
         process = subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
         
-        stdout, stderr = process.communicate(input=content)
+        stdout, stderr = process.communicate()
         
         if process.returncode != 0:
             raise ValueError(f"Unable to determine video dimensions: {stderr.decode('utf-8', errors='ignore')}")

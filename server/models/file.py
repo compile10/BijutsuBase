@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
+
 if TYPE_CHECKING:
     from models.tag import Tag
 
@@ -63,29 +64,35 @@ class File(Base):
         back_populates="files"
     )
     
-    def __init__(self, **kwargs):
-        """Initialize File instance with non-persistent attributes."""
-        super().__init__(**kwargs)
-        # Non-persistent attribute for temporary file content storage
-        self._temp_file_content: Optional[bytes] = None
-    
-    def set_temp_file_content(self, content: bytes) -> None:
-        """
-        Store file content temporarily before insertion.
-        
-        This content will be saved to disk before inserting the File record.
-        
-        Args:
-            content: File content as bytes
-        """
-        self._temp_file_content = content
-    
     def __repr__(self) -> str:
         """String representation of File."""
         return f"<File(sha256_hash={self.sha256_hash[:8]}..., filename={self.original_filename})>"
 
 
-# SQLAlchemy event listeners for automatic file handling
+@event.listens_for(File, "before_insert")
+def _extract_dimensions_before_insert(mapper, connection, target: File) -> None:
+    """
+    Extract and set file dimensions before inserting File record.
+    
+    Reads dimensions from the file on disk and updates target.width and target.height.
+    These updates will be included in the INSERT statement.
+    """
+    from utils.file_storage import generate_file_path
+    from utils.file_info import get_image_dimensions, get_video_dimensions
+    
+    # Get file path
+    file_path = generate_file_path(target.sha256_hash, target.file_ext)
+    
+    # Extract dimensions based on file type
+    try:
+        if target.file_type.startswith("image/"):
+            target.width, target.height = get_image_dimensions(file_path)
+        elif target.file_type.startswith("video/"):
+            target.width, target.height = get_video_dimensions(file_path)
+    except Exception as e:
+        raise RuntimeError(f"Failed to extract dimensions: {str(e)}") from e
+
+
 @event.listens_for(File, "before_insert")
 def _generate_thumbnail_before_insert(mapper, connection, target: File) -> None:
     """
@@ -94,20 +101,18 @@ def _generate_thumbnail_before_insert(mapper, connection, target: File) -> None:
     Only generates thumbnails for image and video files.
     Raises exception if thumbnail generation fails.
     """
-    
-    # temp_file_content should still be available here (not cleared until after this listener)
-    if target._temp_file_content is None:
-        raise ValueError("No file content available for thumbnail generation.")
-    
     from utils.file_storage import generate_file_path
     from utils.thumbnail_gen import generate_thumbnail, generate_video_thumbnail
+    
+    # Get file path
+    file_path = generate_file_path(target.sha256_hash, target.file_ext)
     
     # Generate thumbnail based on file type
     try:
         if target.file_type.startswith("image/"):
-            thumbnail_content = generate_thumbnail(target._temp_file_content)
+            thumbnail_content = generate_thumbnail(file_path)
         elif target.file_type.startswith("video/"):
-            thumbnail_content = generate_video_thumbnail(target._temp_file_content)
+            thumbnail_content = generate_video_thumbnail(file_path)
         else:
             return  # Should not reach here due to check above, but just in case
     except Exception as e:
@@ -123,30 +128,16 @@ def _generate_thumbnail_before_insert(mapper, connection, target: File) -> None:
     thumbnail_path.write_bytes(thumbnail_content)
 
 
-@event.listens_for(File, "before_insert")
-def _save_file_before_insert(mapper, connection, target: File) -> None:
-    """
-    Save file to disk before inserting File record.
-    
-    Raises ValueError if no file content has been associated.
-    """
-    if target._temp_file_content is None:
-        raise ValueError("No file content has been associated. Call set_temp_file_content() before inserting.")
-    
-    from utils.file_storage import save_file_to_disk
-    save_file_to_disk(target, target._temp_file_content)
-    # Clear temporary content after saving
-    target._temp_file_content = None
-
-
 @event.listens_for(File, "after_delete")
 def _delete_file_after_delete(mapper, connection, target: File) -> None:
     """
     Delete file from disk after deleting File record.
     """
-    from utils.file_storage import delete_file_from_disk
     try:
+        from utils.file_storage import delete_thumbnail_from_disk, delete_file_from_disk
+
         delete_file_from_disk(target)
+        delete_thumbnail_from_disk(target)
     except (ValueError, OSError):
         # Silently handle errors (file might not exist, etc.)
         pass
