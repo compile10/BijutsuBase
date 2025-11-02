@@ -1,12 +1,12 @@
 from contextlib import asynccontextmanager
-from datetime import datetime
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.config import engine, get_db
+from database.config import engine
+from api.health import router as health_router
+from api.files import router as files_router
 
 
 @asynccontextmanager
@@ -33,17 +33,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-
-@app.get("/health")
-async def health_check(db: AsyncSession = Depends(get_db)):
-    """Health check endpoint to verify the API and database are running."""
-    # Execute a simple query to check database connectivity
-    result = await db.execute(text("SELECT 1 as health_check"))
-    db_healthy = result.scalar() == 1
-    
-    return {
-        "status": "healthy" if db_healthy else "unhealthy",
-        "message": "BijutsuBase is running",
-        "database": "connected" if db_healthy else "disconnected",
-        "timestamp": datetime.utcnow().isoformat()
-    }
+# Register API routers
+app.include_router(health_router, prefix="/api")
+app.include_router(files_router, prefix="/api")

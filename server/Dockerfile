@@ -4,6 +4,11 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 # Set the working directory
 WORKDIR /app
 
+# Install system dependencies (ffmpeg for video processing, libmagic1 for python-magic)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg libmagic1 && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy the project files into the container
 COPY . .
 

@@ -29,6 +29,7 @@ services:
       - /app/.venv  # Prevent overwriting the container's virtual environment
     environment:
       - PYTHONUNBUFFERED=1
+      - UV_LINK_MODE=copy
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/bijutsubase
       - DB_HOST=postgres
       - DB_PORT=5432
