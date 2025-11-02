@@ -2,15 +2,25 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from models.file import File
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, func
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, func, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.config import Base
+
+
+class TagCategory(str, Enum):
+    """Tag category enumeration."""
+    GENERAL = "General"
+    ARTIST = "Artist"
+    COPYRIGHT = "Copyright"
+    CHARACTER = "Character"
+    META = "Meta"
 
 
 class Tag(Base):
@@ -28,6 +38,12 @@ class Tag(Base):
         unique=True,
         nullable=False
     )
+    category: Mapped[TagCategory] = mapped_column(
+        SQLEnum(TagCategory),
+        nullable=False,
+        default=TagCategory.GENERAL,
+        server_default=TagCategory.GENERAL.name
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -42,7 +58,7 @@ class Tag(Base):
     
     def __repr__(self) -> str:
         """String representation of Tag."""
-        return f"<Tag(id={self.id}, name={self.name})>"
+        return f"<Tag(id={self.id}, name={self.name}, category={self.category.value})>"
 
 
 class FileTag(Base):

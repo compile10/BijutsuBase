@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, ClassVar
 
 if TYPE_CHECKING:
     from models.tag import Tag
@@ -20,7 +20,7 @@ class File(Base):
     __tablename__ = "files"
     
     # Non-persistent attribute for temporary file content storage
-    _temp_file_content: Optional[bytes] = None
+    _temp_file_content: ClassVar[Optional[bytes]] = None
     
     sha256_hash: Mapped[str] = mapped_column(
         String(64),
