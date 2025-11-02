@@ -106,14 +106,34 @@ async def upload_file(
     final_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path.rename(final_path)
     
-    # Create File model instance (dimensions will be extracted in event listener)
+    # Extract dimensions from the file
+    width = None
+    height = None
+    try:
+        if file_type.startswith("image/"):
+            from utils.file_info import get_image_dimensions
+            width, height = get_image_dimensions(final_path)
+        elif file_type.startswith("video/"):
+            from utils.file_info import get_video_dimensions
+            width, height = get_video_dimensions(final_path)
+    except Exception as e:
+        # Clean up the file if dimension extraction fails
+        final_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to extract dimensions: {str(e)}"
+        )
+    
+    # Create File model instance
     file_model = FileModel(
         sha256_hash=sha256_hash,
         md5_hash=md5_hash,
         file_size=file_size,
         original_filename=original_filename,
         file_ext=file_ext,
-        file_type=file_type
+        file_type=file_type,
+        width=width,
+        height=height
     )
     
     # Save to database

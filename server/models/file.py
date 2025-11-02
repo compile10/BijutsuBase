@@ -70,30 +70,6 @@ class File(Base):
 
 
 @event.listens_for(File, "before_insert")
-def _extract_dimensions_before_insert(mapper, connection, target: File) -> None:
-    """
-    Extract and set file dimensions before inserting File record.
-    
-    Reads dimensions from the file on disk and updates target.width and target.height.
-    These updates will be included in the INSERT statement.
-    """
-    from utils.file_storage import generate_file_path
-    from utils.file_info import get_image_dimensions, get_video_dimensions
-    
-    # Get file path
-    file_path = generate_file_path(target.sha256_hash, target.file_ext)
-    
-    # Extract dimensions based on file type
-    try:
-        if target.file_type.startswith("image/"):
-            target.width, target.height = get_image_dimensions(file_path)
-        elif target.file_type.startswith("video/"):
-            target.width, target.height = get_video_dimensions(file_path)
-    except Exception as e:
-        raise RuntimeError(f"Failed to extract dimensions: {str(e)}") from e
-
-
-@event.listens_for(File, "before_insert")
 def _generate_thumbnail_before_insert(mapper, connection, target: File) -> None:
     """
     Generate and save thumbnail before inserting File record.
