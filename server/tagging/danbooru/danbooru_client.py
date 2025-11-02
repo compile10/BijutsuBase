@@ -1,6 +1,6 @@
 """Danbooru API client for retrieving post information."""
 
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 from pydantic import BaseModel, Field
@@ -68,6 +68,33 @@ class DanbooruClient:
 
         self.username = username
         self.api_key = api_key
+        self._cache: dict = {}
+
+    def _get_cached(self, method_name: str, *args) -> Optional[Any]:
+        """
+        Retrieve a cached value for a method call.
+
+        Args:
+            method_name: Name of the method being called
+            *args: Arguments passed to the method
+
+        Returns:
+            Cached value if found, None otherwise
+        """
+        cache_key = (method_name, *args)
+        return self._cache.get(cache_key)
+
+    def _set_cached(self, method_name: str, *args, value: Any) -> None:
+        """
+        Store a value in the cache for a method call.
+
+        Args:
+            method_name: Name of the method being called
+            *args: Arguments passed to the method
+            value: The value to cache
+        """
+        cache_key = (method_name, *args)
+        self._cache[cache_key] = value
 
     def get_post(self, md5: str) -> list[DanbooruPost]:
         """
@@ -83,6 +110,11 @@ class DanbooruClient:
             httpx.HTTPStatusError: If the API returns an error status code
             httpx.RequestError: If there's a network error
         """
+        # Check cache first
+        cached_result = self._get_cached("get_post", md5)
+        if cached_result is not None:
+            return cached_result
+
         url = f"{self.base_url}/posts.json"
         params = {"md5": md5}
 
@@ -98,5 +130,9 @@ class DanbooruClient:
 
             # Parse the JSON response as a list of DanbooruPost objects
             data = response.json()
-            return [DanbooruPost(**post) for post in data]
+            result = [DanbooruPost(**post) for post in data]
+
+            # Cache the result before returning
+            self._set_cached("get_post", md5, value=result)
+            return result
 
