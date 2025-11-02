@@ -66,3 +66,6 @@ build/
 # PostgreSQL data
 postgres_data/
 
+# Media files (user uploads)
+media/
+
