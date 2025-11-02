@@ -21,7 +21,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: anime-art-api
+    container_name: bijutsubase-api
     ports:
       - "8000:8000"
     volumes:
@@ -29,7 +29,7 @@ services:
       - /app/.venv  # Prevent overwriting the container's virtual environment
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bijutsubase
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/bijutsubase
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=bijutsubase
@@ -39,7 +39,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: /app/start.sh
 
 volumes:
   postgres_data:
