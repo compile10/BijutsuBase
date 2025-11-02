@@ -19,6 +19,7 @@ class FileResponse(BaseModel):
     height: int | None
     rating: str
     date_added: datetime
+    source: str | None
     
     class Config:
         from_attributes = True

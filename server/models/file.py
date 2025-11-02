@@ -72,6 +72,10 @@ class File(Base):
         nullable=False,
         server_default=func.now()
     )
+    source: Mapped[Optional[str]] = mapped_column(
+        String(2048),
+        nullable=True
+    )
     
     # Relationship to tags through junction table
     tags: Mapped[list["Tag"]] = relationship(
