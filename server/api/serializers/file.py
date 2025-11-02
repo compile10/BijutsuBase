@@ -17,6 +17,7 @@ class FileResponse(BaseModel):
     file_type: str
     width: int | None
     height: int | None
+    rating: str
     date_added: datetime
     
     class Config:

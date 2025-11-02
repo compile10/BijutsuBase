@@ -1,6 +1,7 @@
 """File model for BijutsuBase."""
 from __future__ import annotations
 
+import enum
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
@@ -9,10 +10,18 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from models.tag import Tag
 
-from sqlalchemy import String, Integer, DateTime, func, event
+from sqlalchemy import String, Integer, DateTime, func, event, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from database.config import Base
+
+
+class Rating(str, enum.Enum):
+    """Rating enum for file content rating."""
+    SAFE = "safe"
+    SENSITIVE = "sensitive"
+    QUESTIONABLE = "questionable"
+    EXPLICIT = "explicit"
 
 
 class File(Base):
@@ -51,6 +60,12 @@ class File(Base):
     height: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True
+    )
+    rating: Mapped[Rating] = mapped_column(
+        SQLEnum(Rating),
+        nullable=False,
+        default=Rating.EXPLICIT,
+        server_default=Rating.EXPLICIT.name  # Err on the side of caution
     )
     date_added: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
