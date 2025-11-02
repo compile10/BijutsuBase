@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, ClassVar
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from models.tag import Tag
@@ -18,9 +18,6 @@ class File(Base):
     """File model for file storage and metadata."""
     
     __tablename__ = "files"
-    
-    # Non-persistent attribute for temporary file content storage
-    _temp_file_content: ClassVar[Optional[bytes]] = None
     
     sha256_hash: Mapped[str] = mapped_column(
         String(64),
@@ -66,6 +63,12 @@ class File(Base):
         back_populates="files"
     )
     
+    def __init__(self, **kwargs):
+        """Initialize File instance with non-persistent attributes."""
+        super().__init__(**kwargs)
+        # Non-persistent attribute for temporary file content storage
+        self._temp_file_content: Optional[bytes] = None
+    
     def set_temp_file_content(self, content: bytes) -> None:
         """
         Store file content temporarily before insertion.
@@ -83,6 +86,43 @@ class File(Base):
 
 
 # SQLAlchemy event listeners for automatic file handling
+@event.listens_for(File, "before_insert")
+def _generate_thumbnail_before_insert(mapper, connection, target: File) -> None:
+    """
+    Generate and save thumbnail before inserting File record.
+    
+    Only generates thumbnails for image and video files.
+    Raises exception if thumbnail generation fails.
+    """
+    
+    # temp_file_content should still be available here (not cleared until after this listener)
+    if target._temp_file_content is None:
+        raise ValueError("No file content available for thumbnail generation.")
+    
+    from utils.file_storage import generate_file_path
+    from utils.thumbnail_gen import generate_thumbnail, generate_video_thumbnail
+    
+    # Generate thumbnail based on file type
+    try:
+        if target.file_type.startswith("image/"):
+            thumbnail_content = generate_thumbnail(target._temp_file_content)
+        elif target.file_type.startswith("video/"):
+            thumbnail_content = generate_video_thumbnail(target._temp_file_content)
+        else:
+            return  # Should not reach here due to check above, but just in case
+    except Exception as e:
+        raise RuntimeError(f"Failed to generate thumbnail: {str(e)}") from e
+    
+    # Generate thumbnail path (always WebP format)
+    thumbnail_path = generate_file_path(target.sha256_hash, "webp", thumb=True)
+    
+    # Create parent directories if they don't exist
+    thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Write thumbnail to disk
+    thumbnail_path.write_bytes(thumbnail_content)
+
+
 @event.listens_for(File, "before_insert")
 def _save_file_before_insert(mapper, connection, target: File) -> None:
     """

@@ -29,6 +29,10 @@ async def upload_file(
     Validates file type, calculates hashes, extracts metadata,
     and stores the file in the database and on disk.
     """
+
+    # TODO: Convert to a streaming upload model with chunked reading for large files.
+    # We would need to save the file to disk in chunks and THEN handle database ops.
+
     # Read file content into memory
     content = await file.read()
     original_filename = file.filename

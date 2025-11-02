@@ -2,15 +2,47 @@
 from __future__ import annotations
 
 import io
+import os
+import tempfile
 
+import cv2
+import numpy as np
 from PIL import Image
+
+# Thumbnail configuration
+MAX_THUMBNAIL_DIMENSION = 250
+MAX_VIDEO_DURATION_SECONDS = 180  # 3 minutes
+
+
+def _calculate_thumbnail_dimensions(width: int, height: int) -> tuple[int, int]:
+    """
+    Calculate new dimensions to fit within MAX_THUMBNAIL_DIMENSION while maintaining aspect ratio.
+    
+    Args:
+        width: Original width in pixels
+        height: Original height in pixels
+        
+    Returns:
+        Tuple of (new_width, new_height) in pixels
+    """
+    if width > height:
+        new_width = MAX_THUMBNAIL_DIMENSION
+        new_height = int((height / width) * MAX_THUMBNAIL_DIMENSION)
+    elif height > width:
+        new_height = MAX_THUMBNAIL_DIMENSION
+        new_width = int((width / height) * MAX_THUMBNAIL_DIMENSION)
+    else:
+        new_width = MAX_THUMBNAIL_DIMENSION
+        new_height = MAX_THUMBNAIL_DIMENSION
+    
+    return new_width, new_height
 
 
 def generate_thumbnail(content: bytes) -> bytes:
     """
     Generate a thumbnail from image content.
     
-    Resizes the image to fit within 250x250 pixels while maintaining aspect ratio.
+    Resizes the image to fit within MAX_THUMBNAIL_DIMENSION while maintaining aspect ratio.
     The output is converted to WebP format with quality=85.
     
     Args:
@@ -25,23 +57,17 @@ def generate_thumbnail(content: bytes) -> bytes:
     """
     # Open the image from bytes
     with Image.open(io.BytesIO(content)) as img:
-        # Calculate new dimensions to fit within 250x250 while maintaining aspect ratio
+        # Calculate new dimensions to fit within MAX_THUMBNAIL_DIMENSION while maintaining aspect ratio
         width, height = img.size
-        max_dimension = 250
         
-        # If image is already small enough, return original content
-        if width <= max_dimension and height <= max_dimension:
-            return content
+        # If image is already small enough, just convert to WebP
+        if width <= MAX_THUMBNAIL_DIMENSION and height <= MAX_THUMBNAIL_DIMENSION:
+            buffer = io.BytesIO()
+            img.save(buffer, format="WEBP", quality=85)
+            return buffer.getvalue()
         
-        if width > height:
-            new_width = max_dimension
-            new_height = int((height / width) * max_dimension)
-        elif height > width:
-            new_height = max_dimension
-            new_width = int((width / height) * max_dimension)
-        else:
-            new_width = max_dimension
-            new_height = max_dimension
+        # Calculate new dimensions
+        new_width, new_height = _calculate_thumbnail_dimensions(width, height)
         
         # Resize the image using high-quality Lanczos resampling
         img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
@@ -53,3 +79,96 @@ def generate_thumbnail(content: bytes) -> bytes:
         # Return the bytes
         return buffer.getvalue()
 
+
+def generate_video_thumbnail(content: bytes) -> bytes:
+    """
+    Generate an animated thumbnail from video content.
+    
+    Resizes the video to fit within MAX_THUMBNAIL_DIMENSION while maintaining aspect ratio.
+    Trims video to MAX_VIDEO_DURATION_SECONDS if longer. Preserves original frame rate.
+    The output is converted to animated WebP format with quality=85.
+    
+    Args:
+        content: Video file content as bytes
+        
+    Returns:
+        Animated WebP thumbnail as bytes
+        
+    Raises:
+        IOError: If the file cannot be opened as a video
+        ValueError: If the file is not a valid video or processing fails
+    """
+    # OpenCV requires a file path, so write to temporary file
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_input:
+        temp_input.write(content)
+        temp_input_path = temp_input.name
+    
+    try:
+        # Open video with OpenCV
+        cap = cv2.VideoCapture(temp_input_path)
+        
+        if not cap.isOpened():
+            raise IOError("Could not open video file")
+        
+        try:
+            # Get video properties
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            duration = frame_count / fps if fps > 0 else 0
+            
+            # Calculate new dimensions to fit within MAX_THUMBNAIL_DIMENSION
+            new_width, new_height = _calculate_thumbnail_dimensions(width, height)
+            
+            # Determine how many frames to extract
+            max_frames = int(min(duration, MAX_VIDEO_DURATION_SECONDS) * fps)
+            
+            # Extract and resize frames
+            frames = []
+            frame_idx = 0
+            
+            while frame_idx < max_frames:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # Resize frame
+                resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+                
+                # Convert BGR to RGB (OpenCV uses BGR, PIL uses RGB)
+                rgb_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
+                
+                # Convert to PIL Image
+                pil_frame = Image.fromarray(rgb_frame)
+                frames.append(pil_frame)
+                
+                frame_idx += 1
+            
+            if not frames:
+                raise ValueError("No frames could be extracted from video")
+            
+            # Save as animated WebP
+            buffer = io.BytesIO()
+            frames[0].save(
+                buffer,
+                format="WEBP",
+                save_all=True,
+                append_images=frames[1:],
+                duration=int(1000 / fps),  # Duration per frame in milliseconds
+                quality=85,
+                method=6  # Higher quality encoding
+            )
+            
+            return buffer.getvalue()
+            
+        finally:
+            # Release video capture
+            cap.release()
+            
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(temp_input_path)
+        except Exception:
+            pass

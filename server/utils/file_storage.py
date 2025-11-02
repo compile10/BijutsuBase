@@ -8,15 +8,16 @@ if TYPE_CHECKING:
     from models.file import File
 
 
-def generate_file_path(sha256_hash: str, ext: str) -> Path:
+def generate_file_path(sha256_hash: str, ext: str, thumb: bool = False) -> Path:
     """
     Generate file path based on hash and extension.
     
-    Path format: media/original/<first 2 chars>/<next 2 chars>/<hash>.<ext>
+    Path format: media/<original|thumb>/<first 2 chars>/<next 2 chars>/<hash>.<ext>
     
     Args:
         sha256_hash: SHA256 hash of the file (64 character hex string)
         ext: File extension (without leading dot)
+        thumb: If True, generates path for thumbnail; if False, generates path for original (default: False)
     
     Returns:
         Path object representing the file path
@@ -32,8 +33,11 @@ def generate_file_path(sha256_hash: str, ext: str) -> Path:
     # Ensure extension doesn't have leading dot
     ext = ext.lstrip(".")
     
+    # Determine subdirectory based on thumb parameter
+    subdir = "thumb" if thumb else "original"
+    
     filename = f"{sha256_hash}.{ext}"
-    return Path("media") / "original" / first_two / next_two / filename
+    return Path("media") / subdir / first_two / next_two / filename
 
 
 def save_file_to_disk(file: File, content: bytes) -> None:
