@@ -12,7 +12,7 @@ def generate_file_path(sha256_hash: str, ext: str) -> Path:
     """
     Generate file path based on hash and extension.
     
-    Path format: media/<first 2 chars>/<next 2 chars>/<hash>.<ext>
+    Path format: media/original/<first 2 chars>/<next 2 chars>/<hash>.<ext>
     
     Args:
         sha256_hash: SHA256 hash of the file (64 character hex string)
@@ -33,7 +33,7 @@ def generate_file_path(sha256_hash: str, ext: str) -> Path:
     ext = ext.lstrip(".")
     
     filename = f"{sha256_hash}.{ext}"
-    return Path("media") / first_two / next_two / filename
+    return Path("media") / "original" / first_two / next_two / filename
 
 
 def save_file_to_disk(file: File, content: bytes) -> None:

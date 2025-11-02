@@ -22,8 +22,9 @@ services:
       context: ./server
       dockerfile: Dockerfile
     container_name: bijutsubase-api
-    ports:
-      - "8000:8000"
+    # Port exposed internally only (accessed via nginx)
+    expose:
+      - "8000"
     volumes:
       - ./server:/app
       - /app/.venv  # Prevent overwriting the container's virtual environment
@@ -41,6 +42,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
     command: /app/start.sh
+
+  nginx:
+    image: nginx:alpine
+    container_name: bijutsubase-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   postgres_data:
