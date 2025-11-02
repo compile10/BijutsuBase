@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[oc]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+wheels/
+.venv/
+venv/
+env/
+
+# Python testing and tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js / React
+.next/
+out/
+build/
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL data
+postgres_data/
+

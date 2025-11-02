@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bijutsubase-postgres
+    environment:
+      - POSTGRES_DB=bijutsubase
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432"  # Internal only, not exposed to host
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bijutsubase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: anime-art-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server:/app
+      - /app/.venv  # Prevent overwriting the container's virtual environment
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bijutsubase
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=bijutsubase
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
