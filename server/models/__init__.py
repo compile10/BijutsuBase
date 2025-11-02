@@ -1,5 +1,6 @@
 """Models package for BijutsuBase."""
-from models.user import User
+from models.file import File
+from models.tag import Tag, FileTag
 
-__all__ = ["User"]
+__all__ = ["File", "Tag", "FileTag"]
 
