@@ -25,6 +25,8 @@ class TagCategory(str, Enum):
 
 class Tag(Base):
     """Tag model for categorizing files."""
+
+    # TODO: Add tag counting column and events for counting tags
     
     __tablename__ = "tags"
     

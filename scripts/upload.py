@@ -2,6 +2,7 @@
 """Script to upload a file to the BijutsuBase API."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -38,12 +39,8 @@ def upload_file(file_path: str | Path, api_url: str = "http://localhost:8000") -
         if response.status_code == 200:
             result = response.json()
             print(f"✓ Successfully uploaded file!")
-            print(f"  SHA256: {result.get('sha256_hash', 'N/A')}")
-            print(f"  Original filename: {result.get('original_filename', 'N/A')}")
-            print(f"  File type: {result.get('file_type', 'N/A')}")
-            print(f"  File size: {result.get('file_size', 'N/A')} bytes")
-            if result.get('width') and result.get('height'):
-                print(f"  Dimensions: {result.get('width')}x{result.get('height')}")
+            print("\nFull response:")
+            print(json.dumps(result, indent=2, default=str))
         elif response.status_code == 409:
             print(f"⚠ File already exists (409 Conflict)")
             print(f"  Response: {response.text}")

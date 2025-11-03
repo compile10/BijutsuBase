@@ -1,9 +1,12 @@
 """Danbooru API client for retrieving post information."""
 
+import logging
 from typing import Any, Optional
 
 import httpx
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class DanbooruPost(BaseModel):
@@ -27,7 +30,6 @@ class DanbooruPost(BaseModel):
     file_url: str
     large_file_url: str
     preview_file_url: str
-    file_ext: str
 
     # Required boolean
     has_children: bool
@@ -35,6 +37,7 @@ class DanbooruPost(BaseModel):
     # Optional/nullable fields
     rating: Optional[str] = None  # Values: g, s, q, e
     parent_id: Optional[int] = None
+    pixiv_id: Optional[int] = None
 
 
 class DanbooruClient:
@@ -96,7 +99,7 @@ class DanbooruClient:
         cache_key = (method_name, *args)
         self._cache[cache_key] = value
 
-    def get_post(self, md5: str) -> list[DanbooruPost]:
+    async def get_post(self, md5: str) -> list[DanbooruPost]:
         """
         Retrieve posts by MD5 hash.
 
@@ -104,11 +107,9 @@ class DanbooruClient:
             md5: The MD5 hash of the file to search for
 
         Returns:
-            A list of DanbooruPost objects matching the MD5 (typically 0 or 1 result)
-
-        Raises:
-            httpx.HTTPStatusError: If the API returns an error status code
-            httpx.RequestError: If there's a network error
+            A list of DanbooruPost objects matching the MD5 (typically 0 or 1 result).
+            Returns an empty list if the file is not found or if there's an error.
+            All errors are handled gracefully to allow the upload process to continue.
         """
         # Check cache first
         cached_result = self._get_cached("get_post", md5)
@@ -123,16 +124,58 @@ class DanbooruClient:
         if self.username and self.api_key:
             auth = (self.username, self.api_key)
 
+        # Set up headers for API requests
+        headers = {
+            "User-Agent": "BijutsuBase/0.1.0",
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": f"{self.base_url}/",
+            "Origin": self.base_url,
+        }
+
         # Make the API request
-        with httpx.Client() as client:
-            response = client.get(url, params=params, auth=auth)
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, auth=auth, headers=headers)
+                
+                # Handle 404 (file not found) gracefully
+                if response.status_code == 404:
+                    logger.debug(f"File with MD5 {md5} not found on Danbooru")
+                    result = []
+                    # Cache empty result to avoid repeated failed requests
+                    self._set_cached("get_post", md5, value=result)
+                    return result
+                
+                # Raise for other HTTP errors
+                response.raise_for_status()
 
-            # Parse the JSON response as a list of DanbooruPost objects
-            data = response.json()
-            result = [DanbooruPost(**post) for post in data]
+                # Parse the JSON response
+                # Danbooru returns a dict for single post, list for multiple/empty
+                data = response.json()
+                if isinstance(data, dict):
+                    # Single post returned as dict - wrap in list
+                    result = [DanbooruPost(**data)]
+                elif isinstance(data, list):
+                    # Multiple posts or empty list
+                    result = [DanbooruPost(**post) for post in data]
+                else:
+                    # Unexpected format
+                    logger.warning(f"Unexpected response format from Danbooru API: {type(data)}")
+                    return []
 
-            # Cache the result before returning
-            self._set_cached("get_post", md5, value=result)
-            return result
+                # Cache the result before returning
+                self._set_cached("get_post", md5, value=result)
+                return result
+        except httpx.HTTPStatusError as e:
+            # Handle other HTTP errors gracefully (e.g., 500, 503, etc.)
+            logger.warning(
+                f"Danbooru API returned error {e.response.status_code} for MD5 {md5}: {e.response.text[:200]}"
+            )
+            # Return empty list to allow upload to proceed without Danbooru metadata
+            return []
+        except httpx.RequestError as e:
+            # Network errors (connection errors, timeouts, etc.) - log and return empty list
+            logger.error(f"Network error when querying Danbooru API for MD5 {md5}: {e}")
+            # Return empty list to allow upload to proceed without Danbooru metadata
+            return []
 

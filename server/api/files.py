@@ -14,6 +14,7 @@ from database.config import get_db
 from models.file import File as FileModel
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse
+from tagging.danbooru.file import make_danbooru_request
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -139,6 +140,11 @@ async def upload_file(
     # Save to database
     try:
         db.add(file_model)
+        await db.flush()  # Flush to ensure file is in session before adding tags
+        
+        # Enrich file with Danbooru metadata (requires file to be in session for tags)
+        await make_danbooru_request(db, file_model)
+        
         await db.commit()
         await db.refresh(file_model)
     except Exception as e:

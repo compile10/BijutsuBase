@@ -1,8 +1,8 @@
 """initial_migration
 
-Revision ID: e39def3a5798
+Revision ID: 07b67b4b7377
 Revises: 
-Create Date: 2025-11-02 05:35:56.866832
+Create Date: 2025-11-02 21:11:24.403202
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e39def3a5798'
+revision: str = '07b67b4b7377'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -30,7 +30,9 @@ def upgrade() -> None:
     sa.Column('file_type', sa.String(length=100), nullable=False),
     sa.Column('width', sa.Integer(), nullable=True),
     sa.Column('height', sa.Integer(), nullable=True),
+    sa.Column('rating', sa.Enum('SAFE', 'SENSITIVE', 'QUESTIONABLE', 'EXPLICIT', name='rating'), server_default='EXPLICIT', nullable=False),
     sa.Column('date_added', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('source', sa.String(length=2048), nullable=True),
     sa.PrimaryKeyConstraint('sha256_hash')
     )
     op.create_table('tags',
