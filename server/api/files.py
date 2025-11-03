@@ -6,15 +6,16 @@ import magic
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database.config import get_db
 from models.file import File as FileModel
-from utils.file_storage import generate_file_path
-from api.serializers.file import FileResponse
+from models.tag import Tag, FileTag
+from utils.file_storage import generate_file_path, generate_thumbnail_url
+from api.serializers.file import FileResponse, FileThumb
 from tagging.danbooru.file import make_danbooru_request
 
 
@@ -216,4 +217,55 @@ async def upload_file(
     
     # Return response
     return FileResponse.model_validate(file_model)
+
+
+@router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
+async def search_files(
+    tags: str = Query(..., description="Space-separated list of tag names"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Search for files that contain ALL of the specified tags.
+    
+    Args:
+        tags: Space-separated list of tag names to search for
+        db: Database session
+        
+    Returns:
+        List of FileThumb objects containing sha256_hash and thumbnail_url for matching files
+    """
+    # Split space-separated tag names and filter out empty strings
+    tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
+    
+    if not tag_names:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one tag name must be provided"
+        )
+    
+    # Query files that have ALL of the specified tags
+    # We join File -> FileTag -> Tag, filter by tag names, group by file,
+    # and ensure the count of distinct tags matches the number of requested tags
+    query = (
+        select(FileModel.sha256_hash)
+        .join(FileTag, FileModel.sha256_hash == FileTag.file_sha256_hash)
+        .join(Tag, FileTag.tag_id == Tag.id)
+        .where(Tag.name.in_(tag_names))
+        .group_by(FileModel.sha256_hash)
+        .having(func.count(func.distinct(Tag.id)) == len(tag_names))
+    )
+    
+    result = await db.execute(query)
+    file_hashes = result.scalars().all()
+    
+    # Convert to FileThumb objects
+    file_thumbs = [
+        FileThumb(
+            sha256_hash=sha256_hash,
+            thumbnail_url=generate_thumbnail_url(sha256_hash)
+        )
+        for sha256_hash in file_hashes
+    ]
+    
+    return file_thumbs
 

@@ -92,3 +92,59 @@ async def serve_media(
         media_type=mime_type
     )
 
+
+@router.get("/thumb/{file_path:path}")
+async def serve_thumbnail(
+    file_path: str,
+    db: AsyncSession = Depends(get_db)
+):
+    # TODO: Consider adding a cache layer to serve thumbnails and original files
+    # TODO: Consider adding a bulk thumbnail send endpoint
+    """
+    Serve thumbnail files from the media/thumb directory.
+    
+    Path traversal protection is enforced - requests outside the media/thumb directory
+    will return 404.
+    
+    Args:
+        file_path: Path to the file relative to the media/thumb directory
+        db: Database session
+        
+    Returns:
+        FileResponse with the requested thumbnail file (WebP format)
+        
+    Raises:
+        HTTPException: 404 if file not found or path is invalid
+    """
+    # Get the absolute path of the media/thumb directory
+    # This assumes the server is run from the server/ directory
+    media_dir = Path("media").resolve()
+    thumb_dir = media_dir / "thumb"
+    
+    # Construct the requested file path
+    requested_path = (thumb_dir / file_path).resolve()
+    
+    # Security check: ensure the resolved path is within the media/thumb directory
+    # This prevents directory traversal attacks (e.g., ../../../etc/passwd)
+    try:
+        requested_path.relative_to(thumb_dir)
+    except ValueError:
+        # Path is outside the media/thumb directory
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+    
+    # Check if file exists
+    if not requested_path.exists() or not requested_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+    
+    # Thumbnails are always WebP format
+    return FileResponse(
+        path=str(requested_path),
+        media_type="image/webp"
+    )
+

@@ -89,8 +89,8 @@ class FileTag(Base):
     )
     
     __table_args__ = (
-        Index('ix_file_tags_tag_id', 'tag_id'),
         Index('ix_file_tags_file_sha256_hash', 'file_sha256_hash'),
+        Index('ix_file_tags_tag_id_file_hash', 'tag_id', 'file_sha256_hash'),
     )
     
     def __repr__(self) -> str:

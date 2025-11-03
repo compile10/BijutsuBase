@@ -15,6 +15,16 @@ class TagResponse(BaseModel):
         from_attributes = True
 
 
+class FileThumb(BaseModel):
+    """Simplified file response model with only thumbnail URL and hash."""
+    
+    sha256_hash: str
+    thumbnail_url: str
+    
+    class Config:
+        from_attributes = True
+
+
 class FileResponse(BaseModel):
     """Response model for File objects."""
     
