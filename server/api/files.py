@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from database.config import get_db
 from models.file import File as FileModel
@@ -18,6 +19,61 @@ from tagging.danbooru.file import make_danbooru_request
 
 
 router = APIRouter(prefix="/files", tags=["files"])
+
+
+@router.get("/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def get_file(
+    sha256: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch a file by its SHA-256 hash and return serialized details including tags."""
+    result = await db.execute(
+        select(FileModel).options(selectinload(FileModel.tags)).where(FileModel.sha256_hash == sha256)
+    )
+    file_model = result.scalar_one_or_none()
+    if file_model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    return FileResponse.model_validate(file_model)
+
+
+@router.delete("/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def delete_file(
+    sha256: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a file by its SHA-256 hash and return its details prior to deletion."""
+    # Load file with tags for serialization and to ensure relationships are present
+    result = await db.execute(
+        select(FileModel).options(selectinload(FileModel.tags)).where(FileModel.sha256_hash == sha256)
+    )
+    file_model = result.scalar_one_or_none()
+    if file_model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    # Serialize before deletion to return details after deletion
+    response = FileResponse.model_validate(file_model)
+
+    try:
+        # Delete association rows via ORM to trigger tag count decrements
+        from models.tag import FileTag
+
+        assoc_result = await db.execute(
+            select(FileTag).where(FileTag.file_sha256_hash == sha256)
+        )
+        associations = assoc_result.scalars().all()
+        for assoc in associations:
+            await db.delete(assoc)
+        await db.flush()
+
+        # Delete the file record; after_delete hook removes files from disk
+        await db.delete(file_model)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete file: {str(e)}")
+
+    return response
 
 
 @router.put("/upload", response_model=FileResponse, status_code=status.HTTP_200_OK)
