@@ -14,8 +14,6 @@ class DanbooruPost(BaseModel):
 
     # Required integer fields
     id: int
-    uploader_id: int
-    approver_id: int
 
     # Required tag strings
     tag_string_general: str

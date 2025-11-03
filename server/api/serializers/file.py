@@ -6,6 +6,15 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class TagResponse(BaseModel):
+    name: str
+    category: str
+    count: int
+
+    class Config:
+        from_attributes = True
+
+
 class FileResponse(BaseModel):
     """Response model for File objects."""
     
@@ -20,6 +29,7 @@ class FileResponse(BaseModel):
     rating: str
     date_added: datetime
     source: str | None
+    tags: list["TagResponse"]
     
     class Config:
         from_attributes = True

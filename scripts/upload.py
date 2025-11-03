@@ -39,6 +39,14 @@ def upload_file(file_path: str | Path, api_url: str = "http://localhost:8000") -
         if response.status_code == 200:
             result = response.json()
             print(f"✓ Successfully uploaded file!")
+
+            # Print a single space-separated string of tag names (no summary)
+            tags = result.get("tags")
+            if isinstance(tags, list):
+                tag_names = [t.get("name") for t in tags if isinstance(t, dict) and t.get("name")]
+                if tag_names:
+                    print(" ".join(tag_names))
+
             print("\nFull response:")
             print(json.dumps(result, indent=2, default=str))
         elif response.status_code == 409:

@@ -147,6 +147,8 @@ async def upload_file(
         
         await db.commit()
         await db.refresh(file_model)
+        # Load tags relationship to include in response
+        await db.refresh(file_model, attribute_names=["tags"])
     except Exception as e:
         await db.rollback()
         # Clean up the file if database commit fails

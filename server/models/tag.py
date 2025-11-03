@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from models.file import File
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, func, Enum as SQLEnum, update
-from sqlalchemy.orm import Mapped, mapped_column, relationship, event
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, func, Enum as SQLEnum, update, event
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.config import Base
 
