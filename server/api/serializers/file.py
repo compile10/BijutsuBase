@@ -29,6 +29,7 @@ class FileResponse(BaseModel):
     rating: str
     date_added: datetime
     source: str | None
+    ai_generated: bool
     tags: list["TagResponse"]
     
     class Config:

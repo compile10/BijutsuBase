@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from models.tag import Tag
 
-from sqlalchemy import String, Integer, DateTime, func, event, Enum as SQLEnum
+from sqlalchemy import String, Integer, DateTime, Boolean, func, event, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from database.config import Base
@@ -75,6 +75,13 @@ class File(Base):
     source: Mapped[Optional[str]] = mapped_column(
         String(2048),
         nullable=True
+    )
+
+    ai_generated: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
     )
     
     # Relationship to tags through junction table
