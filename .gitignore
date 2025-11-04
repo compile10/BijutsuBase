@@ -69,3 +69,7 @@ postgres_data/
 # Media files (user uploads)
 media/
 
+# Ignore test files
+scripts/*.jpg
+scripts/*.jpeg
+scripts/*.png
