@@ -1,6 +1,5 @@
 """Health check router for BijutsuBase API."""
-from datetime import datetime
-from time import timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
