@@ -64,6 +64,7 @@ async def search_files(
     # Convert to FileThumb objects
     # generate_file_path returns "media/thumb/ab/cd/hash.webp"
     # Prepend "/" to make it a URL path: "/media/thumb/ab/cd/hash.webp"
+    # TODO: Cleanup to match other file responses
     file_thumbs = [
         FileThumb(
             sha256_hash=sha256_hash,
