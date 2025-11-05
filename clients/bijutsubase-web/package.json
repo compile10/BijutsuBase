@@ -41,6 +41,7 @@
 		"vite": "^7.1.10"
 	},
 	"dependencies": {
+		"@fontsource/space-mono": "^5.2.9",
 		"virtua": "^0.46.6"
 	}
 }
