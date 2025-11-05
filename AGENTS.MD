@@ -115,6 +115,26 @@ uv run alembic upgrade head
 - **tags**: id (PK), name unique, category enum, count, created_at
 - **file_tags**: file_sha256_hash (FK), tag_id (FK), created_at, with helpful indexes
 
+### ML models
+
+- **ONNX models**: Use `OnnxModel` from `server.ml.model` to download and cache ONNX models from Hugging Face Hub.
+- **Storage**: Models are stored in `server/ml/models/<sha256>/<filename>` (configurable via `ML_MODELS_DIR` env var).
+- **Persistence**: Docker Compose uses a named volume `ml_models` mounted at `/app/server/ml/models` to persist models between builds.
+- **SHA-256**: Remote SHA-256 is fetched from Hugging Face metadata when available; otherwise computed after download and saved to `<filename>.sha256` for future checks.
+
+Example usage:
+```python
+from server.ml.model import OnnxModel
+
+# Model is automatically downloaded if not already present
+onnx = OnnxModel(
+    repo_id="org/repo",
+    filename="path/to/model.onnx",
+    revision="main"  # Optional, defaults to None
+)
+local_path = onnx.local_path  # Path to the downloaded model
+```
+
 ### Code style guidelines
 
 - **General**
