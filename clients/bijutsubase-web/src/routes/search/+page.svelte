@@ -161,8 +161,8 @@
 				Found {thumbnails.length} {thumbnails.length === 1 ? 'result' : 'results'}
 				for <span class="font-mono font-semibold">{tags}</span>
 			</div>
-
-			<VList data={rows} style="height: calc(100vh - 200px);">
+			<!-- overflow-y: visible; contain: none may effect performance. but it's necessary to avoid annimation overflow cutoff-->
+			<VList data={rows} style="height: calc(100vh - 200px); overflow-y: visible; contain: none;">
 				{#snippet children(row, index)}
 					<div
 						class="grid gap-3 pb-4"
