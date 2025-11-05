@@ -97,7 +97,7 @@
 
 <div class="min-h-screen">
 	<!-- Top Bar -->
-	<div class="sticky top-0 z-10 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+	<div class="sticky top-0 z-10 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900">
 		<div class="mx-auto max-w-7xl px-4 py-4">
 			<div class="flex items-center gap-4">
 				<a
