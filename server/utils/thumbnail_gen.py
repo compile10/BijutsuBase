@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 # Thumbnail configuration
-MAX_THUMBNAIL_DIMENSION = 250
+MAX_THUMBNAIL_DIMENSION = 350
 MAX_VIDEO_DURATION_SECONDS = 180  # 3 minutes
 
 

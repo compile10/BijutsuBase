@@ -1,0 +1,191 @@
+<script lang="ts">
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { VList } from 'virtua/svelte';
+	import { searchFiles, getFile, type FileThumb } from '$lib/api';
+
+	let thumbnails = $state<FileThumb[]>([]);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+	let itemsPerRow = $state(6);
+
+	// Get tags from URL params
+	let tags = $derived(page.url.searchParams.get('tags') || '');
+	let searchQuery = $state('');
+
+	// Group thumbnails into rows for VList
+	let rows = $derived.by(() => {
+		const result: FileThumb[][] = [];
+		for (let i = 0; i < thumbnails.length; i += itemsPerRow) {
+			result.push(thumbnails.slice(i, i + itemsPerRow));
+		}
+		return result;
+	});
+
+	// Calculate items per row based on window width
+	function updateItemsPerRow() {
+		if (typeof window === 'undefined') return;
+		const width = window.innerWidth;
+		if (width < 640) {
+			itemsPerRow = 3; // mobile
+		} else if (width < 768) {
+			itemsPerRow = 3; // small tablet
+		} else if (width < 1024) {
+			itemsPerRow = 4; // tablet
+		} else if (width < 1280) {
+			itemsPerRow = 6; // laptop
+		} else{
+			itemsPerRow = 8; // desktop
+		}
+	}
+
+	// Fetch thumbnails from API
+	async function fetchThumbnails() {
+		if (!tags) {
+			loading = false;
+			return;
+		}
+
+		loading = true;
+		error = null;
+
+		try {
+			thumbnails = await searchFiles(tags);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'An error occurred';
+		} finally {
+			loading = false;
+		}
+	}
+
+	// Fetch file details to get original URL
+	async function openOriginal(sha256: string) {
+		try {
+			const fileData = await getFile(sha256);
+			window.open(fileData.original_url, '_blank');
+		} catch (err) {
+			console.error('Failed to fetch file details:', err);
+		}
+	}
+
+	// Handle search form submission
+	function handleSearch(event: Event) {
+		event.preventDefault();
+		if (searchQuery.trim()) {
+			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}`);
+		}
+	}
+
+	// Run on mount and when tags change
+	$effect(() => {
+		searchQuery = tags;
+		fetchThumbnails();
+	});
+
+	// Update items per row on window resize
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		
+		updateItemsPerRow();
+		window.addEventListener('resize', updateItemsPerRow);
+		
+		return () => {
+			window.removeEventListener('resize', updateItemsPerRow);
+		};
+	});
+</script>
+
+<div class="min-h-screen">
+	<!-- Top Bar -->
+	<div class="sticky top-0 z-10 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+		<div class="mx-auto max-w-7xl px-4 py-4">
+			<div class="flex items-center gap-4">
+				<a
+					href="/"
+					class="shrink-0 text-lg font-bold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"
+				>
+					BijutsuBase
+				</a>
+				<form onsubmit={handleSearch} class="flex flex-1 gap-2">
+					<input
+						type="text"
+						bind:value={searchQuery}
+						placeholder="Enter space-separated tags..."
+						class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-500 
+						focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 
+						dark:text-white dark:placeholder-gray-400 dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+					/>
+					<button
+						type="submit"
+						class="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none 
+						focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-600 dark:focus:ring-indigo-400 dark:focus:ring-offset-gray-900"
+					>
+						Search
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="mx-auto max-w-screen-2xl p-4">
+
+		<!-- Loading State -->
+		{#if loading}
+			<div class="flex items-center justify-center py-12">
+				<div class="text-center">
+					<div class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-indigo-600 dark:border-gray-600 dark:border-t-indigo-400"></div>
+					<p class="text-gray-600 dark:text-gray-400">Loading...</p>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Error State -->
+		{#if error}
+			<div class="rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+				<p class="text-red-800 dark:text-red-400">Error: {error}</p>
+			</div>
+		{/if}
+
+		<!-- Empty State -->
+		{#if !loading && !error && thumbnails.length === 0}
+			<div class="py-12 text-center">
+				<p class="text-xl text-gray-600 dark:text-gray-400">
+					{tags ? 'No results found' : 'Enter tags to search'}
+				</p>
+			</div>
+		{/if}
+
+		<!-- Results Grid with VList -->
+		{#if !loading && !error && thumbnails.length > 0}
+			<div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+				Found {thumbnails.length} {thumbnails.length === 1 ? 'result' : 'results'}
+				for <span class="font-mono font-semibold">{tags}</span>
+			</div>
+
+			<VList data={rows} style="height: calc(100vh - 200px);">
+				{#snippet children(row, index)}
+					<div
+						class="grid gap-3 pb-4"
+						style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
+					>
+						{#each row as thumb}
+							<button
+								onclick={() => openOriginal(thumb.sha256_hash)}
+								class="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-transform hover:scale-105 dark:border-gray-700 dark:bg-gray-800"
+							>
+								<img
+									src={thumb.thumbnail_url}
+									alt="Thumbnail"
+									class="h-full w-full object-cover"
+									loading="lazy"
+								/>
+								<div class="absolute inset-0 bg-black opacity-0 transition-opacity group-hover:opacity-10"></div>
+							</button>
+						{/each}
+					</div>
+				{/snippet}
+			</VList>
+		{/if}
+	</div>
+</div>
+
