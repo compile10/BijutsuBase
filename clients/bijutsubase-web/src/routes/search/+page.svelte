@@ -102,7 +102,7 @@
 			<div class="flex items-center gap-4">
 				<a
 					href="/"
-					class="shrink-0 text-lg font-bold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"
+					class="shrink-0 text-lg font-bold text-gray-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
 				>
 					BijutsuBase
 				</a>
@@ -112,13 +112,13 @@
 						bind:value={searchQuery}
 						placeholder="Enter space-separated tags..."
 						class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-500 
-						focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 
-						dark:text-white dark:placeholder-gray-400 dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+						focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 
+						dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
 					/>
 					<button
 						type="submit"
-						class="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none 
-						focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-600 dark:focus:ring-indigo-400 dark:focus:ring-offset-gray-900"
+						class="rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none 
+						focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600 dark:focus:ring-primary-400 dark:focus:ring-offset-gray-900"
 					>
 						Search
 					</button>
@@ -133,7 +133,7 @@
 		{#if loading}
 			<div class="flex items-center justify-center py-12">
 				<div class="text-center">
-					<div class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-indigo-600 dark:border-gray-600 dark:border-t-indigo-400"></div>
+					<div class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
 					<p class="text-gray-600 dark:text-gray-400">Loading...</p>
 				</div>
 			</div>

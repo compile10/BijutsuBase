@@ -122,7 +122,7 @@
 				<button
 					bind:this={closeButtonElement}
 					onclick={handleClose}
-					class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+					class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
 					aria-label="Close modal"
 				>
 					<IconClose class="h-6 w-6" />
@@ -168,7 +168,7 @@
 									<div class="mt-2 flex flex-wrap gap-2">
 										{#each uploaded.tags as tag}
 											<span
-												class="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
+												class="rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-800 dark:bg-primary-900 dark:text-primary-200"
 											>
 												{tag.name}
 											</span>
@@ -183,7 +183,7 @@
 						<div class="flex justify-end">
 							<button
 								onclick={handleClose}
-								class="rounded-lg bg-indigo-600 px-6 py-2 font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+								class="rounded-lg bg-primary-600 px-6 py-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"
 							>
 								Close
 							</button>
@@ -194,7 +194,7 @@
 					<div class="space-y-4">
 						<!-- File input area -->
 						<div
-							class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center transition-colors hover:border-indigo-400 dark:border-gray-600 dark:hover:border-indigo-500"
+							class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center transition-colors hover:border-primary-400 dark:border-gray-600 dark:hover:border-primary-500"
 							ondragover={handleDragOver}
 							ondrop={handleDrop}
 							role="button"
@@ -220,7 +220,7 @@
 							>
 								<p class="mb-2 text-sm">
 									Drag and drop a file here, or
-									<span class="font-semibold text-indigo-600 dark:text-indigo-400">
+									<span class="font-semibold text-primary-600 dark:text-primary-400">
 										click to browse
 									</span>
 								</p>
@@ -252,14 +252,14 @@
 						<div class="flex justify-end gap-3">
 							<button
 								onclick={handleClose}
-								class="rounded-lg border border-gray-300 bg-white px-6 py-2 font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+								class="rounded-lg border border-gray-300 bg-white px-6 py-2 font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
 							>
 								Cancel
 							</button>
 							<button
 								onclick={handleUpload}
 								disabled={!selectedFile || isUploading}
-								class="rounded-lg bg-indigo-600 px-6 py-2 font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+								class="rounded-lg bg-primary-600 px-6 py-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600"
 							>
 								{isUploading ? 'Uploading...' : 'Upload'}
 							</button>
