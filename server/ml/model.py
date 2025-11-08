@@ -1,12 +1,12 @@
 """ONNX model downloader and manager for Hugging Face Hub models."""
 from __future__ import annotations
 
-import hashlib
 import os
 from pathlib import Path
 from typing import Optional
 
 from huggingface_hub import HfApi, hf_hub_download
+from utils.file_info import get_file_sha256
 
 
 class OnnxModel:
@@ -59,7 +59,6 @@ class OnnxModel:
         
         self._api = HfApi()
         self._sha256: Optional[str] = None
-        self._local_path: Optional[Path] = None
         
     
     def _get_remote_sha256(self) -> Optional[str]:
@@ -91,22 +90,6 @@ class OnnxModel:
             # If metadata fetch fails, return None (will compute after download)
             return None
     
-    def _compute_sha256(self, file_path: Path) -> str:
-        """
-        Compute SHA-256 hash of a file.
-        
-        Args:
-            file_path: Path to the file to hash
-            
-        Returns:
-            SHA-256 hash as hex string
-        """
-        sha256_hash = hashlib.sha256()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha256_hash.update(chunk)
-        return sha256_hash.hexdigest()
-    
     def _get_model_path(self, sha256: str, extension: str) -> Path:
         """
         Get path to model file using hash as filename.
@@ -120,22 +103,7 @@ class OnnxModel:
         """
         return self.models_dir / sha256 / f"{sha256}{extension}"
     
-    def _verify_file_hash(self, file_path: Path, expected_sha256: str) -> bool:
-        """
-        Verify file matches expected SHA-256 hash.
-        
-        Args:
-            file_path: Path to file to verify
-            expected_sha256: Expected SHA-256 hash
-            
-        Returns:
-            True if hash matches, False otherwise
-        """
-        if not file_path.exists():
-            return False
-        
-        computed_hash = self._compute_sha256(file_path)
-        return computed_hash == expected_sha256
+    
     
     def ensure_local(self) -> Path:
         """
@@ -168,7 +136,6 @@ class OnnxModel:
         model_path = self._get_model_path(remote_sha256, extension)
             
         if model_path.exists():
-            self._local_path = model_path
             return model_path
         
         # Download the model to a temp location first
@@ -187,11 +154,12 @@ class OnnxModel:
         downloaded_path = Path(downloaded_path)
         
         # Verify downloaded file matches expected hash before moving
-        if not self._verify_file_hash(downloaded_path, remote_sha256):
+        computed_hash = get_file_sha256(downloaded_path)
+        if computed_hash != remote_sha256:
             downloaded_path.unlink()
             raise ValueError(
                 f"Downloaded file hash mismatch. Expected {remote_sha256}, "
-                f"got {self._compute_sha256(downloaded_path)}"
+                f"got {computed_hash}"
             )
         
         # Move to final location (using hash as filename)
@@ -199,5 +167,4 @@ class OnnxModel:
         if downloaded_path != model_path:
             downloaded_path.rename(model_path)
         
-        self._local_path = model_path
         return model_path

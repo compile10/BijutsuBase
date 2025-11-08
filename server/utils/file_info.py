@@ -1,6 +1,7 @@
 """File information utilities for BijutsuBase."""
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Tuple
 
@@ -61,4 +62,20 @@ def get_video_dimensions(path: Path) -> Tuple[int, int]:
         return (width, height)
     finally:
         cap.release()
+
+
+def get_file_sha256(path: Path) -> str:
+    """
+    Compute the SHA-256 hash of a file on disk.
+    
+    Args:
+        path: Path to the file on disk
+    
+    Returns:
+        Hex-encoded SHA-256 digest string
+    """
+    # Use hashlib.file_digest (Python 3.11+) for efficient file hashing
+    # Increase buffering to reduce syscalls on large files
+    with open(path, "rb", buffering=1024 * 1024) as file_handle:
+        return hashlib.file_digest(file_handle, "sha256").hexdigest()
 

@@ -2,6 +2,7 @@
 from utils.file_info import (
     get_image_dimensions,
     get_video_dimensions,
+    get_file_sha256,
 )
 from utils.file_storage import (
     delete_file_from_disk,
@@ -15,5 +16,6 @@ __all__ = [
     "delete_file_from_disk",
     "get_image_dimensions",
     "get_video_dimensions",
+    "get_file_sha256",
 ]
 
