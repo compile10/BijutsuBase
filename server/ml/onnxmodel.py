@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, Mapping, Sequence, Dict
 
+import numpy as np
+import onnxruntime as ort
 from huggingface_hub import HfApi, hf_hub_download
 from utils.file_info import get_file_sha256
 
@@ -59,6 +61,9 @@ class OnnxModel:
         
         self._api = HfApi()
         self._sha256: Optional[str] = None
+        self._session: Optional[ort.InferenceSession] = None
+        self._session_model_path: Optional[Path] = None
+        self._session_providers: Optional[Sequence[str]] = None
         
     
     def _get_remote_sha256(self) -> Optional[str]:
@@ -168,3 +173,136 @@ class OnnxModel:
             downloaded_path.rename(model_path)
         
         return model_path
+    
+    def initialize(
+        self,
+        providers: Optional[Sequence[str]] = None,
+        sess_options: Optional[ort.SessionOptions] = None,
+    ) -> ort.InferenceSession:
+        """
+        Initialize and preload the inference session.
+        
+        This method downloads the model (if needed) and creates the inference
+        session, making it ready for use. Call this at server startup to avoid
+        the initialization cost on the first inference request.
+        
+        Example:
+            ```python
+            model = OnnxModel(repo_id="org/repo", filename="model.onnx")
+            model.initialize()  # Preload at startup - required before infer()
+            # Later, inference calls will be fast
+            outputs = model.infer(inputs)
+            ```
+        
+        Args:
+            providers: Optional sequence of execution providers.
+                      If None, uses all available providers.
+            sess_options: Optional ONNX Runtime session options.
+        
+        Returns:
+            The initialized InferenceSession (also cached internally).
+        """
+        # Ensure model is downloaded locally
+        model_path = self.ensure_local()
+        
+        # Set up providers (default to all available)
+        if providers is None:
+            providers = ort.get_available_providers()
+        else:
+            providers = list(providers)
+        
+        # Create and cache the session
+        return self._get_session(model_path, providers, sess_options)
+    
+    def _get_session(
+        self,
+        model_path: Path,
+        providers: Sequence[str],
+        sess_options: Optional[ort.SessionOptions] = None,
+    ) -> ort.InferenceSession:
+        """
+        Get or create a cached inference session for the given model path.
+        
+        Sessions are cached per instance. If the model path changes (e.g., 
+        after a re-download), a new session will be created.
+        
+        Args:
+            model_path: Path to the ONNX model file.
+            providers: Execution providers to use.
+            sess_options: Optional session options. If provided, session 
+                        will be recreated even if cached.
+        
+        Returns:
+            ONNX Runtime InferenceSession.
+        """
+        # Check if we need to recreate the session:
+        # - No cached session exists
+        # - Model path changed (e.g., re-downloaded)
+        # - Providers changed
+        # - sess_options provided (can't easily compare, so recreate)
+        providers_tuple = tuple(providers)
+        if (
+            self._session is None
+            or self._session_model_path != model_path
+            or self._session_providers != providers_tuple
+            or sess_options is not None
+        ):
+            self._session = ort.InferenceSession(
+                str(model_path),
+                sess_options=sess_options,
+                providers=providers,
+            )
+            self._session_model_path = model_path
+            self._session_providers = providers_tuple
+        
+        return self._session
+    
+    def infer(
+        self,
+        inputs: Union[np.ndarray, Mapping[str, np.ndarray]],
+        output_names: Optional[Sequence[str]] = None,
+    ) -> Dict[str, np.ndarray]:
+        """
+        Run inference with ONNX Runtime using the cached session.
+        
+        The session must be initialized first by calling `initialize()`.
+        This method uses the cached session created during initialization.
+        
+        Args:
+            inputs: Either a single numpy array (will use first model input name)
+                   or a dict mapping input names to numpy arrays.
+            output_names: Optional sequence of output names to retrieve.
+                         If None, returns all outputs.
+        
+        Returns:
+            Dictionary mapping output names to numpy arrays.
+            
+        Raises:
+            RuntimeError: If the session has not been initialized. Call `initialize()` first.
+        """
+        # Check if session has been initialized
+        if self._session is None:
+            raise RuntimeError(
+                "Session not initialized. Call `initialize()` first before running inference."
+            )
+        
+        session = self._session
+        
+        # Prepare input feed dictionary
+        if isinstance(inputs, dict):
+            feed = inputs
+        else:
+            # Single array input - use first model input name
+            input_name = session.get_inputs()[0].name
+            feed = {input_name: inputs}
+        
+        # Run inference
+        results = session.run(output_names, feed)
+        
+        # Map results to output names
+        if output_names is None:
+            output_names = [output.name for output in session.get_outputs()]
+        else:
+            output_names = list(output_names)
+        
+        return dict(zip(output_names, results))
