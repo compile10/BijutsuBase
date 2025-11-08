@@ -1,5 +1,5 @@
 """Machine learning utilities for BijutsuBase."""
-from server.ml.model import OnnxModel
+from server.ml.onnxmodel import OnnxModel
 
 __all__ = ["OnnxModel"]
 
