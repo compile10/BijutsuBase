@@ -46,6 +46,12 @@ class OnnxModel:
         self.repo_id = repo_id
         self.filename = filename
         self.revision = revision
+        
+        # Validate tag_list_filename has .csv extension
+        if not tag_list_filename.lower().endswith(".csv"):
+            raise ValueError(
+                f"tag_list_filename must have .csv extension. Got: {tag_list_filename}"
+            )
         self.tag_list_filename = tag_list_filename
         
         # Determine models directory
@@ -65,9 +71,8 @@ class OnnxModel:
         
         self._api = HfApi()
         self._sha256: Optional[str] = None
-        self._tag_list_path: Optional[Path] = None
         self._session: Optional[ort.InferenceSession] = None
-        self._session_model_path: Optional[Path] = None
+        self._session_hash: Optional[str] = None
         self._session_providers: Optional[Sequence[str]] = None
         
     
@@ -224,21 +229,9 @@ class OnnxModel:
             # hf_hub_download returns the full path to the downloaded file
             downloaded_tag_path = Path(downloaded_tag_path)
             
-            # Verify the downloaded file is actually a CSV file
-            # Check file extension
-            if downloaded_tag_path.suffix.lower() != ".csv":
-                downloaded_tag_path.unlink()
-                raise ValueError(
-                    f"Tag list file '{self.tag_list_filename}' does not have .csv extension. "
-                    f"Got: {downloaded_tag_path.suffix}"
-                )
-            
             # Move to final location (same directory as model, as tag_list_<hash>.csv)
             tag_list_path.parent.mkdir(parents=True, exist_ok=True)
-            if downloaded_tag_path != tag_list_path:
-                downloaded_tag_path.rename(tag_list_path)
-        
-        self._tag_list_path = tag_list_path
+            downloaded_tag_path.rename(tag_list_path)
         
         return model_path
     
@@ -252,9 +245,10 @@ class OnnxModel:
         Returns:
             Path to the local tag list file.
         """
-        if self._tag_list_path is None:
-            self.ensure_local()
-        return self._tag_list_path  # type: ignore[return-value]
+        # Ensure model is downloaded to get the hash
+        model_path = self.ensure_local()
+        # Tag list is stored alongside the model as tag_list_<hash>.csv
+        return model_path.parent / f"tag_list_{self._sha256}.csv"
     
     def initialize(
         self,
@@ -319,13 +313,13 @@ class OnnxModel:
         """
         # Check if we need to recreate the session:
         # - No cached session exists
-        # - Model path changed (e.g., re-downloaded)
+        # - Model hash changed (e.g., re-downloaded)
         # - Providers changed
         # - sess_options provided (can't easily compare, so recreate)
         providers_tuple = tuple(providers)
         if (
             self._session is None
-            or self._session_model_path != model_path
+            or self._session_hash != self._sha256
             or self._session_providers != providers_tuple
             or sess_options is not None
         ):
@@ -334,7 +328,7 @@ class OnnxModel:
                 sess_options=sess_options,
                 providers=providers,
             )
-            self._session_model_path = model_path
+            self._session_hash = self._sha256
             self._session_providers = providers_tuple
         
         return self._session
