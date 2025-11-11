@@ -1,6 +1,7 @@
 """ONNX model downloader and manager for Hugging Face Hub models."""
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 from typing import Optional, Union, Mapping, Sequence, Dict
@@ -306,3 +307,30 @@ class OnnxModel:
             output_names = list(output_names)
         
         return dict(zip(output_names, results))
+    
+    async def infer_async(
+        self,
+        inputs: Union[np.ndarray, Mapping[str, np.ndarray]],
+        output_names: Optional[Sequence[str]] = None,
+    ) -> Dict[str, np.ndarray]:
+        """
+        Run inference asynchronously using a thread pool.
+        
+        This method runs the blocking `infer()` method in a thread pool,
+        allowing multiple inference requests to run concurrently without
+        blocking the event loop.
+        
+        Args:
+            inputs: Either a single numpy array (will use first model input name)
+                   or a dict mapping input names to numpy arrays.
+            output_names: Optional sequence of output names to retrieve.
+                         If None, returns all outputs.
+        
+        Returns:
+            Dictionary mapping output names to numpy arrays.
+            
+        Raises:
+            RuntimeError: If the session has not been initialized. Call `initialize()` first.
+        """
+        # Run the blocking infer() method in a thread pool
+        return await asyncio.to_thread(self.infer, inputs, output_names)

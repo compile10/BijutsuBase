@@ -16,7 +16,7 @@ from models.file import File as FileModel
 from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse, FileThumb
-from tagging.danbooru.file import make_danbooru_request
+from tagging.danbooru.enrich_file import make_danbooru_request
 
 
 router = APIRouter(prefix="/files", tags=["files"])
