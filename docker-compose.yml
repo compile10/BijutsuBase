@@ -28,7 +28,7 @@ services:
     volumes:
       - ./server:/app
       - /app/.venv  # Prevent overwriting the container's virtual environment
-      - ml_models:/app/server/ml/models  # Persistent storage for ML models
+      - ml_models:/app/server/ml/blobs  # Persistent storage for ML models
     environment:
       - PYTHONUNBUFFERED=1
       - UV_LINK_MODE=copy
