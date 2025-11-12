@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import asyncio
-import csv
 import logging
 from pathlib import Path
 from typing import Iterable, Tuple, Dict, List
 
 import numpy as np
+import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,55 +45,17 @@ def _read_tag_list_csv(csv_path: Path) -> List[Tuple[str, TagCategory]]:
     
     Returns a list of (name, TagCategory) in file order.
     """
-    tags: List[Tuple[str, TagCategory]] = []
-    with csv_path.open("r", encoding="utf-8", newline="") as f:
-        # Prefer DictReader (standard WD format: name, category, count)
-        reader = csv.DictReader(f)
-        # If DictReader failed to detect header (None), fall back to plain reader
-        if reader.fieldnames is None:
-            f.seek(0)
-            plain = csv.reader(f)
-            # Skip header if present by checking first row content
-            first = next(plain, None)
-            if first is None:
-                return tags
-            # Heuristically detect header
-            if first and len(first) >= 2 and first[0].lower() == "name":
-                pass  # header consumed
-            else:
-                # treat first as data row
-                try:
-                    name = str(first[0]).strip()
-                    cat_num = int(first[1])
-                    tags.append((name, WD_TO_ENUM.get(cat_num, TagCategory.GENERAL)))
-                except Exception:
-                    # Ignore malformed line
-                    pass
-            for row in plain:
-                if not row or len(row) < 2:
-                    continue
-                try:
-                    name = str(row[0]).strip()
-                    cat_num = int(row[1])
-                    tags.append((name, WD_TO_ENUM.get(cat_num, TagCategory.GENERAL)))
-                except Exception:
-                    continue
-            return tags
-
-        # DictReader path
-        for row in reader:
-            try:
-                name = str(row["name"]).strip()
-                cat_num = int(row["category"])
-            except Exception:
-                # If columns differ, try positional fallback
-                try:
-                    name = str(row.get(None, [])[0]).strip()  # type: ignore[index]
-                    cat_num = int(row.get(None, [])[1])  # type: ignore[index]
-                except Exception:
-                    continue
-            tags.append((name, WD_TO_ENUM.get(cat_num, TagCategory.GENERAL)))
-    return tags
+    try:
+        df = pd.read_csv(csv_path, encoding="utf-8")
+        tags = [
+            (str(row["name"]).strip(), WD_TO_ENUM.get(int(row["category"]), TagCategory.GENERAL))
+            for _, row in df.iterrows()
+            if pd.notna(row.get("name")) and pd.notna(row.get("category"))
+        ]
+        return tags
+    except Exception as e:
+        logger.error("Failed to read tag list CSV at %s: %s", csv_path, e)
+        return []
 
 
 async def _associate_tag(
