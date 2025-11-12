@@ -2,12 +2,15 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { VList } from 'virtua/svelte';
-	import { searchFiles, getFile, type FileThumb } from '$lib/api';
+	import { searchFiles, type FileThumb } from '$lib/api';
+	import Lightbox from '$lib/components/Lightbox.svelte';
 
 	let thumbnails = $state<FileThumb[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let itemsPerRow = $state(6);
+	let lightboxOpen = $state(false);
+	let lightboxIndex = $state(0);
 
 	// Get tags from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
@@ -58,14 +61,10 @@
 		}
 	}
 
-	// Fetch file details to get original URL
-	async function openOriginal(sha256: string) {
-		try {
-			const fileData = await getFile(sha256);
-			window.open(fileData.original_url, '_blank');
-		} catch (err) {
-			console.error('Failed to fetch file details:', err);
-		}
+	// Open lightbox at specific index
+	function openLightbox(index: number) {
+		lightboxIndex = index;
+		lightboxOpen = true;
 	}
 
 	// Handle search form submission
@@ -163,14 +162,14 @@
 			</div>
 			<!-- overflow-y: visible; contain: none may effect performance. but it's necessary to avoid annimation overflow cutoff-->
 			<VList data={rows} style="height: calc(100vh - 200px); overflow-y: visible; contain: none;">
-				{#snippet children(row, index)}
+				{#snippet children(row, rowIndex)}
 					<div
 						class="grid gap-3 pb-4"
 						style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
 					>
-						{#each row as thumb}
+						{#each row as thumb, colIndex}
 							<button
-								onclick={() => openOriginal(thumb.sha256_hash)}
+								onclick={() => openLightbox(rowIndex * itemsPerRow + colIndex)}
 								class="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-transform hover:scale-105 dark:border-gray-700 dark:bg-gray-800"
 							>
 								<img
@@ -188,4 +187,7 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Lightbox -->
+<Lightbox bind:isOpen={lightboxOpen} bind:currentIndex={lightboxIndex} files={thumbnails} />
 
