@@ -16,7 +16,7 @@ from models.file import File as FileModel
 from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse, FileThumb
-from tagging.danbooru.enrich_file import make_danbooru_request
+from tagging.danbooru.enrich_file import enrich_file_with_danbooru
 from tagging.onnxmodel.enrich_file import enrich_file_with_onnx
 import logging
 
@@ -257,7 +257,7 @@ async def upload_file(
         await db.flush()  # Flush to ensure file is in session before adding tags
         
         # Enrich file with Danbooru metadata (requires file to be in session for tags)
-        danbooru_success = await make_danbooru_request(db, file_model)
+        danbooru_success = await enrich_file_with_danbooru(db, file_model)
         # Fall back to ONNX-based enrichment if Danbooru fails or finds nothing
         if not danbooru_success and file_type.startswith("image/"):
             try:

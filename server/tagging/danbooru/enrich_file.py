@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     pass
 
 
-async def make_danbooru_request(
+async def enrich_file_with_danbooru(
     db: AsyncSession,
     file: File
 ) -> bool:
