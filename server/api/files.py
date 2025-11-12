@@ -193,6 +193,12 @@ async def upload_file(
             md5_hasher.update(chunk)
             temp_file.write(chunk)
             file_size += len(chunk)
+    except Exception as e:
+        logger.exception("Error writing to temp file")
+        raise HTTPException(
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to write to temp file: {str(e)}"
+        )
     finally:
         await file.close()
         temp_file.close()
