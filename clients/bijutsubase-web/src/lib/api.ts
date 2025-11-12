@@ -87,7 +87,7 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 	const formData = new FormData();
 	formData.append('file', file);
 	
-	const response = await fetch('/api/files/upload', {
+	const response = await fetch('/api/upload/file', {
 		method: 'PUT',
 		body: formData
 	});
@@ -96,6 +96,25 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 		throw new Error(`Upload failed: ${response.statusText}`);
 	}
 	
+	return response.json();
+}
+
+/**
+ * Upload by URL
+ * @param url - Direct URL to an image or video
+ * @returns Uploaded file details
+ */
+export async function uploadByUrl(url: string): Promise<FileResponse> {
+	const response = await fetch('/api/upload/url', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ url })
+	});
+
+	if (!response.ok) {
+		throw new Error(`URL upload failed: ${response.statusText}`);
+	}
+
 	return response.json();
 }
 

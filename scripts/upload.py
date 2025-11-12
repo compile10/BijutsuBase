@@ -27,7 +27,7 @@ def upload_file(file_path: str | Path, api_url: str = "http://localhost:8000") -
         print(f"Error: Path is not a file: {file_path}", file=sys.stderr)
         sys.exit(1)
     
-    upload_url = f"{api_url}/api/files/upload"
+    upload_url = f"{api_url}/api/upload/file"
     
     print(f"Uploading {file_path.name} to {upload_url}...")
     

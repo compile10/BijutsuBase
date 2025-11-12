@@ -1,12 +1,9 @@
-"""File upload router for BijutsuBase API."""
+"""Files router for BijutsuBase API."""
 from __future__ import annotations
 
-import hashlib
-import magic
-import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,8 +13,6 @@ from models.file import File as FileModel
 from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse, FileThumb
-from tagging.danbooru.enrich_file import enrich_file_with_danbooru
-from tagging.onnxmodel.enrich_file import enrich_file_with_onnx
 import logging
 
 
@@ -132,167 +127,3 @@ async def delete_file(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete file: {str(e)}")
 
     return response
-
-
-@router.put("/upload", response_model=FileResponse, status_code=status.HTTP_200_OK)
-async def upload_file(
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Upload a file (image or video) to BijutsuBase.
-    
-    Validates file type, calculates hashes, extracts metadata,
-    and stores the file in the database and on disk.
-    """
-    original_filename = file.filename
-
-    if not original_filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must have a filename"
-        )
-    
-    # Create temporary file for streaming in media directory (same filesystem as final location)
-    temp_dir = Path("media/temp")
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    temp_file = tempfile.NamedTemporaryFile(delete=False, dir=temp_dir)
-    temp_path = Path(temp_file.name)
-    
-    # Stream file content to temp location, validate type, and calculate hashes
-    sha256_hasher = hashlib.sha256()
-    md5_hasher = hashlib.md5()
-    file_size = 0
-    file_type = None
-    
-    # Read file in chunks
-    chunk_size = 8192  # 8KB chunks
-    first_chunk = True
-    
-    try:
-        while chunk := await file.read(chunk_size):
-            # Validate file type using first chunk
-            if first_chunk:
-                try:
-                    file_type = magic.from_buffer(chunk, mime=True)
-                except Exception:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Unable to determine file type"
-                    )
-                
-                if not (file_type.startswith("image/") or file_type.startswith("video/")):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="File must be an image or video"
-                    )
-                first_chunk = False
-            
-            # Update hashes and write to temp file
-            sha256_hasher.update(chunk)
-            md5_hasher.update(chunk)
-            temp_file.write(chunk)
-            file_size += len(chunk)
-    except Exception as e:
-        logger.exception("Error writing to temp file")
-        raise HTTPException(
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to write to temp file: {str(e)}"
-        )
-    finally:
-        await file.close()
-        temp_file.close()
-    
-    # Get final hash digests
-    sha256_hash = sha256_hasher.hexdigest()
-    md5_hash = md5_hasher.hexdigest()
-    
-    # Check for duplicate
-    try:
-        result = await db.execute(
-            select(FileModel).where(FileModel.sha256_hash == sha256_hash)
-        )
-        existing_file = result.scalar_one_or_none()
-    except Exception as e:
-        # Clean up temp file on error before proceeding
-        temp_path.unlink(missing_ok=True)
-        logger.exception("Database error while checking for duplicate file")
-        raise HTTPException(
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to check for existing file: {str(e)}"
-        )
-    if existing_file is not None:
-        # Clean up temp file
-        temp_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="File with this hash already exists"
-        )
-    
-    file_ext = Path(original_filename).suffix.lstrip(".")
-    
-    # Generate final file path and move temp file to final location
-    final_path = generate_file_path(sha256_hash, file_ext)
-    final_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path.rename(final_path)
-    
-    # Extract dimensions from the file
-    width = None
-    height = None
-    try:
-        if file_type.startswith("image/"):
-            from utils.file_info import get_image_dimensions
-            width, height = get_image_dimensions(final_path)
-        elif file_type.startswith("video/"):
-            from utils.file_info import get_video_dimensions
-            width, height = get_video_dimensions(final_path)
-    except Exception as e:
-        # Clean up the file if dimension extraction fails
-        final_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to extract dimensions: {str(e)}"
-        )
-    
-    # Create File model instance
-    file_model = FileModel(
-        sha256_hash=sha256_hash,
-        md5_hash=md5_hash,
-        file_size=file_size,
-        original_filename=original_filename,
-        file_ext=file_ext,
-        file_type=file_type,
-        width=width,
-        height=height
-    )
-    
-    # Save to database
-    try:
-        db.add(file_model)
-        await db.flush()  # Flush to ensure file is in session before adding tags
-        
-        # Enrich file with Danbooru metadata (requires file to be in session for tags)
-        danbooru_success = await enrich_file_with_danbooru(file_model, db)
-        # Fall back to ONNX-based enrichment if Danbooru fails or finds nothing
-        if not danbooru_success:
-            try:
-                await enrich_file_with_onnx(file_model, db)
-            except Exception as e:
-                logger.warning("ONNX tagging failed for %s: %s", file_model.sha256_hash, str(e))
-        
-        await db.commit()
-        await db.refresh(file_model)
-        # Load tags relationship to include in response
-        await db.refresh(file_model, attribute_names=["tags"])
-    except Exception as e:
-        await db.rollback()
-        # Clean up the file if database commit fails
-        final_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save file to database: {str(e)}"
-        )
-    
-    # Return response
-    return FileResponse.model_validate(file_model)
-

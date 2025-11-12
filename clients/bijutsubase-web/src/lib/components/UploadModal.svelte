@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { uploadFile, type FileResponse } from '$lib/api';
+	import { uploadFile, uploadByUrl, type FileResponse } from '$lib/api';
 	import { fade, fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
 
@@ -12,6 +12,8 @@
 	let fileInputElement: HTMLInputElement | null = $state(null);
 	let closeButtonElement: HTMLButtonElement | null = $state(null);
 	let modalElement: HTMLDivElement | null = $state(null);
+	let mode = $state<'url' | 'file'>('url');
+	let urlString = $state('');
 
 	function handleFileSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -46,6 +48,20 @@
 		try {
 			uploaded = await uploadFile(selectedFile);
 			selectedFile = null;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Upload failed';
+		} finally {
+			isUploading = false;
+		}
+	}
+
+	async function handleUploadUrl() {
+		if (!urlString) return;
+		isUploading = true;
+		error = null;
+		try {
+			uploaded = await uploadByUrl(urlString);
+			urlString = '';
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Upload failed';
 		} finally {
@@ -117,7 +133,7 @@
 			<!-- Header -->
 			<div class="flex shrink-0 items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
 				<h2 id="upload-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">
-					Upload File
+					Upload
 				</h2>
 				<button
 					bind:this={closeButtonElement}
@@ -192,53 +208,83 @@
 				{:else}
 					<!-- Upload form -->
 					<div class="space-y-4">
-						<!-- File input area -->
-						<div
-							class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center transition-colors hover:border-primary-400 dark:border-gray-600 dark:hover:border-primary-500"
-							ondragover={handleDragOver}
-							ondrop={handleDrop}
-							role="button"
-							tabindex="0"
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									e.preventDefault();
-									fileInputElement?.click();
-								}
-							}}
-						>
-							<input
-								bind:this={fileInputElement}
-								type="file"
-								accept="image/*,video/*"
-								onchange={handleFileSelect}
-								class="hidden"
-								id="file-input"
-							/>
-							<label
-								for="file-input"
-								class="cursor-pointer text-gray-600 dark:text-gray-400"
+						<!-- Mode toggle -->
+						<div class="flex items-center gap-2">
+							<button
+								onclick={() => (mode = 'url')}
+								class="rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 {mode === 'url' ? 'bg-primary-600 text-white dark:bg-primary-500' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
 							>
-								<p class="mb-2 text-sm">
-									Drag and drop a file here, or
-									<span class="font-semibold text-primary-600 dark:text-primary-400">
-										click to browse
-									</span>
-								</p>
-								<p class="text-xs text-gray-500 dark:text-gray-500">
-									Supports images and videos
-								</p>
-							</label>
+								URL
+							</button>
+							<button
+								onclick={() => (mode = 'file')}
+								class="rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 {mode === 'file' ? 'bg-primary-600 text-white dark:bg-primary-500' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+							>
+								File
+							</button>
 						</div>
 
-						{#if selectedFile}
-							<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-								<p class="text-sm text-gray-900 dark:text-white">
-									<strong>Selected:</strong> {selectedFile.name}
-								</p>
-								<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
-									{(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-								</p>
+						{#if mode === 'url'}
+							<!-- URL mode content -->
+							<div class="flex items-center gap-3">
+								<input
+									type="url"
+									placeholder="https://examplebooru.com/image-or-video"
+									class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder:text-gray-500"
+									bind:value={urlString}
+									spellcheck="false"
+									autocomplete="off"
+								/>
 							</div>
+						{:else}
+							<!-- File input area -->
+							<div
+								class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center transition-colors hover:border-primary-400 dark:border-gray-600 dark:hover:border-primary-500"
+								ondragover={handleDragOver}
+								ondrop={handleDrop}
+								role="button"
+								tabindex="0"
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										fileInputElement?.click();
+									}
+								}}
+							>
+								<input
+									bind:this={fileInputElement}
+									type="file"
+									accept="image/*,video/*"
+									onchange={handleFileSelect}
+									class="hidden"
+									id="file-input"
+								/>
+								<label
+									for="file-input"
+									class="cursor-pointer text-gray-600 dark:text-gray-400"
+								>
+									<p class="mb-2 text-sm">
+										Drag and drop a file here, or
+										<span class="font-semibold text-primary-600 dark:text-primary-400">
+											click to browse
+										</span>
+									</p>
+									<p class="text-xs text-gray-500 dark:text-gray-500">
+										Supports images and videos
+									</p>
+								</label>
+							</div>
+
+							{#if selectedFile}
+								<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+									<p class="text-sm text-gray-900 dark:text-white">
+										<strong>Selected:</strong> {selectedFile.name}
+									</p>
+									<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
+										{(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+									</p>
+								</div>
+							{/if}
 						{/if}
 
 						{#if error}
@@ -249,6 +295,7 @@
 							</div>
 						{/if}
 
+						<!-- Action buttons -->
 						<div class="flex justify-end gap-3">
 							<button
 								onclick={handleClose}
@@ -257,8 +304,8 @@
 								Cancel
 							</button>
 							<button
-								onclick={handleUpload}
-								disabled={!selectedFile || isUploading}
+								onclick={mode === 'url' ? handleUploadUrl : handleUpload}
+								disabled={(mode === 'url' ? !urlString : !selectedFile) || isUploading}
 								class="rounded-lg bg-primary-600 px-6 py-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600"
 							>
 								{isUploading ? 'Uploading...' : 'Upload'}

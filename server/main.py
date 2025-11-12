@@ -9,6 +9,7 @@ from sqlalchemy import text
 from database.config import engine
 from api.health import router as health_router
 from api.files import router as files_router
+from api.upload import router as upload_router
 from api.media import router as media_router
 
 # Configure logging
@@ -59,6 +60,7 @@ logger.info("FastAPI application created")
 logger.info("Registering API routers")
 app.include_router(health_router, prefix="/api")
 app.include_router(files_router, prefix="/api")
+app.include_router(upload_router, prefix="/api")
 
 # Register media serving router (no /api prefix)
 app.include_router(media_router, prefix="/media")

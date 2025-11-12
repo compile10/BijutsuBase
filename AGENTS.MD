@@ -165,7 +165,7 @@ local_path = onnx.local_path  # Path to the downloaded model
 - There is no formal test suite yet. For now:
   - **Smoke**: `GET /api/health` → `healthy`, `database: connected`.
   - **DB**: `uv run alembic upgrade head` populates `files`, `tags`, `file_tags` with new columns.
-  - **Upload**: `PUT /api/files/upload` with an image/video; confirm thumbnail created and Danbooru enrichment (when MD5 matches a Danbooru post).
+  - **Upload**: `PUT /api/upload/file` with an image/video; confirm thumbnail created and Danbooru enrichment (when MD5 matches a Danbooru post).
   - **Search**: `GET /api/files/search?tags=...` returns `thumbnail_url` objects; spot check `/media/thumb/...` loads.
   - **Fetch/Delete**: `GET /api/files/{sha256}` and `DELETE /api/files/{sha256}` behave as expected.
   - Consider adding `pytest` and `httpx[async]` for API tests; prefer fixture-managed databases and transaction rollbacks.
@@ -175,7 +175,7 @@ Example quick checks:
 ```bash
 curl -s http://localhost:8000/api/health | jq
 psql "postgresql://postgres:postgres@localhost:5432/postgres" -c "\l"  # list DBs
-curl -X PUT -F "file=@test.jpg" http://localhost:8000/api/files/upload | jq
+curl -X PUT -F "file=@test.jpg" http://localhost:8000/api/upload/file | jq
 curl -s "http://localhost:8000/api/files/search?tags=artist_name" | jq
 ```
 
@@ -235,7 +235,8 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 ### API quick reference
 
 - `GET /api/health` — API readiness and DB connectivity.
-- `PUT /api/files/upload` — Upload image/video; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru.
+- `PUT /api/upload/file` — Upload image/video from multipart form data; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru and ONNX model.
+- `POST /api/upload/url` — Upload image/video from URL; downloads to temp file; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru and ONNX model.
 - `GET /api/files/search?tags=<space+separated+tags>` — Search files containing ALL tags; returns thumbnails.
 - `GET /api/files/{sha256}` — Fetch file details including tags and computed URLs.
 - `DELETE /api/files/{sha256}` — Delete file and associations; disk cleanup occurs.
