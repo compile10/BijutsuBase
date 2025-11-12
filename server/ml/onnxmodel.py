@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import Optional, Union, Mapping, Sequence, Dict
@@ -15,12 +16,14 @@ from utils.file_info import get_file_sha256
 class OnnxModel:
     """
     Manages downloading and caching ONNX models from Hugging Face Hub.
-    
+
     Models are stored locally by SHA-256 hash to avoid re-downloading.
     Files are organized as: models_dir/<sha256>/<sha256>.<ext>
     The SHA-256 hash is fetched from Hugging Face metadata when available,
     or computed after download.
     """
+
+    _logger = logging.getLogger(__name__)
     
     def __init__(
         self,
@@ -46,13 +49,18 @@ class OnnxModel:
         self.repo_id = repo_id
         self.filename = filename
         self.revision = revision
-        
+
         # Validate tag_list_filename has .csv extension
         if not tag_list_filename.lower().endswith(".csv"):
             raise ValueError(
                 f"tag_list_filename must have .csv extension. Got: {tag_list_filename}"
             )
         self.tag_list_filename = tag_list_filename
+
+        self._logger.info(
+            f"Initialized OnnxModel for {repo_id}/{filename} "
+            f"(revision: {revision or 'main'})"
+        )
         
         # Determine models directory
         if models_dir:
@@ -173,15 +181,18 @@ class OnnxModel:
         
         # Try to get SHA-256 from remote metadata first
         remote_sha256 = self._get_remote_sha256()
-        
+
         if not remote_sha256:
             raise ValueError("No remote SHA-256 hash available")
-        
+
         self._sha256 = remote_sha256
+        self._logger.info(f"Model SHA-256: {remote_sha256}")
+
         # Check if we already have this model (path encodes the hash)
         model_path = self._get_model_path(remote_sha256, extension)
             
         if not model_path.exists():
+            self._logger.info(f"Downloading model {self.filename} from {self.repo_id}")
             # Download the model to a temp location first
             temp_dir = self.models_dir / "temp"
             temp_dir.mkdir(parents=True, exist_ok=True)
@@ -197,24 +208,32 @@ class OnnxModel:
             downloaded_path = Path(downloaded_path)
             
             # Verify downloaded file matches expected hash before moving
+            self._logger.debug("Verifying downloaded model hash")
             computed_hash = get_file_sha256(downloaded_path)
             if computed_hash != remote_sha256:
+                self._logger.error(
+                    f"Hash verification failed. Expected {remote_sha256}, got {computed_hash}"
+                )
                 downloaded_path.unlink()
                 raise ValueError(
                     f"Downloaded file hash mismatch. Expected {remote_sha256}, "
                     f"got {computed_hash}"
                 )
-            
+
             # Move to final location (using hash as filename)
             model_path.parent.mkdir(parents=True, exist_ok=True)
             if downloaded_path != model_path:
                 downloaded_path.rename(model_path)
+                self._logger.info(f"Model saved to {model_path}")
+        else:
+            self._logger.info(f"Model found at {model_path}")
         
         # Ensure tag list is downloaded to the model's directory
         # Store it alongside the model as tag_list_<model_hash>.csv
         tag_list_path = model_path.parent / f"tag_list_{self._sha256}.csv"
         
         if not tag_list_path.exists():
+            self._logger.info(f"Downloading tag list {self.tag_list_filename} from {self.repo_id}")
             # Download the tag list to a temp location first
             temp_dir = self.models_dir / "temp"
             temp_dir.mkdir(parents=True, exist_ok=True)
@@ -232,6 +251,9 @@ class OnnxModel:
             # Move to final location (same directory as model, as tag_list_<hash>.csv)
             tag_list_path.parent.mkdir(parents=True, exist_ok=True)
             downloaded_tag_path.rename(tag_list_path)
+            self._logger.info(f"Tag list saved to {tag_list_path}")
+        else:
+            self._logger.info(f"Tag list found at {tag_list_path}")
         
         return model_path
     
@@ -280,12 +302,14 @@ class OnnxModel:
         """
         # Ensure model is downloaded locally
         model_path = self.ensure_local()
-        
+
         # Set up providers (default to all available)
         if providers is None:
             providers = ort.get_available_providers()
         else:
             providers = list(providers)
+
+        self._logger.info(f"Initializing ONNX session with providers: {providers}")
         
         # Create and cache the session
         return self._get_session(model_path, providers, sess_options)
@@ -323,6 +347,7 @@ class OnnxModel:
             or self._session_providers != providers_tuple
             or sess_options is not None
         ):
+            self._logger.info(f"Creating new ONNX inference session for {model_path}")
             self._session = ort.InferenceSession(
                 str(model_path),
                 sess_options=sess_options,
@@ -361,17 +386,21 @@ class OnnxModel:
             raise RuntimeError(
                 "Session not initialized. Call `initialize()` first before running inference."
             )
-        
+
         session = self._session
-        
+
         # Prepare input feed dictionary
         if isinstance(inputs, dict):
             feed = inputs
+            input_keys = list(feed.keys())
         else:
             # Single array input - use first model input name
             input_name = session.get_inputs()[0].name
             feed = {input_name: inputs}
-        
+            input_keys = [input_name]
+
+        self._logger.debug(f"Running inference with inputs: {input_keys}")
+
         # Run inference
         results = session.run(output_names, feed)
         
@@ -407,5 +436,6 @@ class OnnxModel:
         Raises:
             RuntimeError: If the session has not been initialized. Call `initialize()` first.
         """
+        self._logger.debug("Running async inference")
         # Run the blocking infer() method in a thread pool
         return await asyncio.to_thread(self.infer, inputs, output_names)
