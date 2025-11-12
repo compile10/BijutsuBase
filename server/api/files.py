@@ -259,7 +259,7 @@ async def upload_file(
         # Enrich file with Danbooru metadata (requires file to be in session for tags)
         danbooru_success = await enrich_file_with_danbooru(db, file_model)
         # Fall back to ONNX-based enrichment if Danbooru fails or finds nothing
-        if not danbooru_success and file_type.startswith("image/"):
+        if not danbooru_success:
             try:
                 await enrich_file_with_onnx(file_model, db)
             except Exception as e:
