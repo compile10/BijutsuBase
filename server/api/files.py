@@ -202,10 +202,19 @@ async def upload_file(
     md5_hash = md5_hasher.hexdigest()
     
     # Check for duplicate
-    result = await db.execute(
-        select(FileModel).where(FileModel.sha256_hash == sha256_hash)
-    )
-    existing_file = result.scalar_one_or_none()
+    try:
+        result = await db.execute(
+            select(FileModel).where(FileModel.sha256_hash == sha256_hash)
+        )
+        existing_file = result.scalar_one_or_none()
+    except Exception as e:
+        # Clean up temp file on error before proceeding
+        temp_path.unlink(missing_ok=True)
+        logger.exception("Database error while checking for duplicate file")
+        raise HTTPException(
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check for existing file: {str(e)}"
+        )
     if existing_file is not None:
         # Clean up temp file
         temp_path.unlink(missing_ok=True)
