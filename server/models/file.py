@@ -24,6 +24,12 @@ class Rating(str, enum.Enum):
     EXPLICIT = "explicit"
 
 
+class TagSource(str, enum.Enum):
+    """Tag source enum for file tags."""
+    DANBOORU = "danbooru"
+    ONNX = "onnx"
+
+
 class File(Base):
     """File model for file storage and metadata."""
     
@@ -82,6 +88,13 @@ class File(Base):
         nullable=False,
         default=False,
         server_default="false"
+    )
+
+    tag_source: Mapped[TagSource] = mapped_column(
+        SQLEnum(TagSource),
+        nullable=False,
+        default=TagSource.ONNX,
+        server_default=TagSource.ONNX.name
     )
     
     # Relationship to tags through junction table

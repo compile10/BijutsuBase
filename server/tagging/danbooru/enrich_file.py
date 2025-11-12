@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.file import File, Rating
-from models.tag import Tag, TagCategory, FileTag
+from models.tag import Tag, TagCategory, FileTag, TagSource
 from .danbooru_client import DanbooruClient, DanbooruPost
 
 if TYPE_CHECKING:
@@ -47,7 +47,8 @@ async def make_danbooru_request(
     set_rating_from_danbooru(file, posts)
     set_source_from_danbooru(file, posts)
     await add_tags_from_danbooru(file, db, posts)
-    
+    file.tag_source = TagSource.DANBOORU
+
     return True
 
 

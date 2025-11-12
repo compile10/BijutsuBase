@@ -17,9 +17,11 @@ from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse, FileThumb
 from tagging.danbooru.enrich_file import make_danbooru_request
+import logging
 
 
 router = APIRouter(prefix="/files", tags=["files"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
@@ -254,7 +256,14 @@ async def upload_file(
         await db.flush()  # Flush to ensure file is in session before adding tags
         
         # Enrich file with Danbooru metadata (requires file to be in session for tags)
-        await make_danbooru_request(db, file_model)
+        danbooru_success = await make_danbooru_request(db, file_model)
+        # Fall back to ONNX-based enrichment if Danbooru fails or finds nothing
+        if not danbooru_success and file_type.startswith("image/"):
+            try:
+                from tagging.onnxmodel.enrich_file import enrich_file_with_onnx
+                await enrich_file_with_onnx(file_model, db)
+            except Exception as e:
+                logger.warning("ONNX tagging failed for %s: %s", file_model.sha256_hash, str(e))
         
         await db.commit()
         await db.refresh(file_model)
