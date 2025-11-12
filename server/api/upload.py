@@ -182,10 +182,16 @@ async def _persist_ingest(
     # Extract dimensions
     width = None
     height = None
+    ai_generated = False
     try:
         if mime_type.startswith("image/"):
-            from utils.file_info import get_image_dimensions
+            from utils.file_info import get_image_dimensions, is_ai_generated_image
             width, height = get_image_dimensions(final_path)
+            # Detect AI-generated via EXIF UserComment
+            try:
+                ai_generated = is_ai_generated_image(final_path)
+            except Exception:
+                ai_generated = False
         elif mime_type.startswith("video/"):
             from utils.file_info import get_video_dimensions
             width, height = get_video_dimensions(final_path)
@@ -206,6 +212,7 @@ async def _persist_ingest(
         file_type=mime_type,
         width=width,
         height=height,
+        ai_generated=ai_generated,
     )
 
     try:

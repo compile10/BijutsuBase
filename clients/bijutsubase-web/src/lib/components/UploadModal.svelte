@@ -187,6 +187,13 @@
 							</div>
 
 							<div>
+								<span class="text-sm font-medium text-gray-600 dark:text-gray-400">AI Generated</span>
+								<p class="mt-1 text-sm text-gray-900 dark:text-white">
+									{uploaded.ai_generated ? 'Yes' : 'No'}
+								</p>
+							</div>
+
+							<div>
 								<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Tags</span>
 								{#if uploaded.tags.length > 0}
 									<div class="mt-2 flex flex-wrap gap-2">
