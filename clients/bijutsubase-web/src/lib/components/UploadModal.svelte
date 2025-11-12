@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { uploadFile, uploadByUrl, type FileResponse } from '$lib/api';
+	import { processTagSource } from '$lib/utils';
 	import { fade, fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
 
@@ -175,6 +176,13 @@
 								<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Source</span>
 								<p class="mt-1 text-sm text-gray-900 dark:text-white">
 									{uploaded.source ?? '—'}
+								</p>
+							</div>
+
+							<div>
+								<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Tag Source</span>
+								<p class="mt-1 text-sm text-gray-900 dark:text-white">
+									{processTagSource(uploaded.tag_source)}
 								</p>
 							</div>
 

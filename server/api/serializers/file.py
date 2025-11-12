@@ -40,6 +40,7 @@ class FileResponse(BaseModel):
     date_added: datetime
     source: str | None
     ai_generated: bool
+    tag_source: str
     tags: list["TagResponse"]
     
     @computed_field

@@ -26,6 +26,7 @@ export interface FileResponse {
 	date_added: string;
 	source: string | null;
 	ai_generated: boolean;
+	tag_source: string;
 	tags: TagResponse[];
 	thumbnail_url: string;
 	original_url: string;
