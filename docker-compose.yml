@@ -9,7 +9,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432"  # Internal only, not exposed to host
+      - "5432:5432"  # Exposed to host for local migrations
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d bijutsubase"]
       interval: 10s

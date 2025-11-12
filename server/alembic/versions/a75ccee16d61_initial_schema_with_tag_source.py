@@ -1,8 +1,8 @@
-"""initial_migration
+"""initial_schema_with_tag_source
 
-Revision ID: 2daab9c187c8
+Revision ID: a75ccee16d61
 Revises: 
-Create Date: 2025-11-04 15:13:16.647954
+Create Date: 2025-11-11 18:34:27.293253
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '2daab9c187c8'
+revision: str = 'a75ccee16d61'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -34,6 +34,7 @@ def upgrade() -> None:
     sa.Column('date_added', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('source', sa.String(length=2048), nullable=True),
     sa.Column('ai_generated', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('tag_source', sa.Enum('DANBOORU', 'ONNX', name='tagsource'), server_default='ONNX', nullable=False),
     sa.PrimaryKeyConstraint('sha256_hash')
     )
     op.create_table('tags',

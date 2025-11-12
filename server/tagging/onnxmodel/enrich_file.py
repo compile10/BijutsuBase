@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ml.config import onnx_model
 from tagging.onnxmodel.preprocess import preprocess_image
 from utils.file_storage import generate_file_path
-from models.file import File as FileModel
-from models.tag import Tag, TagCategory, FileTag, TagSource
+from models.file import File as FileModel, TagSource
+from models.tag import Tag, TagCategory, FileTag
 
 logger = logging.getLogger(__name__)
 

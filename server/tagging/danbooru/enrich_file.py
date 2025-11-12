@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.file import File, Rating
-from models.tag import Tag, TagCategory, FileTag, TagSource
+from models.file import File, Rating, TagSource
+from models.tag import Tag, TagCategory, FileTag
 from .danbooru_client import DanbooruClient, DanbooruPost
 
 if TYPE_CHECKING:

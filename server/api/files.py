@@ -17,6 +17,7 @@ from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse, FileThumb
 from tagging.danbooru.enrich_file import make_danbooru_request
+from tagging.onnxmodel.enrich_file import enrich_file_with_onnx
 import logging
 
 
@@ -260,7 +261,6 @@ async def upload_file(
         # Fall back to ONNX-based enrichment if Danbooru fails or finds nothing
         if not danbooru_success and file_type.startswith("image/"):
             try:
-                from tagging.onnxmodel.enrich_file import enrich_file_with_onnx
                 await enrich_file_with_onnx(file_model, db)
             except Exception as e:
                 logger.warning("ONNX tagging failed for %s: %s", file_model.sha256_hash, str(e))

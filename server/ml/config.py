@@ -29,12 +29,11 @@ if enable_inter_op:
     inter_op_threads = int(os.getenv("ONNX_INTER_OP_THREADS", "2"))
     sess_options.inter_op_num_threads = inter_op_threads
 
-# Create and initialize ONNX model instance with optimized session options
+# Create ONNX model instance (will be initialized during app startup)
 onnx_model = OnnxModel(
     repo_id=ONNX_REPO_ID,
     filename=ONNX_FILENAME,
     revision=ONNX_REVISION,
     tag_list_filename=ONNX_TAG_LIST_FILENAME,
 )
-onnx_model.initialize(sess_options=sess_options)
 
