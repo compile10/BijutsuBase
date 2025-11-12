@@ -9,6 +9,7 @@ from ml.onnxmodel import OnnxModel
 ONNX_REPO_ID = os.getenv("ONNX_REPO_ID", "SmilingWolf/wd-v1-4-convnext-tagger-v2")
 ONNX_FILENAME = os.getenv("ONNX_FILENAME", "model.onnx")
 ONNX_REVISION = os.getenv("ONNX_REVISION", None)
+ONNX_TAG_LIST_FILENAME = os.getenv("ONNX_TAG_LIST_FILENAME", "selected_tags.csv")
 
 # Configure ONNX Runtime session options for optimal performance
 # These settings enable internal parallelism within each inference call
@@ -33,6 +34,7 @@ onnx_model = OnnxModel(
     repo_id=ONNX_REPO_ID,
     filename=ONNX_FILENAME,
     revision=ONNX_REVISION,
+    tag_list_filename=ONNX_TAG_LIST_FILENAME,
 )
 onnx_model.initialize(sess_options=sess_options)
 
