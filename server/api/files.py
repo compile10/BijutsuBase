@@ -257,7 +257,7 @@ async def upload_file(
         await db.flush()  # Flush to ensure file is in session before adding tags
         
         # Enrich file with Danbooru metadata (requires file to be in session for tags)
-        danbooru_success = await enrich_file_with_danbooru(db, file_model)
+        danbooru_success = await enrich_file_with_danbooru(file_model, db)
         # Fall back to ONNX-based enrichment if Danbooru fails or finds nothing
         if not danbooru_success:
             try:

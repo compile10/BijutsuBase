@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 
 
 async def enrich_file_with_danbooru(
+    file: File,
     db: AsyncSession,
-    file: File
 ) -> bool:
     """Make a Danbooru API request and enrich the file with metadata.
     
@@ -22,8 +22,8 @@ async def enrich_file_with_danbooru(
     the enrichment functions to set rating, source, and tags.
     
     Args:
-        db: AsyncSession for database operations
         file: The File model instance to enrich
+        db: AsyncSession for database operations
         
     Returns:
         True if Danbooru metadata was successfully applied, False if file not found
