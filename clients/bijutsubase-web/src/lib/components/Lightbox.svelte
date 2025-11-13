@@ -12,6 +12,11 @@
 	let error = $state<string | null>(null);
 	let isVideo = $state(false);
 
+	// Controls visibility state
+	let controlsVisible = $state(false);
+	// Timer for hiding controls. When a timer not active, this is null.
+	let hideTimer: number | null = null;
+
 	// Current file from the array
 	let currentFile = $derived(files[currentIndex]);
 
@@ -41,10 +46,25 @@
 		}
 	});
 
+	function revealControls() {
+		controlsVisible = true;
+		if (hideTimer !== null) {
+			clearTimeout(hideTimer);
+		}
+		hideTimer = window.setTimeout(() => {
+			controlsVisible = false;
+			hideTimer = null;
+		}, 2000);
+	}
+
 	function handleClose() {
 		isOpen = false;
 		fileDetails = null;
 		error = null;
+		if (hideTimer !== null) {
+			clearTimeout(hideTimer);
+			hideTimer = null;
+		}
 	}
 
 	function goNext() {
@@ -78,6 +98,9 @@
 
 	$effect(() => {
 		if (isOpen && typeof window !== 'undefined') {
+			// Reset controls visibility when lightbox opens
+			controlsVisible = false;
+
 			// Prevent body scroll when lightbox is open
 			const originalOverflow = document.body.style.overflow;
 			document.body.style.overflow = 'hidden';
@@ -88,6 +111,11 @@
 			return () => {
 				window.removeEventListener('keydown', handleKeydown);
 				document.body.style.overflow = originalOverflow;
+				// Clear timer on cleanup
+				if (hideTimer !== null) {
+					clearTimeout(hideTimer);
+					hideTimer = null;
+				}
 			};
 		}
 	});
@@ -99,20 +127,27 @@
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
 		transition:fade={{ duration: 200 }}
 		onclick={handleBackdropClick}
+		onmousemove={revealControls}
+		ontouchstart={revealControls}
 		role="presentation"
 	>
 		<!-- Close Button -->
-		<button
-			onclick={handleClose}
-			class="absolute right-4 top-4 z-10 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
-			aria-label="Close lightbox"
-		>
-			<IconClose class="h-8 w-8" />
-		</button>
+		{#if controlsVisible}
+			<button
+				in:fly={{ y: -16, x: 16, duration: 200 }}
+				out:fade={{ duration: 200 }}
+				onclick={handleClose}
+				class="absolute right-4 top-4 z-10 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+				aria-label="Close lightbox"
+			>
+				<IconClose class="h-8 w-8" />
+			</button>
+		{/if}
 
 		<!-- Previous Button -->
-		{#if canGoPrev}
+		{#if canGoPrev && controlsVisible}
 			<button
+				transition:fade={{ duration: 200 }}
 				onclick={goPrev}
 				class="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
 				aria-label="Previous image"
@@ -122,8 +157,9 @@
 		{/if}
 
 		<!-- Next Button -->
-		{#if canGoNext}
+		{#if canGoNext && controlsVisible}
 			<button
+				transition:fade={{ duration: 200 }}
 				onclick={goNext}
 				class="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
 				aria-label="Next image"
@@ -138,6 +174,7 @@
 			transition:fly={{ y: 20, duration: 200 }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
+			ontouchstart={revealControls}
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
