@@ -16,7 +16,7 @@ import cv2
 from ml.config import onnx_model
 from tagging.onnxmodel.preprocess import preprocess_image
 from utils.file_storage import generate_file_path
-from models.file import File as FileModel, TagSource
+from models.file import File as FileModel, TagSource, Rating
 from models.tag import Tag, TagCategory, FileTag
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,14 @@ WD_TO_ENUM: Dict[int, TagCategory] = {
     3: TagCategory.COPYRIGHT,
     4: TagCategory.CHARACTER,
     9: TagCategory.META,
+}
+
+# Mapping from ONNX rating tag names to Rating enum
+RATING_TAG_MAP: Dict[str, Rating] = {
+    "general": Rating.SAFE,
+    "sensitive": Rating.SENSITIVE,
+    "questionable": Rating.QUESTIONABLE,
+    "explicit": Rating.EXPLICIT,
 }
 
 
@@ -237,13 +245,33 @@ async def enrich_file_with_onnx(
     # Sanity check: ensure alignment length
     num = min(len(tags), int(scores.shape[-1]))
 
+    # Collect rating scores to determine the best rating
+    rating_scores: Dict[Rating, float] = {}
+    
     # Iterate predictions and associate tags above thresholds
     for idx in range(num):
         name, category = tags[idx]
         score = float(scores[idx])
         threshold = THRESHOLDS.get(category, 0.35)
+        
+        # Check if this is a rating tag
+        if name in RATING_TAG_MAP:
+            rating_scores[RATING_TAG_MAP[name]] = score
+            continue  # Skip adding rating as a tag
+        
         if score >= threshold:
             await _associate_tag(db, file, name, category)
+    
+    # Set the file rating to the one with highest confidence
+    if rating_scores:
+        best_rating = max(rating_scores.items(), key=lambda x: x[1])
+        file.rating = best_rating[0]
+        logger.info(
+            "Set rating for %s to %s (confidence: %.3f)",
+            file.sha256_hash,
+            best_rating[0].value,
+            best_rating[1]
+        )
 
     file.tag_source = TagSource.ONNX
 

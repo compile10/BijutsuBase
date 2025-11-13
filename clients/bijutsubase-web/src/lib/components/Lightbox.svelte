@@ -4,6 +4,8 @@
 	import IconClose from '~icons/mdi/close';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import IconChevronRight from '~icons/mdi/chevron-right';
+	import IconInformation from '~icons/mdi/information-outline';
+	import InfoPanel from './InfoPanel.svelte';
 
 	let { isOpen = $bindable(false), files = [], currentIndex = $bindable(0) } = $props();
 
@@ -11,6 +13,7 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let isVideo = $state(false);
+	let infoOpen = $state(false);
 
 	// Controls visibility state
 	let controlsVisible = $state(false);
@@ -61,6 +64,7 @@
 		isOpen = false;
 		fileDetails = null;
 		error = null;
+		infoOpen = false;
 		if (hideTimer !== null) {
 			clearTimeout(hideTimer);
 			hideTimer = null;
@@ -131,17 +135,28 @@
 		ontouchstart={revealControls}
 		role="presentation"
 	>
-		<!-- Close Button -->
+		<!-- Info and Close Buttons -->
 		{#if controlsVisible}
-			<button
-				in:fly={{ y: -16, x: 16, duration: 200 }}
-				out:fade={{ duration: 200 }}
-				onclick={handleClose}
-				class="absolute right-4 top-4 z-10 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
-				aria-label="Close lightbox"
-			>
-				<IconClose class="h-8 w-8" />
-			</button>
+			<div class="absolute right-4 top-4 z-10 flex gap-2">
+				<button
+					in:fly={{ y: -16, x: 16, duration: 200 }}
+					out:fade={{ duration: 200 }}
+					onclick={() => (infoOpen = !infoOpen)}
+					class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+					aria-label="Toggle info panel"
+				>
+					<IconInformation class="h-8 w-8" />
+				</button>
+				<button
+					in:fly={{ y: -16, x: 16, duration: 200 }}
+					out:fade={{ duration: 200 }}
+					onclick={handleClose}
+					class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+					aria-label="Close lightbox"
+				>
+					<IconClose class="h-8 w-8" />
+				</button>
+			</div>
 		{/if}
 
 		<!-- Previous Button -->
@@ -212,6 +227,11 @@
 				{/if}
 			{/if}
 		</div>
+
+		<!-- Info Panel -->
+		{#if fileDetails}
+			<InfoPanel bind:open={infoOpen} file={fileDetails} />
+		{/if}
 	</div>
 {/if}
 

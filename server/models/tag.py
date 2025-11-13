@@ -16,11 +16,11 @@ from database.config import Base
 
 class TagCategory(str, Enum):
     """Tag category enumeration."""
-    GENERAL = "General"
-    ARTIST = "Artist"
-    COPYRIGHT = "Copyright"
-    CHARACTER = "Character"
-    META = "Meta"
+    GENERAL = "general"
+    ARTIST = "artist"
+    COPYRIGHT = "copyright"
+    CHARACTER = "character"
+    META = "meta"
 
 
 class Tag(Base):

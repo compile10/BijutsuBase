@@ -1,9 +1,10 @@
 """File serializers for BijutsuBase API."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, field_validator
 
 
 class TagResponse(BaseModel):
@@ -42,6 +43,17 @@ class FileResponse(BaseModel):
     ai_generated: bool
     tag_source: str
     tags: list["TagResponse"]
+    
+    @field_validator('tags')
+    @classmethod
+    def sort_tags(cls, tags: list["TagResponse"]) -> list["TagResponse"]:
+        """Sort tags alphanumerically by name (natural sort)."""
+        def natural_sort_key(tag: "TagResponse") -> list:
+            """Convert tag name to a list of strings and integers for natural sorting."""
+            return [int(text) if text.isdigit() else text.lower() 
+                    for text in re.split(r'(\d+)', tag.name)]
+        
+        return sorted(tags, key=natural_sort_key)
     
     @computed_field
     @property
