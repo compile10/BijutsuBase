@@ -220,7 +220,7 @@ async def _persist_ingest(
 
     try:
         db.add(file_model)
-        await db.commit()
+        await db.flush()
     except IntegrityError:
         # Another transaction inserted the same sha256_hash concurrently.
         # Do NOT delete final_path; it's the canonical location for this hash.
@@ -245,8 +245,15 @@ async def _persist_ingest(
                 await enrich_file_with_onnx(file_model, db)
             except Exception as e:
                 logger.warning("All tagging failed for %s: %s", file_model.sha256_hash, str(e))
-        await db.commit() 
+        
+        # Flush to write tags to database
+        await db.flush()
+        
+        # Reload file with tags while still in transaction
         await db.refresh(file_model, attribute_names=["tags"])
+        
+        # Now commit everything together
+        await db.commit()
     except Exception as e:
         await db.rollback()
         raise HTTPException(

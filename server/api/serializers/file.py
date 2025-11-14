@@ -6,14 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, computed_field, field_validator
 
-
-class TagResponse(BaseModel):
-    name: str
-    category: str
-    count: int
-
-    class Config:
-        from_attributes = True
+from api.serializers.tag import TagResponse
 
 
 class FileThumb(BaseModel):
