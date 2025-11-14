@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from models.file import File
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, func, Enum as SQLEnum, update, event
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, func, Enum as SQLEnum, update, delete, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.config import Base
@@ -107,7 +107,23 @@ def _increment_tag_count(mapper, connection, target: FileTag) -> None:
 
 @event.listens_for(FileTag, "after_delete")
 def _decrement_tag_count(mapper, connection, target: FileTag) -> None:
-    """Decrement tag count when a FileTag is deleted."""
-    stmt = update(Tag).where(Tag.id == target.tag_id).values(count=func.greatest(0, Tag.count - 1))
-    connection.execute(stmt)
+    """Decrement tag count when a FileTag is deleted, and delete tag if count reaches 0."""
+    # Decrement count and return the new value
+    # Using greatest(0, count - 1) to prevent negative counts
+    stmt = (
+        update(Tag)
+        .where(Tag.id == target.tag_id)
+        .values(count=func.greatest(0, Tag.count - 1))
+        .returning(Tag.count)
+    )
+    result = connection.execute(stmt)
+    new_count = result.scalar()
+    
+    # If count is now 0, delete the tag
+    # Add Tag.count == 0 to WHERE clause for race condition safety:
+    # If another transaction incremented the count between our UPDATE and this DELETE,
+    # the DELETE will affect 0 rows and the tag will be preserved
+    if new_count == 0:
+        delete_stmt = delete(Tag).where(Tag.id == target.tag_id, Tag.count == 0)
+        connection.execute(delete_stmt)
 
