@@ -14,6 +14,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from database.config import get_db
 from api.serializers.file import FileResponse
@@ -116,8 +117,10 @@ async def _persist_ingest(
     """
     # Duplicate check
     try:
-        existing = await db.execute(select(FileModel).where(FileModel.sha256_hash == sha256_hash))
-        if existing.scalar_one_or_none() is not None:
+        existing = await db.scalar(
+            select(FileModel).where(FileModel.sha256_hash == sha256_hash)
+        )
+        if existing is not None:
             temp_path.unlink(missing_ok=True)
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -227,9 +230,17 @@ async def _persist_ingest(
         await db.commit()
         await db.refresh(file_model)
         await db.refresh(file_model, attribute_names=["tags"])
+    except IntegrityError:
+        # Another transaction inserted the same sha256_hash concurrently.
+        # Do NOT delete final_path; it's the canonical location for this hash.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="File with this hash already exists",
+        )
     except Exception as e:
         await db.rollback()
-        # Cleanup disk if DB fails
+        # Cleanup disk if DB fails for other reasons
         final_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
