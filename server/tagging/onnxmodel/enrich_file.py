@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 import cv2
 
 from ml.config import onnx_model
@@ -75,30 +76,33 @@ async def _associate_tag(
     category: TagCategory,
 ) -> None:
     """
-    Get or create a Tag and associate it with the given file (if not already).
+    Get or create a Tag and associate it with the given file (if not already),
+    using optimistic inserts and handling unique conflicts via IntegrityError.
     """
-    # Get or create Tag
-    result = await db.execute(select(Tag).where(Tag.name == tag_name))
-    tag = result.scalar_one_or_none()
-    if tag is None:
-        tag = Tag(name=tag_name, category=category)
-        db.add(tag)
-        await db.flush()  # to get tag.id
+    # First, try to insert the Tag optimistically and handle existing rows
+    tag: Tag | None = None
+    try:
+        async with db.begin_nested():
+            tag = Tag(name=tag_name, category=category)
+            db.add(tag)
+    except IntegrityError:
+        # Tag with this name already exists; load it instead
+        tag = await db.scalar(select(Tag).where(Tag.name == tag_name))
+        if tag is None:
+            # If we still can't find it, re-raise so the caller can handle
+            raise
 
-    # Ensure association exists
-    assoc_result = await db.execute(
-        select(FileTag).where(
-            FileTag.file_sha256_hash == file.sha256_hash,
-            FileTag.tag_id == tag.id,
-        )
-    )
-    if assoc_result.scalar_one_or_none() is None:
-        db.add(
-            FileTag(
+    # Next, try to insert the FileTag association and ignore duplicates
+    try:
+        async with db.begin_nested():
+            assoc = FileTag(
                 file_sha256_hash=file.sha256_hash,
                 tag_id=tag.id,
             )
-        )
+            db.add(assoc)
+    except IntegrityError:
+        # Association already exists; safe to ignore
+        return
 
 
 def _extract_video_frames(video_path: Path, points: Iterable[float] = (0.1, 0.5, 0.9)) -> List[np.ndarray]:

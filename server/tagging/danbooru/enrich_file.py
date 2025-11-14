@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from models.file import File, Rating, TagSource
 from models.tag import Tag, TagCategory, FileTag
@@ -108,46 +109,41 @@ async def add_tags_from_danbooru(
         (post.tag_string_character, TagCategory.CHARACTER),
         (post.tag_string_meta, TagCategory.META),
     ]
-    
+
     # Process each tag string
     for tag_string, category in tag_mappings:
         if not tag_string:
             continue
-        
+
         # Split tag string (tags are space-separated)
         tag_names = [name.strip() for name in tag_string.split() if name.strip()]
-        
+
         for tag_name in tag_names:
-            # Get or create tag
-            result = await db.execute(
-                select(Tag).where(Tag.name == tag_name)
-            )
-            tag = result.scalar_one_or_none()
-            
-            if tag is None:
-                # Create new tag
-                tag = Tag(name=tag_name, category=category)
-                db.add(tag)
-                await db.flush()  # Flush to get the tag ID
-            
-            # Check if association already exists by querying the junction table
-            # This avoids lazy loading the file.tags relationship
-            association_result = await db.execute(
-                select(FileTag).where(
-                    FileTag.file_sha256_hash == file.sha256_hash,
-                    FileTag.tag_id == tag.id
-                )
-            )
-            existing_association = association_result.scalar_one_or_none()
-            
-            if existing_association is None:
-                # Create association directly via junction table to avoid lazy loading
-                file_tag = FileTag(
-                    file_sha256_hash=file.sha256_hash,
-                    tag_id=tag.id
-                )
-                db.add(file_tag)
-    
+            # First, try to insert the Tag optimistically and handle existing rows
+            tag: Tag | None = None
+            try:
+                async with db.begin_nested():
+                    tag = Tag(name=tag_name, category=category)
+                    db.add(tag)
+            except IntegrityError:
+                # Tag with this name already exists; load it instead
+                tag = await db.scalar(select(Tag).where(Tag.name == tag_name))
+                if tag is None:
+                    # If we still can't find it, re-raise so the caller can handle
+                    raise
+
+            # Next, try to insert the FileTag association and ignore duplicates
+            try:
+                async with db.begin_nested():
+                    file_tag = FileTag(
+                        file_sha256_hash=file.sha256_hash,
+                        tag_id=tag.id,
+                    )
+                    db.add(file_tag)
+            except IntegrityError:
+                # Association already exists; safe to ignore
+                continue
+
     return db
 
 

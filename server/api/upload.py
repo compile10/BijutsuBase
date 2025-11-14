@@ -220,16 +220,7 @@ async def _persist_ingest(
 
     try:
         db.add(file_model)
-        await db.flush()
-        danbooru_success = await enrich_file_with_danbooru(file_model, db)
-        if not danbooru_success:
-            try:
-                await enrich_file_with_onnx(file_model, db)
-            except Exception as e:
-                logger.warning("All tagging failed for %s: %s", file_model.sha256_hash, str(e))
         await db.commit()
-        await db.refresh(file_model)
-        await db.refresh(file_model, attribute_names=["tags"])
     except IntegrityError:
         # Another transaction inserted the same sha256_hash concurrently.
         # Do NOT delete final_path; it's the canonical location for this hash.
@@ -245,6 +236,22 @@ async def _persist_ingest(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save file to database: {str(e)}",
+        )
+
+    try:
+        danbooru_success = await enrich_file_with_danbooru(file_model, db)
+        if not danbooru_success:
+            try:
+                await enrich_file_with_onnx(file_model, db)
+            except Exception as e:
+                logger.warning("All tagging failed for %s: %s", file_model.sha256_hash, str(e))
+        await db.commit() 
+        await db.refresh(file_model, attribute_names=["tags"])
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enrich file with metadata: {str(e)}",
         )
 
     return FileResponse.model_validate(file_model)
