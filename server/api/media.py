@@ -71,12 +71,14 @@ async def serve_media(
         hash_part = filename.rsplit('.', 1)[0]
         if len(hash_part) == 64:
             # Query database for file record
-            result = await db.execute(
-                select(FileModel).where(FileModel.sha256_hash == hash_part)
-            )
-            file_record = result.scalar_one_or_none()
-            if file_record:
-                mime_type = file_record.file_type
+            try:
+                file_record = await db.scalar(
+                    select(FileModel).where(FileModel.sha256_hash == hash_part)
+                )
+                if file_record:
+                    mime_type = file_record.file_type
+            except Exception:
+                mime_type = None
     
     # Fallback to python-magic if not found in database
     if mime_type is None:
