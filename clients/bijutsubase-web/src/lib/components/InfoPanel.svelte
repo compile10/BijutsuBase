@@ -3,33 +3,9 @@
 	import { processTagSource } from '$lib/utils';
 	import { fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
-	import IconAccount from '~icons/mdi/account';
-	import IconPalette from '~icons/mdi/palette';
-	import IconCopyright from '~icons/mdi/copyright';
-	import IconTag from '~icons/mdi/tag';
-	import IconInformation from '~icons/mdi/information-outline';
+	import TagSection from './TagSection.svelte';
 
-	let { open = $bindable(false), file } = $props<{ open: boolean; file: FileResponse }>();
-
-	// Category order for tabs
-	const categoryOrder = ['character', 'artist', 'copyright', 'general', 'meta'];
-
-	// Group tags by category
-	let tagsByCategory = $derived.by(() => {
-		const groups: Record<string, typeof file.tags> = {};
-		for (const tag of file.tags) {
-			if (!groups[tag.category]) {
-				groups[tag.category] = [];
-			}
-			groups[tag.category].push(tag);
-		}
-		return groups;
-	});
-
-	// Get available categories in order
-	let availableCategories = $derived(
-		categoryOrder.filter((cat) => tagsByCategory[cat]?.length > 0)
-	);
+	let { open = $bindable(false), file = $bindable<FileResponse>() } = $props<{ open: boolean; file: FileResponse }>();
 
 	// Format file size
 	function formatFileSize(bytes: number): string {
@@ -49,53 +25,6 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
-	}
-
-	// Capitalize first letter
-	function capitalize(str: string): string {
-		return str.charAt(0).toUpperCase() + str.slice(1);
-	}
-
-	// Get icon component for category
-	function getCategoryIcon(category: string) {
-		switch (category) {
-			case 'character':
-				return IconAccount;
-			case 'artist':
-				return IconPalette;
-			case 'copyright':
-				return IconCopyright;
-			case 'general':
-				return IconTag;
-			case 'meta':
-				return IconInformation;
-			default:
-				return IconTag;
-		}
-	}
-
-	// Get color classes for category
-	function getCategoryColorClasses(category: string): string {
-		switch (category) {
-			case 'character':
-				return 'border-l-green-500';
-			case 'artist':
-				return 'border-l-red-500';
-			case 'copyright':
-				return 'border-l-violet-500';
-			case 'general':
-				return 'border-l-blue-500';
-			case 'meta':
-				return 'border-l-yellow-300';
-			default:
-				return 'border-l-gray-500';
-		}
-	}
-
-	// Handle tag click - open search in new tab
-	function handleTagClick(tagName: string) {
-		const url = `/search?tags=${encodeURIComponent(tagName)}`;
-		window.open(url, '_blank');
 	}
 </script>
 
@@ -220,45 +149,7 @@
 			</section>
 
 			<!-- Tags Section -->
-			{#if file.tags.length > 0}
-				<section class="mb-6">
-					<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Tags</h4>
-
-					<!-- All Categories Displayed -->
-					<div class="space-y-3">
-						{#each availableCategories as category}
-							{@const Icon = getCategoryIcon(category)}
-							<div class="rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 p-3">
-								<!-- Category Header -->
-								<div class="mb-2 flex items-center gap-2">
-									<Icon class="h-4 w-4 text-gray-600 dark:text-gray-400" />
-									<span class="text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
-										{capitalize(category)}
-									</span>
-									<span class="text-xs text-gray-500 dark:text-gray-500">
-										({tagsByCategory[category].length})
-									</span>
-								</div>
-								
-								<!-- Tags for this Category -->
-								<div class="flex flex-wrap gap-2">
-									{#each tagsByCategory[category] as tag}
-										<button
-											onclick={() => handleTagClick(tag.name)}
-											class="rounded-full border-l-4 bg-gray-200 dark:bg-gray-700 px-2.5 py-1 text-xs text-gray-800 dark:text-gray-200 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 {getCategoryColorClasses(
-												category
-											)}"
-											title="Click to search for this tag"
-										>
-											{tag.name}
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					</div>
-				</section>
-			{/if}
+			<TagSection bind:file={file} />
 
 			<!-- Hash Information Section -->
 			<section class="mb-4">

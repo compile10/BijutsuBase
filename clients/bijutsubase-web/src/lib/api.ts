@@ -32,6 +32,17 @@ export interface FileResponse {
 	original_url: string;
 }
 
+export interface TagAssociateRequest {
+	file_sha256: string;
+	tag_name: string;
+	category: string;
+}
+
+export interface TagDissociateRequest {
+	file_sha256: string;
+	tag_name: string;
+}
+
 /**
  * Search for files by tags
  * @param tags - Space-separated list of tag names
@@ -114,6 +125,44 @@ export async function uploadByUrl(url: string): Promise<FileResponse> {
 
 	if (!response.ok) {
 		throw new Error(`URL upload failed: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Associate a tag with a file
+ * @param request - Request containing file_sha256, tag_name, and category
+ * @returns Updated file details with new tag
+ */
+export async function associateTag(request: TagAssociateRequest): Promise<FileResponse> {
+	const response = await fetch('/api/tags/associate', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to associate tag: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Dissociate a tag from a file
+ * @param request - Request containing file_sha256 and tag_name
+ * @returns Updated file details without the removed tag
+ */
+export async function dissociateTag(request: TagDissociateRequest): Promise<FileResponse> {
+	const response = await fetch('/api/tags/dissociate', {
+		method: 'DELETE',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to dissociate tag: ${response.statusText}`);
 	}
 
 	return response.json();

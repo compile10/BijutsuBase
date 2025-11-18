@@ -230,7 +230,7 @@
 
 		<!-- Info Panel -->
 		{#if fileDetails}
-			<InfoPanel bind:open={infoOpen} file={fileDetails} />
+			<InfoPanel bind:open={infoOpen} bind:file={fileDetails} />
 		{/if}
 	</div>
 {/if}

@@ -3,6 +3,7 @@
 	import { processTagSource } from '$lib/utils';
 	import { fade, fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
+	import TagSection from './TagSection.svelte';
 
 	let { isOpen = $bindable(false) } = $props();
 
@@ -192,23 +193,11 @@
 									{uploaded.ai_generated ? 'Yes' : 'No'}
 								</p>
 							</div>
+						</div>
 
-							<div>
-								<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Tags</span>
-								{#if uploaded.tags.length > 0}
-									<div class="mt-2 flex flex-wrap gap-2">
-										{#each uploaded.tags as tag}
-											<span
-												class="rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-800 dark:bg-primary-900 dark:text-primary-200"
-											>
-												{tag.name}
-											</span>
-										{/each}
-									</div>
-								{:else}
-									<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No tags</p>
-								{/if}
-							</div>
+						<!-- Tags Section -->
+						<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+							<TagSection bind:file={uploaded} />
 						</div>
 
 						<div class="flex justify-end">
