@@ -4,12 +4,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database.config import get_db
-from models.file import File as FileModel
+from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
 from api.serializers.file import FileResponse, FileThumb
@@ -18,6 +19,11 @@ import logging
 
 router = APIRouter(prefix="/files", tags=["files"])
 logger = logging.getLogger(__name__)
+
+
+class FileRatingUpdate(BaseModel):
+    """Request model for updating file rating."""
+    rating: str
 
 
 @router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
@@ -86,6 +92,58 @@ async def get_file(
     file_model = result.scalar_one_or_none()
     if file_model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    return FileResponse.model_validate(file_model)
+
+
+@router.patch("/rating/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def update_file_rating(
+    sha256: str,
+    rating_update: FileRatingUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the rating of a file by its SHA-256 hash."""
+    # Validate and convert rating string to Rating enum
+    try:
+        new_rating = Rating(rating_update.rating.lower())
+    except ValueError:
+        valid_ratings = [r.value for r in Rating]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid rating. Must be one of: {', '.join(valid_ratings)}"
+        )
+
+    # Update the rating with row locking to prevent race conditions
+    try:
+        # Lock the row for update
+        result = await db.execute(
+            select(FileModel)
+            .where(FileModel.sha256_hash == sha256)
+            .with_for_update()
+        )
+        file_model = result.scalar_one_or_none()
+        
+        if file_model is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        
+        # Update the rating while row is locked
+        file_model.rating = new_rating
+        await db.flush()
+        
+        # Load tags for response (still within same transaction)
+        await db.refresh(file_model, ["tags"])
+        await db.commit()
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to update rating for file {sha256}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update file rating: {str(e)}"
+        )
 
     return FileResponse.model_validate(file_model)
 

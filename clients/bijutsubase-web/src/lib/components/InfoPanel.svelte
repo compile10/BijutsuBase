@@ -1,11 +1,21 @@
 <script lang="ts">
 	import type { FileResponse } from '$lib/api';
+	import { updateFileRating } from '$lib/api';
 	import { processTagSource } from '$lib/utils';
 	import { fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
+	import IconEdit from '~icons/mdi/pencil';
 	import TagSection from './TagSection.svelte';
 
 	let { open = $bindable(false), file = $bindable<FileResponse>() } = $props<{ open: boolean; file: FileResponse }>();
+
+	// Rating state management
+	let isUpdatingRating = $state(false);
+	let ratingError = $state<string | null>(null);
+	let isEditingRating = $state(false);
+
+	// Available rating options
+	const ratingOptions = ['safe', 'sensitive', 'questionable', 'explicit'] as const;
 
 	// Format file size
 	function formatFileSize(bytes: number): string {
@@ -25,6 +35,55 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
+	}
+
+	// Handle rating change
+	async function handleRatingChange(newRating: string) {
+		// If clicking the same rating, just close edit mode
+		if (newRating === file.rating) {
+			isEditingRating = false;
+			ratingError = null; // Clear any existing errors
+			return;
+		}
+
+		if (isUpdatingRating) return;
+
+		isUpdatingRating = true;
+		ratingError = null;
+
+		try {
+			const updatedFile = await updateFileRating(file.sha256_hash, newRating);
+			file = updatedFile;
+			isEditingRating = false; // Close edit mode only on success
+		} catch (error) {
+			ratingError = error instanceof Error ? error.message : 'Failed to update rating';
+			console.error('Rating update error:', error);
+		} finally {
+			isUpdatingRating = false;
+		}
+	}
+
+	// Get rating button classes
+	function getRatingButtonClasses(rating: string): string {
+		const isActive = file.rating === rating;
+		const baseClasses = 'px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all';
+		
+		if (isActive) {
+			switch (rating) {
+				case 'safe':
+					return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200`;
+				case 'sensitive':
+					return `${baseClasses} bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200`;
+				case 'questionable':
+					return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
+				case 'explicit':
+					return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
+				default:
+					return `${baseClasses} bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300`;
+			}
+		}
+		
+		return `${baseClasses} bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700`;
 	}
 </script>
 
@@ -94,37 +153,64 @@
 				</div>
 			</section>
 
-			<!-- Rating Section -->
-			<section class="mb-6">
-				<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Rating</h4>
-				<div class="text-sm">
-					<span
-						class="inline-block rounded-full px-3 py-1 text-xs font-semibold uppercase"
-						class:bg-green-100={file.rating === 'safe'}
-						class:text-green-800={file.rating === 'safe'}
-						class:dark:bg-green-900={file.rating === 'safe'}
-						class:dark:text-green-200={file.rating === 'safe'}
-						class:bg-blue-100={file.rating === 'sensitive'}
-						class:text-blue-800={file.rating === 'sensitive'}
-						class:dark:bg-blue-900={file.rating === 'sensitive'}
-						class:dark:text-blue-200={file.rating === 'sensitive'}
-						class:bg-yellow-100={file.rating === 'questionable'}
-						class:text-yellow-800={file.rating === 'questionable'}
-						class:dark:bg-yellow-900={file.rating === 'questionable'}
-						class:dark:text-yellow-200={file.rating === 'questionable'}
-						class:bg-red-100={file.rating === 'explicit'}
-						class:text-red-800={file.rating === 'explicit'}
-						class:dark:bg-red-900={file.rating === 'explicit'}
-						class:dark:text-red-200={file.rating === 'explicit'}
-						class:bg-gray-200={file.rating === 'unknown'}
-						class:text-gray-700={file.rating === 'unknown'}
-						class:dark:bg-gray-700={file.rating === 'unknown'}
-						class:dark:text-gray-300={file.rating === 'unknown'}
+		<!-- Rating Section -->
+		<section class="mb-6">
+			<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Rating</h4>
+			
+			{#if isEditingRating}
+				<!-- Edit mode: show all rating options -->
+				<div class="flex items-center gap-2">
+						<div class="flex flex-wrap gap-2">
+							{#each ratingOptions as rating (rating)}
+								<button
+									type="button"
+									class={getRatingButtonClasses(rating)}
+									disabled={isUpdatingRating}
+									onclick={() => handleRatingChange(rating)}
+									aria-label={`Set rating to ${rating}`}
+									style:opacity={isUpdatingRating ? 0.6 : 1}
+									style:cursor={isUpdatingRating ? 'not-allowed' : 'pointer'}
+								>
+									{rating}
+								</button>
+							{/each}
+						</div>
+					<button
+						type="button"
+						onclick={() => {
+							isEditingRating = false;
+							ratingError = null;
+						}}
+						class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-colors"
+						aria-label="Cancel editing rating"
+						disabled={isUpdatingRating}
 					>
+						<IconClose class="h-4 w-4" />
+					</button>
+				</div>
+			{:else}
+				<!-- View mode: show current rating with edit button -->
+				<div class="group flex items-center gap-2">
+					<span class={getRatingButtonClasses(file.rating)}>
 						{file.rating}
 					</span>
+					<button
+						type="button"
+						onclick={() => isEditingRating = true}
+						class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+						aria-label="Edit rating"
+					>
+						<IconEdit class="h-4 w-4" />
+					</button>
 				</div>
-			</section>
+			{/if}
+			
+			{#if ratingError}
+				<p class="mt-2 text-xs text-red-600 dark:text-red-400">
+					{ratingError}
+				</p>
+			{/if}
+		</section>
 
 			<!-- AI Generation Section -->
 			<section class="mb-6">

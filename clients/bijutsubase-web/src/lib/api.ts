@@ -168,3 +168,23 @@ export async function dissociateTag(request: TagDissociateRequest): Promise<File
 	return response.json();
 }
 
+/**
+ * Update the rating of a file
+ * @param sha256 - SHA256 hash of the file
+ * @param rating - New rating value (safe, sensitive, questionable, explicit)
+ * @returns Updated file details with new rating
+ */
+export async function updateFileRating(sha256: string, rating: string): Promise<FileResponse> {
+	const response = await fetch(`/api/files/rating/${sha256}`, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ rating })
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to update rating: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
