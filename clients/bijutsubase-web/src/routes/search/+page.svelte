@@ -74,8 +74,14 @@
 	// Handle search form submission
 	function handleSearch(event: Event) {
 		event.preventDefault();
-		if (searchQuery.trim()) {
-			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`);
+		const query = searchQuery.trim();
+		if (query) {
+			// Check if parameters are the same as current URL
+			if (query === tags && sortOption === currentSort) {
+				fetchThumbnails();
+			} else {
+				goto(`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`);
+			}
 		}
 	}
 
