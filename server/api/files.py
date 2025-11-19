@@ -34,6 +34,7 @@ class FileAiGeneratedUpdate(BaseModel):
 @router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
 async def search_files(
     tags: str = Query(..., description="Space-separated list of tag names"),
+    sort: str = Query("date_desc", description="Sort order: date_desc, date_asc, size_desc, size_asc"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -41,6 +42,7 @@ async def search_files(
     
     Args:
         tags: Space-separated list of tag names to search for
+        sort: Sort order (date_desc, date_asc, size_desc, size_asc)
         db: Database session
         
     Returns:
@@ -55,6 +57,20 @@ async def search_files(
             detail="At least one tag name must be provided"
         )
     
+    # Determine sort order
+    sort_column = None
+    if sort == "date_desc":
+        sort_column = FileModel.date_added.desc()
+    elif sort == "date_asc":
+        sort_column = FileModel.date_added.asc()
+    elif sort == "size_desc":
+        sort_column = FileModel.file_size.desc()
+    elif sort == "size_asc":
+        sort_column = FileModel.file_size.asc()
+    else:
+        # Default to date_desc if invalid sort param provided
+        sort_column = FileModel.date_added.desc()
+
     # Query files that have ALL of the specified tags
     # We join File -> FileTag -> Tag, filter by tag names, group by file,
     # and ensure the count of distinct tags matches the number of requested tags
@@ -65,6 +81,7 @@ async def search_files(
         .where(Tag.name.in_(tag_names))
         .group_by(FileModel.sha256_hash)
         .having(func.count(func.distinct(Tag.id)) == len(tag_names))
+        .order_by(sort_column)
     )
     
     result = await db.execute(query)

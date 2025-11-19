@@ -46,10 +46,11 @@ export interface TagDissociateRequest {
 /**
  * Search for files by tags
  * @param tags - Space-separated list of tag names
+ * @param sort - Sort order (date_desc, date_asc, size_desc, size_asc)
  * @returns Array of file thumbnails
  */
-export async function searchFiles(tags: string): Promise<FileThumb[]> {
-	const response = await fetch(`/api/files/search?tags=${encodeURIComponent(tags)}`);
+export async function searchFiles(tags: string, sort: string = 'date_desc'): Promise<FileThumb[]> {
+	const response = await fetch(`/api/files/search?tags=${encodeURIComponent(tags)}&sort=${encodeURIComponent(sort)}`);
 	
 	if (!response.ok) {
 		throw new Error(`Search failed: ${response.statusText}`);
@@ -207,4 +208,3 @@ export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean
 
 	return response.json();
 }
-

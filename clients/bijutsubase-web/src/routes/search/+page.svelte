@@ -4,6 +4,7 @@
 	import { VList } from 'virtua/svelte';
 	import { searchFiles, type FileThumb } from '$lib/api';
 	import Lightbox from '$lib/components/Lightbox.svelte';
+	import SortDropdown from '$lib/components/SortDropdown.svelte';
 
 	let thumbnails = $state<FileThumb[]>([]);
 	let loading = $state(true);
@@ -12,9 +13,12 @@
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
 
-	// Get tags from URL params
+	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
+	let currentSort = $derived(page.url.searchParams.get('sort') || 'date_desc');
+	
 	let searchQuery = $state('');
+	let sortOption = $state('date_desc');
 
 	// Group thumbnails into rows for VList
 	let rows = $derived.by(() => {
@@ -53,7 +57,7 @@
 		error = null;
 
 		try {
-			thumbnails = await searchFiles(tags);
+			thumbnails = await searchFiles(tags, currentSort);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An error occurred';
 		} finally {
@@ -71,13 +75,21 @@
 	function handleSearch(event: Event) {
 		event.preventDefault();
 		if (searchQuery.trim()) {
-			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}`);
+			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`);
 		}
 	}
 
-	// Run on mount and when tags change
+	// Handle sort change
+	function handleSortChange() {
+		if (searchQuery.trim()) {
+			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`);
+		}
+	}
+
+	// Run on mount and when tags/sort change
 	$effect(() => {
 		searchQuery = tags;
+		sortOption = currentSort;
 		fetchThumbnails();
 	});
 
@@ -114,6 +126,12 @@
 						focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 
 						dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
 					/>
+					
+					<SortDropdown
+						bind:value={sortOption}
+						onchange={handleSortChange}
+					/>
+
 					<button
 						type="submit"
 						class="rounded-lg bg-primary-600 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none 
@@ -190,4 +208,3 @@
 
 <!-- Lightbox -->
 <Lightbox bind:isOpen={lightboxOpen} bind:currentIndex={lightboxIndex} files={thumbnails} />
-
