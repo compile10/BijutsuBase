@@ -26,6 +26,11 @@ class FileRatingUpdate(BaseModel):
     rating: str
 
 
+class FileAiGeneratedUpdate(BaseModel):
+    """Request model for updating file ai_generated status."""
+    ai_generated: bool
+
+
 @router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
 async def search_files(
     tags: str = Query(..., description="Space-separated list of tag names"),
@@ -143,6 +148,48 @@ async def update_file_rating(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update file rating: {str(e)}"
+        )
+
+    return FileResponse.model_validate(file_model)
+
+
+@router.patch("/ai_generated/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def update_file_ai_generated(
+    sha256: str,
+    ai_generated_update: FileAiGeneratedUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the ai_generated status of a file by its SHA-256 hash."""
+    # Update the status with row locking to prevent race conditions
+    try:
+        # Lock the row for update
+        result = await db.execute(
+            select(FileModel)
+            .where(FileModel.sha256_hash == sha256)
+            .with_for_update()
+        )
+        file_model = result.scalar_one_or_none()
+        
+        if file_model is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        
+        # Update the status while row is locked
+        file_model.ai_generated = ai_generated_update.ai_generated
+        await db.flush()
+        
+        # Load tags for response (still within same transaction)
+        await db.refresh(file_model, ["tags"])
+        await db.commit()
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to update ai_generated for file {sha256}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update file ai_generated status: {str(e)}"
         )
 
     return FileResponse.model_validate(file_model)

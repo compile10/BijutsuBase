@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { FileResponse } from '$lib/api';
-	import { updateFileRating } from '$lib/api';
+	import { updateFileRating, updateFileAiGenerated } from '$lib/api';
 	import { processTagSource } from '$lib/utils';
 	import { fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
@@ -13,6 +13,11 @@
 	let isUpdatingRating = $state(false);
 	let ratingError = $state<string | null>(null);
 	let isEditingRating = $state(false);
+
+	// AI generation state management
+	let isUpdatingAi = $state(false);
+	let aiError = $state<string | null>(null);
+	let isEditingAi = $state(false);
 
 	// Available rating options
 	const ratingOptions = ['safe', 'sensitive', 'questionable', 'explicit'] as const;
@@ -60,6 +65,32 @@
 			console.error('Rating update error:', error);
 		} finally {
 			isUpdatingRating = false;
+		}
+	}
+
+	// Handle AI generated change
+	async function handleAiGeneratedChange(newStatus: boolean) {
+		// If clicking the same status, just close edit mode
+		if (newStatus === file.ai_generated) {
+			isEditingAi = false;
+			aiError = null; // Clear any existing errors
+			return;
+		}
+
+		if (isUpdatingAi) return;
+
+		isUpdatingAi = true;
+		aiError = null;
+
+		try {
+			const updatedFile = await updateFileAiGenerated(file.sha256_hash, newStatus);
+			file = updatedFile;
+			isEditingAi = false; // Close edit mode only on success
+		} catch (error) {
+			aiError = error instanceof Error ? error.message : 'Failed to update AI generated status';
+			console.error('AI generated update error:', error);
+		} finally {
+			isUpdatingAi = false;
 		}
 	}
 
@@ -217,21 +248,83 @@
 				<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
 					AI Generation
 				</h4>
-				<div class="text-sm">
-					<span
-						class="inline-block rounded-full px-3 py-1 text-xs font-semibold"
-						class:bg-purple-100={file.ai_generated}
-						class:text-purple-800={file.ai_generated}
-						class:dark:bg-purple-900={file.ai_generated}
-						class:dark:text-purple-200={file.ai_generated}
-						class:bg-gray-200={!file.ai_generated}
-						class:text-gray-700={!file.ai_generated}
-						class:dark:bg-gray-700={!file.ai_generated}
-						class:dark:text-gray-300={!file.ai_generated}
-					>
-						{file.ai_generated ? 'Yes' : 'No'}
-					</span>
-				</div>
+				
+				{#if isEditingAi}
+					<!-- Edit mode: show Yes/No options -->
+					<div class="flex items-center gap-2">
+						<div class="flex flex-wrap gap-2">
+							<!-- Yes Button -->
+							<button
+								type="button"
+								class="px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all {file.ai_generated ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}"
+								disabled={isUpdatingAi}
+								onclick={() => handleAiGeneratedChange(true)}
+								aria-label="Set AI generated to Yes"
+								style:opacity={isUpdatingAi ? 0.6 : 1}
+								style:cursor={isUpdatingAi ? 'not-allowed' : 'pointer'}
+							>
+								Yes
+							</button>
+							
+							<!-- No Button -->
+							<button
+								type="button"
+								class="px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all {!file.ai_generated ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}"
+								disabled={isUpdatingAi}
+								onclick={() => handleAiGeneratedChange(false)}
+								aria-label="Set AI generated to No"
+								style:opacity={isUpdatingAi ? 0.6 : 1}
+								style:cursor={isUpdatingAi ? 'not-allowed' : 'pointer'}
+							>
+								No
+							</button>
+						</div>
+						
+						<button
+							type="button"
+							onclick={() => {
+								isEditingAi = false;
+								aiError = null;
+							}}
+							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-colors"
+							aria-label="Cancel editing AI status"
+							disabled={isUpdatingAi}
+						>
+							<IconClose class="h-4 w-4" />
+						</button>
+					</div>
+				{:else}
+					<!-- View mode: show current status with edit button -->
+					<div class="group flex items-center gap-2">
+						<span
+							class="inline-block rounded-full px-3 py-1 text-xs font-semibold transition-all"
+							class:bg-purple-100={file.ai_generated}
+							class:text-purple-800={file.ai_generated}
+							class:dark:bg-purple-900={file.ai_generated}
+							class:dark:text-purple-200={file.ai_generated}
+							class:bg-gray-200={!file.ai_generated}
+							class:text-gray-700={!file.ai_generated}
+							class:dark:bg-gray-700={!file.ai_generated}
+							class:dark:text-gray-300={!file.ai_generated}
+						>
+							{file.ai_generated ? 'Yes' : 'No'}
+						</span>
+						<button
+							type="button"
+							onclick={() => isEditingAi = true}
+							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+							aria-label="Edit AI generated status"
+						>
+							<IconEdit class="h-4 w-4" />
+						</button>
+					</div>
+				{/if}
+				
+				{#if aiError}
+					<p class="mt-2 text-xs text-red-600 dark:text-red-400">
+						{aiError}
+					</p>
+				{/if}
 			</section>
 
 			<!-- Tags Section -->

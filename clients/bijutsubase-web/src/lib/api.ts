@@ -188,3 +188,23 @@ export async function updateFileRating(sha256: string, rating: string): Promise<
 	return response.json();
 }
 
+/**
+ * Update the ai_generated status of a file
+ * @param sha256 - SHA256 hash of the file
+ * @param aiGenerated - New ai_generated status
+ * @returns Updated file details with new status
+ */
+export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean): Promise<FileResponse> {
+	const response = await fetch(`/api/files/ai_generated/${sha256}`, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ ai_generated: aiGenerated })
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to update ai_generated status: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
