@@ -66,6 +66,22 @@ def save_file_to_disk(file: File, content: bytes) -> None:
     file_path.write_bytes(content)
 
 
+def _cleanup_dirs(file_path: Path) -> None:
+    """
+    Attempt to remove empty parent directories after file deletion.
+    
+    Structure: media/<subdir>/<first_two>/<next_two>/<filename>
+    We attempt to remove <next_two> and <first_two> if they are empty.
+    """
+    try:
+        # Try to remove <next_two> directory
+        file_path.parent.rmdir()
+        # If successful, try to remove <first_two> directory
+        file_path.parent.parent.rmdir()
+    except OSError:
+        pass
+
+
 def delete_file_from_disk(file: File) -> None:
     """
     Delete file from disk using the generated path.
@@ -87,6 +103,7 @@ def delete_file_from_disk(file: File) -> None:
     # Delete file if it exists, ignore if it doesn't
     if file_path.exists():
         file_path.unlink()
+        _cleanup_dirs(file_path)
 
 def delete_thumbnail_from_disk(file: File) -> None:
     """
@@ -100,8 +117,9 @@ def delete_thumbnail_from_disk(file: File) -> None:
     if not file.file_ext:
         raise ValueError("file_ext must be set before deleting thumbnail from disk")
     
-    thumbnail_path = generate_file_path(file.sha256_hash, file.file_ext, thumb=True)
+    thumbnail_path = generate_file_path(file.sha256_hash, "webp", thumb=True)
 
     # Delete thumbnail if it exists, ignore if it doesn't
     if thumbnail_path.exists():
         thumbnail_path.unlink()
+        _cleanup_dirs(thumbnail_path)

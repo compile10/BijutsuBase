@@ -239,7 +239,9 @@ async def delete_file(
         associations = assoc_result.scalars().all()
         for assoc in associations:
             await db.delete(assoc)
-        await db.flush()
+
+        # refresh the file model to get the latest tags
+        await db.refresh(file_model, ["tags"])
 
         # Delete the file record; after_delete hook removes files from disk
         await db.delete(file_model)
