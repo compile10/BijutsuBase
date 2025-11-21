@@ -43,6 +43,27 @@ export interface TagDissociateRequest {
 	tag_name: string;
 }
 
+export interface BulkFileRequest {
+	file_hashes: string[];
+}
+
+export interface BulkUpdateFileRequest {
+	file_hashes: string[];
+	rating?: string;
+	ai_generated?: boolean;
+}
+
+export interface BulkTagAssociateRequest {
+	file_hashes: string[];
+	tag_name: string;
+	category: string;
+}
+
+export interface BulkTagDissociateRequest {
+	file_hashes: string[];
+	tag_name: string;
+}
+
 /**
  * Search for files by tags
  * @param tags - Space-separated list of tag names
@@ -207,4 +228,71 @@ export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean
 	}
 
 	return response.json();
+}
+
+/**
+ * Get tags common to all specified files
+ * @param hashes - List of file SHA256 hashes
+ * @returns Array of common tags
+ */
+export async function getCommonTags(hashes: string[]): Promise<TagResponse[]> {
+	const response = await fetch('/api/files/bulk-common-tags', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ file_hashes: hashes })
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch common tags: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Bulk update file metadata
+ * @param request - Bulk update request
+ */
+export async function bulkUpdateFileMetadata(request: BulkUpdateFileRequest): Promise<void> {
+	const response = await fetch('/api/files/bulk-update', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to bulk update files: ${response.statusText}`);
+	}
+}
+
+/**
+ * Bulk associate tag with files
+ * @param request - Bulk tag associate request
+ */
+export async function bulkAssociateTag(request: BulkTagAssociateRequest): Promise<void> {
+	const response = await fetch('/api/tags/bulk-associate', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to bulk associate tag: ${response.statusText}`);
+	}
+}
+
+/**
+ * Bulk dissociate tag from files
+ * @param request - Bulk tag dissociate request
+ */
+export async function bulkDissociateTag(request: BulkTagDissociateRequest): Promise<void> {
+	const response = await fetch('/api/tags/bulk-dissociate', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to bulk dissociate tag: ${response.statusText}`);
+	}
 }

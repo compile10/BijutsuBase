@@ -7,11 +7,13 @@
 	import Lightbox from '$lib/components/Lightbox.svelte';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import DeleteConfirmationModal from '$lib/components/DeleteConfirmationModal.svelte';
+	import BulkEditModal from '$lib/components/BulkEditModal.svelte';
 	import { longpress } from '$lib/actions/longpress';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconCircleOutline from '~icons/mdi/checkbox-blank-circle-outline';
 	import IconClose from '~icons/mdi/close';
 	import IconDelete from '~icons/mdi/trash-can-outline';
+	import IconPencil from '~icons/mdi/pencil';
 
 	let thumbnails = $state<FileThumb[]>([]);
 	let loading = $state(true);
@@ -24,6 +26,7 @@
 	let isSelectMode = $state(false);
 	let selectedFiles = $state(new Set<string>());
 	let deleteModalOpen = $state(false);
+	let bulkEditModalOpen = $state(false);
 
 	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
@@ -232,13 +235,22 @@
 						{selectedFiles.size} selected
 					</span>
 				</div>
-				<button
-					onclick={() => deleteModalOpen = true}
-					class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-red-500 dark:hover:bg-red-600"
-				>
-					<IconDelete class="h-5 w-5" />
-					Delete
-				</button>
+				<div class="flex gap-2">
+					<button
+						onclick={() => bulkEditModalOpen = true}
+						class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
+					>
+						<IconPencil class="h-5 w-5" />
+						Edit
+					</button>
+					<button
+						onclick={() => deleteModalOpen = true}
+						class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-red-500 dark:hover:bg-red-600"
+					>
+						<IconDelete class="h-5 w-5" />
+						Delete
+					</button>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -330,4 +342,11 @@
 	bind:isOpen={deleteModalOpen} 
 	count={selectedFiles.size} 
 	onConfirm={handleDeleteConfirm} 
+/>
+
+<!-- Bulk Edit Modal -->
+<BulkEditModal
+	bind:isOpen={bulkEditModalOpen}
+	selectedFiles={selectedFiles}
+	onClose={fetchThumbnails}
 />

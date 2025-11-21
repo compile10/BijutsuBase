@@ -12,3 +12,30 @@ class TagResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class TagAssociateRequest(BaseModel):
+    """Request model for associating a tag with a file."""
+    
+    file_sha256: str
+    tag_name: str
+    category: str
+
+
+class TagDissociateRequest(BaseModel):
+    """Request model for dissociating a tag from a file."""
+    
+    file_sha256: str
+    tag_name: str
+
+
+class BulkTagAssociateRequest(BaseModel):
+    """Request model for associating a tag with multiple files."""
+    file_hashes: list[str]
+    tag_name: str
+    category: str
+
+
+class BulkTagDissociateRequest(BaseModel):
+    """Request model for dissociating a tag from multiple files."""
+    file_hashes: list[str]
+    tag_name: str

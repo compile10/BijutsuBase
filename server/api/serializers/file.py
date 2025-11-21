@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, computed_field, field_validator
 
@@ -89,3 +90,14 @@ class FileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class BulkFileRequest(BaseModel):
+    """Request model for operations on multiple files."""
+    file_hashes: list[str]
+
+
+class BulkUpdateFileRequest(BaseModel):
+    """Request model for bulk updating file metadata."""
+    file_hashes: list[str]
+    rating: Optional[str] = None
+    ai_generated: Optional[bool] = None

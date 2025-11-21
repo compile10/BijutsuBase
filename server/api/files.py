@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,8 +14,8 @@ from database.config import get_db
 from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
-from api.serializers.file import FileResponse, FileThumb
-import logging
+from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest
+from api.serializers.tag import TagResponse
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -100,6 +101,89 @@ async def search_files(
     ]
     
     return file_thumbs
+
+
+@router.post("/bulk-common-tags", response_model=list[TagResponse], status_code=status.HTTP_200_OK)
+async def get_common_tags(
+    request: BulkFileRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get tags common to all specified files.
+
+    Args:
+        request: BulkFileRequest containing list of file hashes
+        db: Database session
+
+    Returns:
+        List of TagResponse objects representing the intersection of tags
+    """
+    if not request.file_hashes:
+        return []
+
+    # Find tags where the count of associations with the given files equals the number of files
+    query = (
+        select(Tag)
+        .join(FileTag, Tag.id == FileTag.tag_id)
+        .where(FileTag.file_sha256_hash.in_(request.file_hashes))
+        .group_by(Tag.id)
+        .having(func.count(FileTag.file_sha256_hash) == len(request.file_hashes))
+    )
+
+    result = await db.execute(query)
+    tags = result.scalars().all()
+    
+    return [TagResponse.model_validate(tag) for tag in tags]
+
+
+@router.post("/bulk-update", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_update_files(
+    request: BulkUpdateFileRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Bulk update metadata (rating, ai_generated) for multiple files.
+
+    Args:
+        request: BulkUpdateFileRequest containing hashes and fields to update
+        db: Database session
+    """
+    if not request.file_hashes:
+        return
+
+    update_values = {}
+    if request.rating is not None:
+        try:
+            update_values["rating"] = Rating(request.rating.lower())
+        except ValueError:
+            valid_ratings = [r.value for r in Rating]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid rating. Must be one of: {', '.join(valid_ratings)}"
+            )
+            
+    if request.ai_generated is not None:
+        update_values["ai_generated"] = request.ai_generated
+
+    if not update_values:
+        return
+
+    try:
+        stmt = (
+            update(FileModel)
+            .where(FileModel.sha256_hash.in_(request.file_hashes))
+            .values(**update_values)
+            .execution_options(synchronize_session=False)
+        )
+        await db.execute(stmt)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to bulk update files: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to bulk update files: {str(e)}"
+        )
 
 
 @router.get("/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
