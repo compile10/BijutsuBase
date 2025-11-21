@@ -7,6 +7,8 @@
 	import IconEdit from '~icons/mdi/pencil';
 	import TagSection from './TagSection.svelte';
 
+	// TODO: Make sure this updates the search results if there are any changes
+
 	let { open = $bindable(false), file = $bindable<FileResponse>() } = $props<{ open: boolean; file: FileResponse }>();
 
 	// Rating state management

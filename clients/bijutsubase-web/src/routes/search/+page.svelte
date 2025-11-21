@@ -348,5 +348,5 @@
 <BulkEditModal
 	bind:isOpen={bulkEditModalOpen}
 	selectedFiles={selectedFiles}
-	onClose={fetchThumbnails}
+	onChange={fetchThumbnails}
 />

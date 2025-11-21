@@ -9,16 +9,17 @@
 	let { 
 		isOpen = $bindable(false),
 		selectedFiles,
-		onClose
+		onChange
 	} = $props<{
 		isOpen: boolean;
 		selectedFiles: Set<string>;
-		onClose: () => void;
+		onChange: () => void;
 	}>();
 
 	let commonTags = $state<TagResponse[]>([]);
 	let isUpdatingTags = $state(false);
 	let isUpdatingMetadata = $state(false);
+	let hasChanges = $state(false);
 	let error = $state<string | null>(null);
 
 	// Metadata selection state
@@ -43,6 +44,7 @@
 			fetchCommonTags();
 			selectedRating = 'no_change';
 			selectedAi = 'no_change';
+			hasChanges = false;
 		}
 	});
 
@@ -52,7 +54,11 @@
 		commonTags = [];
 		selectedRating = 'no_change';
 		selectedAi = 'no_change';
-		onClose();
+		
+		if (hasChanges) {
+			onChange();
+		}
+		hasChanges = false;
 	}
 
 	async function handleBulkAddTag(name: string, category: string) {
@@ -65,6 +71,7 @@
 				tag_name: name,
 				category
 			});
+			hasChanges = true;
 		} catch (err) {
 			isUpdatingTags = false;
 			error = err instanceof Error ? err.message : 'Failed to add tag';
@@ -88,6 +95,7 @@
 				file_hashes: hashes,
 				tag_name: name
 			});
+			hasChanges = true;
 		} catch (err) {
 			isUpdatingTags = false;
 			error = err instanceof Error ? err.message : 'Failed to delete tag';
@@ -120,6 +128,7 @@
 		error = null;
 		try {
 			await bulkUpdateFileMetadata(payload);
+			hasChanges = true;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to update metadata';
 		} finally {
