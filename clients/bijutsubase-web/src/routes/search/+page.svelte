@@ -217,6 +217,8 @@
 		</div>
 	</div>
 
+	# TODO: Disable selection mode between search results 
+	# and update the selected files when the search results change
 	<!-- Selection Mode Bar -->
 	{#if isSelectMode}
 		<div 
