@@ -12,10 +12,45 @@ from database.config import get_db
 from models.file import File as FileModel
 from models.tag import Tag, TagCategory, FileTag
 from api.serializers.file import FileResponse
-from api.serializers.tag import TagAssociateRequest, TagDissociateRequest, BulkTagAssociateRequest, BulkTagDissociateRequest
+from api.serializers.tag import (
+    TagAssociateRequest,
+    TagDissociateRequest,
+    BulkTagAssociateRequest,
+    BulkTagDissociateRequest,
+)
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])
+
+
+@router.get("/recommend", response_model=list[str], status_code=status.HTTP_200_OK)
+async def recommend_tags(
+    query: str,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Recommend tags based on user input, ordered by how frequently they
+    appear across files.
+
+    Args:
+        query: Partial tag name to search for (case-insensitive prefix match).
+        limit: Maximum number of tags to return.
+        db: Database session.
+
+    Returns:
+        A list of tag names ordered by descending usage count.
+    """
+    stmt = (
+        select(Tag)
+        .where(Tag.name.ilike(f"{query}%"))
+        .order_by(Tag.count.desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    tags = result.scalars().all()
+    return [tag.name for tag in tags]
 
 
 @router.post("/associate", response_model=FileResponse, status_code=status.HTTP_200_OK)
