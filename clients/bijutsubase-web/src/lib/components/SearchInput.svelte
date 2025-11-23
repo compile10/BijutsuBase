@@ -103,19 +103,7 @@
 	$effect(() => {
 		if (showSuggestions && suggestionsElement && suggestionIndex >= 0) {
 			const selectedElement = suggestionsElement.children[suggestionIndex] as HTMLElement;
-			if (selectedElement) {
-				// Check if element is visible in scroll view
-				const containerTop = suggestionsElement.scrollTop;
-				const containerBottom = containerTop + suggestionsElement.clientHeight;
-				const elementTop = selectedElement.offsetTop;
-				const elementBottom = elementTop + selectedElement.clientHeight;
-
-				if (elementTop < containerTop) {
-					suggestionsElement.scrollTop = elementTop;
-				} else if (elementBottom > containerBottom) {
-					suggestionsElement.scrollTop = elementBottom - suggestionsElement.clientHeight;
-				}
-			}
+			selectedElement?.scrollIntoView({ block: 'nearest' });
 		}
 	});
 
@@ -172,7 +160,7 @@
 		<div
 			bind:this={suggestionsElement}
 			transition:fade={{ duration: 100 }}
-			class="absolute left-0 right-0 top-full z-50 mt-1 max-h-[40vh] overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+			class="absolute left-0 right-0 top-full z-50 mt-1 max-h-96 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
 		>
 			{#each suggestions as tag, index}
 				<button
