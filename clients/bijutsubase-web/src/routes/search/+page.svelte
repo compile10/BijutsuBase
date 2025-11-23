@@ -14,6 +14,7 @@
 	import IconClose from '~icons/mdi/close';
 	import IconDelete from '~icons/mdi/trash-can-outline';
 	import IconPencil from '~icons/mdi/pencil';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 
 	let thumbnails = $state<FileThumb[]>([]);
 	let loading = $state(true);
@@ -191,11 +192,11 @@
 					BijutsuBase
 				</a>
 				<form onsubmit={handleSearch} class="flex flex-1 gap-2">
-					<input
-						type="text"
+					<SearchInput
 						bind:value={searchQuery}
 						placeholder="Enter space-separated tags..."
-						class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-500 
+						class="flex-1"
+						inputClass="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-500 
 						focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 
 						dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
 					/>
@@ -217,8 +218,8 @@
 		</div>
 	</div>
 
-	# TODO: Disable selection mode between search results 
-	# and update the selected files when the search results change
+	<!-- TODO: Disable selection mode between search results 
+	     and update the selected files when the search results change -->
 	<!-- Selection Mode Bar -->
 	{#if isSelectMode}
 		<div 

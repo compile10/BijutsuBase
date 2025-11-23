@@ -65,6 +65,22 @@ export interface BulkTagDissociateRequest {
 }
 
 /**
+ * Recommend tags based on user input
+ * @param query - Partial tag name to search for
+ * @param limit - Maximum number of tags to return
+ * @returns Array of recommended tag names
+ */
+export async function getRecommendedTags(query: string, limit: number = 20): Promise<string[]> {
+	const response = await fetch(`/api/tags/recommend?query=${encodeURIComponent(query)}&limit=${limit}`);
+
+	if (!response.ok) {
+		throw new Error(`Failed to get recommendations: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
  * Search for files by tags
  * @param tags - Space-separated list of tag names
  * @param sort - Sort order (date_desc, date_asc, size_desc, size_asc)

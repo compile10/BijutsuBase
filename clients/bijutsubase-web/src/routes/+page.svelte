@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 
 	let searchQuery = $state('');
 	let sortOption = $state('date_desc');
@@ -23,11 +24,11 @@
 		</p>
 		
 		<form onsubmit={handleSearch} class="flex flex-col gap-2 sm:flex-row">
-			<input
-				type="text"
+			<SearchInput
 				bind:value={searchQuery}
 				placeholder="Enter space-separated tags..."
-				class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
+				class="flex-1"
+				inputClass="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
 			/>
 			
 			<SortDropdown

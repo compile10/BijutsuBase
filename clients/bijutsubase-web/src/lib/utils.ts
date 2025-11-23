@@ -14,3 +14,17 @@ export function processTagSource(tagSource: string): string {
 	return tagSource.charAt(0).toUpperCase() + tagSource.slice(1);
 }
 
+/**
+ * Debounce a function call
+ * @param func - The function to debounce
+ * @param wait - The time to wait in milliseconds before calling the function
+ * @returns A debounced version of the function
+ */
+export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
+	let timeout: ReturnType<typeof setTimeout>;
+	return function(...args: Parameters<T>) {
+		clearTimeout(timeout);
+		timeout = setTimeout(() => func(...args), wait);
+	};
+}
+
