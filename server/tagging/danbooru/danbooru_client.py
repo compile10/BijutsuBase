@@ -38,6 +38,16 @@ class DanbooruPost(BaseModel):
     pixiv_id: Optional[int] = None
 
 
+class DanbooruTag(BaseModel):
+    """Pydantic model representing a Danbooru tag response."""
+
+    id: int
+    name: str
+    category: int
+    post_count: int
+    is_deprecated: bool
+
+
 class DanbooruClient:
     """Client for interacting with the Danbooru API.
        Many booru sites use the same API, so this client can be used for any booru site 
@@ -69,6 +79,15 @@ class DanbooruClient:
 
         self.username = username
         self.api_key = api_key
+        
+        # Shared headers for API requests
+        self.headers = {
+            "User-Agent": "BijutsuBase/0.1.0",
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": f"{self.base_url}/",
+            "Origin": self.base_url,
+        }
 
     async def get_post(self, md5: str) -> list[DanbooruPost]:
         """
@@ -90,19 +109,10 @@ class DanbooruClient:
         if self.username and self.api_key:
             auth = (self.username, self.api_key)
 
-        # Set up headers for API requests
-        headers = {
-            "User-Agent": "BijutsuBase/0.1.0",
-            "Accept": "application/json",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": f"{self.base_url}/",
-            "Origin": self.base_url,
-        }
-
         # Make the API request
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(url, params=params, auth=auth, headers=headers)
+                response = await client.get(url, params=params, auth=auth, headers=self.headers)
                 
                 # Handle 404 (file not found) gracefully
                 if response.status_code == 404:
@@ -141,3 +151,36 @@ class DanbooruClient:
             # Return empty list to allow upload to proceed without Danbooru metadata
             return []
 
+    async def search_tags(self, query: str, limit: int = 20) -> list[DanbooruTag]:
+        """
+        Search for tags by name/pattern.
+
+        Args:
+            query: The tag name or pattern to search for
+            limit: Maximum number of results to return
+
+        Returns:
+            A list of DanbooruTag objects matching the query.
+        """
+        url = f"{self.base_url}/tags.json"
+        params = {
+            "search[name_matches]": f"{query}*",
+            "search[order]": "count",
+            "search[hide_empty]": "yes",
+            "limit": limit,
+        }
+
+        # Set up authentication if credentials are provided
+        auth = None
+        if self.username and self.api_key:
+            auth = (self.username, self.api_key)
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, auth=auth, headers=self.headers)
+                response.raise_for_status()
+                data = response.json()
+                return [DanbooruTag(**tag) for tag in data]
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error(f"Error searching Danbooru tags: {e}")
+            return []

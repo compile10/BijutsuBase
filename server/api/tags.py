@@ -18,6 +18,7 @@ from api.serializers.tag import (
     BulkTagAssociateRequest,
     BulkTagDissociateRequest,
 )
+from tagging.danbooru import DanbooruClient, DanbooruTag
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])
@@ -51,6 +52,25 @@ async def recommend_tags(
     result = await db.execute(stmt)
     tags = result.scalars().all()
     return [tag.name for tag in tags]
+
+
+@router.get("/danbooru-recs", response_model=list[DanbooruTag], status_code=status.HTTP_200_OK)
+async def danbooru_recommend_tags(
+    query: str,
+    limit: int = 20,
+):
+    """
+    Recommend tags from Danbooru based on user input.
+
+    Args:
+        query: Partial tag name to search for.
+        limit: Maximum number of tags to return.
+
+    Returns:
+        A list of DanbooruTag objects.
+    """
+    client = DanbooruClient()
+    return await client.search_tags(query, limit=limit)
 
 
 @router.post("/associate", response_model=FileResponse, status_code=status.HTTP_200_OK)
