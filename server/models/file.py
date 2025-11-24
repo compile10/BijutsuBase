@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from models.tag import Tag
+    from models.pool import PoolMember
 
 from sqlalchemy import String, Integer, DateTime, Boolean, func, event, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -101,6 +102,13 @@ class File(Base):
     tags: Mapped[list["Tag"]] = relationship(
         secondary="file_tags",
         back_populates="files"
+    )
+
+    # Relationship to pools through junction table
+    pool_entries: Mapped[list["PoolMember"]] = relationship(
+        "PoolMember",
+        back_populates="file",
+        cascade="all, delete-orphan"
     )
     
     def __repr__(self) -> str:

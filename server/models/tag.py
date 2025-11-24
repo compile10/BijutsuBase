@@ -74,12 +74,12 @@ class FileTag(Base):
     
     file_sha256_hash: Mapped[str] = mapped_column(
         String(64),
-        ForeignKey("files.sha256_hash"),
+        ForeignKey("files.sha256_hash", ondelete="CASCADE"),
         primary_key=True
     )
     tag_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("tags.id"),
+        ForeignKey("tags.id", ondelete="CASCADE"),
         primary_key=True
     )
     created_at: Mapped[datetime] = mapped_column(
