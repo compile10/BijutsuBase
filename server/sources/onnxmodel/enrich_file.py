@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 import cv2
 
 from ml.config import onnx_model
-from tagging.onnxmodel.preprocess import preprocess_image
+from sources.onnxmodel.preprocess import preprocess_image
 from utils.file_storage import generate_file_path
 from models.file import File as FileModel, TagSource, Rating
 from models.tag import Tag, TagCategory, FileTag

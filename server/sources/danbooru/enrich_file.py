@@ -7,7 +7,8 @@ from sqlalchemy.exc import IntegrityError
 
 from models.file import File, Rating, TagSource
 from models.tag import Tag, TagCategory, FileTag
-from .danbooru_client import DanbooruClient, DanbooruPost
+from .danbooru_client import DanbooruClient
+from api.serializers.danbooru import DanbooruPost
 
 if TYPE_CHECKING:
     pass

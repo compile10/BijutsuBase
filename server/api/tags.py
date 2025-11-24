@@ -18,7 +18,8 @@ from api.serializers.tag import (
     BulkTagAssociateRequest,
     BulkTagDissociateRequest,
 )
-from tagging.danbooru import DanbooruClient, DanbooruTag
+from sources.danbooru import DanbooruClient
+from api.serializers.danbooru import DanbooruTag
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])

@@ -19,8 +19,8 @@ from sqlalchemy.exc import IntegrityError
 from database.config import get_db
 from api.serializers.file import FileResponse
 from utils.file_storage import generate_file_path
-from tagging.danbooru.enrich_file import enrich_file_with_danbooru
-from tagging.onnxmodel.enrich_file import enrich_file_with_onnx
+from sources.danbooru.enrich_file import enrich_file_with_danbooru
+from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from models.file import File as FileModel
 import logging
 
