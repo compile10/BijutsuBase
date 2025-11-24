@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { FileResponse, TagResponse } from '$lib/api';
-	import { associateTag, dissociateTag } from '$lib/api';
+	import { associateTag, dissociateTag, getDanbooruRecommendedTags } from '$lib/api';
+	import SearchInput from './SearchInput.svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconAccount from '~icons/mdi/account';
 	import IconPalette from '~icons/mdi/palette';
@@ -184,19 +185,20 @@
 					<label for="tag-name" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
 						Tag Name
 					</label>
-					<input
-						id="tag-name"
-						type="text"
+					
+					<SearchInput
 						bind:value={newTagName}
-						disabled={tagBusy || disabled}
+						mode="single"
 						placeholder="Enter tag name..."
-						class="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
-						onkeydown={(e) => {
-							if (e.key === 'Enter') {
-								e.preventDefault();
-								handleAddTag();
-							}
+						inputClass="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+						fetchSuggestions={getDanbooruRecommendedTags}
+						getLabel={(item) => (item as TagResponse).name}
+						onSelect={(item) => {
+							const tag = item as TagResponse;
+							newTagName = tag.name;
+							newTagCategory = tag.category;
 						}}
+						onSubmit={() => handleAddTag()}
 					/>
 				</div>
 				<div>

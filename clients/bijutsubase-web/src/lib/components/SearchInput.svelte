@@ -8,6 +8,10 @@
 		placeholder?: string;
 		inputClass?: string;
 		class?: string; // For the wrapper
+		mode?: 'search' | 'single';
+		fetchSuggestions?: (query: string) => Promise<any[]>;
+		getLabel?: (item: any) => string;
+		onSelect?: (item: any) => void;
 		onSubmit?: (e: Event) => void;
 	}
 
@@ -16,10 +20,14 @@
 		placeholder = 'Search...', 
 		inputClass = '', 
 		class: className = '',
+		mode = 'search',
+		fetchSuggestions = async (q) => await getRecommendedTags(q, 10),
+		getLabel = (item) => String(item),
+		onSelect,
 		onSubmit 
 	}: Props = $props();
 
-	let suggestions = $state<string[]>([]);
+	let suggestions = $state<any[]>([]);
 	let showSuggestions = $state(false);
 	let inputElement: HTMLInputElement;
 	let suggestionIndex = $state(-1);
@@ -30,6 +38,15 @@
 		
 		const cursorPosition = inputElement.selectionStart || 0;
 		const textBeforeCursor = value.slice(0, cursorPosition);
+		
+		if (mode === 'single') {
+			return {
+				word: textBeforeCursor, // In single mode, suggest based on everything typed so far
+				startIndex: 0,
+				endIndex: value.length
+			};
+		}
+
 		const words = textBeforeCursor.split(/\s+/);
 		const currentWord = words[words.length - 1];
 		
@@ -40,7 +57,7 @@
 		};
 	}
 
-	const fetchSuggestions = debounce(async (query: string) => {
+	const doFetchSuggestions = debounce(async (query: string) => {
 		if (!query || query.length < 1) {
 			suggestions = [];
 			showSuggestions = false;
@@ -48,7 +65,7 @@
 		}
 
 		try {
-			suggestions = await getRecommendedTags(query, 10);
+			suggestions = await fetchSuggestions(query);
 			showSuggestions = suggestions.length > 0;
 			suggestionIndex = -1; // Reset selection
 		} catch (err) {
@@ -64,15 +81,29 @@
 
 		const info = getCurrentWordInfo();
 		if (info && info.word) {
-			fetchSuggestions(info.word);
+			doFetchSuggestions(info.word);
 		} else {
 			suggestions = [];
 			showSuggestions = false;
 		}
 	}
 
-	function selectSuggestion(tag: string) {
+	function selectSuggestion(item: any) {
 		if (!inputElement) return;
+
+		const label = getLabel(item);
+
+		if (mode === 'single') {
+			value = label;
+			if (onSelect) {
+				onSelect(item);
+			}
+			
+			suggestions = [];
+			showSuggestions = false;
+			inputElement.focus();
+			return;
+		}
 
 		const info = getCurrentWordInfo();
 		if (info) {
@@ -81,8 +112,12 @@
 			
 			// Add tag and a space if one doesn't already exist
 			const hasSpace = afterCursor.startsWith(' ');
-			value = `${beforeWord}${tag}${hasSpace ? '' : ' '}${afterCursor}`;
+			value = `${beforeWord}${label}${hasSpace ? '' : ' '}${afterCursor}`;
 			
+			if (onSelect) {
+				onSelect(item);
+			}
+
 			suggestions = [];
 			showSuggestions = false;
 			
@@ -91,7 +126,7 @@
 			
 			// Need to wait for DOM update before moving the cursor
 			setTimeout(() => {
-				const newCursorPos = info.startIndex + tag.length + 1;
+				const newCursorPos = info.startIndex + label.length + 1;
 				inputElement.setSelectionRange(newCursorPos, newCursorPos);
 			}, 0);
 		}
@@ -147,7 +182,7 @@
 	<input
 		bind:this={inputElement}
 		type="text"
-		{value}
+		bind:value={value}
 		oninput={handleInput}
 		onkeydown={handleKeydown}
 		onblur={handleBlur}
@@ -162,17 +197,16 @@
 			transition:fade={{ duration: 100 }}
 			class="absolute left-0 right-0 top-full z-50 mt-1 max-h-96 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
 		>
-			{#each suggestions as tag, index}
+			{#each suggestions as item, index}
 				<button
 					type="button"
 					class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700
 					{index === suggestionIndex ? 'bg-gray-100 dark:bg-gray-700' : ''}"
-					onclick={() => selectSuggestion(tag)}
+					onclick={() => selectSuggestion(item)}
 				>
-					{tag}
+					{getLabel(item)}
 				</button>
 			{/each}
 		</div>
 	{/if}
 </div>
-

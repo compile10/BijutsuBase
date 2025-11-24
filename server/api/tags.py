@@ -20,6 +20,14 @@ from api.serializers.tag import (
 )
 from sources.danbooru import DanbooruClient
 from api.serializers.danbooru import DanbooruTag
+from api.serializers.tag import (
+    TagAssociateRequest,
+    TagDissociateRequest,
+    BulkTagAssociateRequest,
+    BulkTagDissociateRequest,
+    TagResponse
+)
+from utils.danbooru_utils import map_danbooru_category_int_to_str
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])
@@ -55,7 +63,7 @@ async def recommend_tags(
     return [tag.name for tag in tags]
 
 
-@router.get("/danbooru-recs", response_model=list[DanbooruTag], status_code=status.HTTP_200_OK)
+@router.get("/danbooru-recs", response_model=list[TagResponse], status_code=status.HTTP_200_OK)
 async def danbooru_recommend_tags(
     query: str,
     limit: int = 20,
@@ -68,10 +76,23 @@ async def danbooru_recommend_tags(
         limit: Maximum number of tags to return.
 
     Returns:
-        A list of DanbooruTag objects.
+        A list of TagResponse objects.
     """
     client = DanbooruClient()
-    return await client.search_tags(query, limit=limit)
+    danbooru_tags = await client.search_tags(query, limit=limit)
+    
+    # Map DanbooruTag (with int category) to TagResponse (with str category)
+    recommendations = []
+    for tag in danbooru_tags:
+        recommendations.append(
+            TagResponse(
+                name=tag.name,
+                category=map_danbooru_category_int_to_str(tag.category),
+                count=tag.post_count
+            )
+        )
+        
+    return recommendations
 
 
 @router.post("/associate", response_model=FileResponse, status_code=status.HTTP_200_OK)

@@ -81,6 +81,22 @@ export async function getRecommendedTags(query: string, limit: number = 20): Pro
 }
 
 /**
+ * Get tag recommendations from Danbooru
+ * @param query - Partial tag name to search for
+ * @param limit - Maximum number of tags to return
+ * @returns Array of Danbooru tag recommendations with mapped categories
+ */
+export async function getDanbooruRecommendedTags(query: string, limit: number = 20): Promise<TagResponse[]> {
+	const response = await fetch(`/api/tags/danbooru-recs?query=${encodeURIComponent(query)}&limit=${limit}`);
+
+	if (!response.ok) {
+		throw new Error(`Failed to get Danbooru recommendations: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
  * Search for files by tags
  * @param tags - Space-separated list of tag names
  * @param sort - Sort order (date_desc, date_asc, size_desc, size_asc)
