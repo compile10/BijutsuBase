@@ -18,10 +18,11 @@ This document orients AI agents and contributors to work effectively in the Biju
   - Automatic Danbooru metadata enrichment on upload (rating/source/tags) via `sources/danbooru/*` with in-process caching.
   - Thumbnail generation (images and animated WebP for videos) on `before_insert`; disk cleanup on `after_delete`.
   - File search by tags (`/api/files/search`) returning thumbnail URLs.
+  - Tag management (associate/dissociate) and recommendations (local + Danbooru).
   - Media serving under `/media/original/...` and `/media/thumb/...` (proxied by Nginx).
   - SvelteKit web client with upload modal and tag-based search UI.
 - **Planned/expected** (not yet implemented):
-  - Auth flows (signup/login, token issuance), full tag management endpoints, and object storage integration.
+  - Auth flows (signup/login, token issuance) and object storage integration.
 
 ### Repository layout (high level)
 
@@ -29,8 +30,8 @@ This document orients AI agents and contributors to work effectively in the Biju
 - `server/main.py`: FastAPI app entry with lifespan and router registration.
 - `server/database/config.py`: async engine/session, `Base`, DI helper `get_db`.
 - `server/models/`: SQLAlchemy models (`file.py`, `tag.py`).
-- `server/api/`: API routers (`health.py`, `files.py`, `media.py`).
-- `server/api/serializers/`: Pydantic serializers (e.g., `file.py`).
+- `server/api/`: API routers (`health.py`, `files.py`, `media.py`, `tags.py`).
+- `server/api/serializers/`: Pydantic serializers (e.g., `file.py`, `danbooru.py`).
 - `server/utils/`: Utilities (`file_storage.py`, `file_info.py`, `thumbnail_gen.py`).
 - `server/sources/`: External integrations (Danbooru, ONNX models).
 - `server/alembic/`: migrations config and versions.
@@ -242,12 +243,16 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 - `DELETE /api/files/{sha256}` — Delete file and associations; disk cleanup occurs.
 - `GET /media/original/...` — Serve original media.
 - `GET /media/thumb/...` — Serve generated WebP thumbnails.
+- `GET /api/tags/recommend` — Recommend tags from local usage.
+- `GET /api/tags/danbooru-recs` — Recommend tags from Danbooru.
+- `POST /api/tags/associate` — Associate a tag with a file.
+- `DELETE /api/tags/dissociate` — Remove a tag from a file.
 
 ### Notes for future work
 
 - Align Python versions (Docker image vs. `pyproject.toml`).
 - Add test suite (pytest, coverage) and CI.
-- Implement auth, tag management endpoints, and object storage integration.
+- Implement auth and object storage integration.
 
 ---
 
