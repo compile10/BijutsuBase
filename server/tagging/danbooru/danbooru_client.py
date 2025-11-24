@@ -1,10 +1,10 @@
 """Danbooru API client for retrieving post information."""
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -69,33 +69,6 @@ class DanbooruClient:
 
         self.username = username
         self.api_key = api_key
-        self._cache: dict = {}
-
-    def _get_cached(self, method_name: str, *args) -> Optional[Any]:
-        """
-        Retrieve a cached value for a method call.
-
-        Args:
-            method_name: Name of the method being called
-            *args: Arguments passed to the method
-
-        Returns:
-            Cached value if found, None otherwise
-        """
-        cache_key = (method_name, *args)
-        return self._cache.get(cache_key)
-
-    def _set_cached(self, method_name: str, *args, value: Any) -> None:
-        """
-        Store a value in the cache for a method call.
-
-        Args:
-            method_name: Name of the method being called
-            *args: Arguments passed to the method
-            value: The value to cache
-        """
-        cache_key = (method_name, *args)
-        self._cache[cache_key] = value
 
     async def get_post(self, md5: str) -> list[DanbooruPost]:
         """
@@ -109,11 +82,6 @@ class DanbooruClient:
             Returns an empty list if the file is not found or if there's an error.
             All errors are handled gracefully to allow the upload process to continue.
         """
-        # Check cache first
-        cached_result = self._get_cached("get_post", md5)
-        if cached_result is not None:
-            return cached_result
-
         url = f"{self.base_url}/posts.json"
         params = {"md5": md5}
 
@@ -140,8 +108,6 @@ class DanbooruClient:
                 if response.status_code == 404:
                     logger.debug(f"File with MD5 {md5} not found on Danbooru")
                     result = []
-                    # Cache empty result to avoid repeated failed requests
-                    self._set_cached("get_post", md5, value=result)
                     return result
                 
                 # Raise for other HTTP errors
@@ -161,8 +127,6 @@ class DanbooruClient:
                     logger.warning(f"Unexpected response format from Danbooru API: {type(data)}")
                     return []
 
-                # Cache the result before returning
-                self._set_cached("get_post", md5, value=result)
                 return result
         except httpx.HTTPStatusError as e:
             # Handle other HTTP errors gracefully (e.g., 500, 503, etc.)
