@@ -15,7 +15,7 @@ This document orients AI agents and contributors to work effectively in the Biju
   - Async SQLAlchemy configured via `DATABASE_URL` (`server/database/config.py`).
   - Alembic initial migration for `files`, `tags`, and `file_tags` (includes `rating`, `source`, `ai_generated`).
   - File upload endpoint streams to disk, validates MIME with `python-magic`, computes MD5/SHA256, extracts dimensions (PIL/OpenCV), and persists.
-  - Automatic Danbooru metadata enrichment on upload (rating/source/tags) via `tagging/danbooru/*` with in-process caching.
+  - Automatic Danbooru metadata enrichment on upload (rating/source/tags) via `sources/danbooru/*` with in-process caching.
   - Thumbnail generation (images and animated WebP for videos) on `before_insert`; disk cleanup on `after_delete`.
   - File search by tags (`/api/files/search`) returning thumbnail URLs.
   - Media serving under `/media/original/...` and `/media/thumb/...` (proxied by Nginx).
@@ -32,7 +32,7 @@ This document orients AI agents and contributors to work effectively in the Biju
 - `server/api/`: API routers (`health.py`, `files.py`, `media.py`).
 - `server/api/serializers/`: Pydantic serializers (e.g., `file.py`).
 - `server/utils/`: Utilities (`file_storage.py`, `file_info.py`, `thumbnail_gen.py`).
-- `server/tagging/`: Danbooru integration (`danbooru_client.py`, enrichment helpers).
+- `server/sources/`: External integrations (Danbooru, ONNX models).
 - `server/alembic/`: migrations config and versions.
 - `clients/bijutsubase-web/`: SvelteKit web client (SSR build for Docker).
 - `nginx/nginx.conf`: reverse proxy for API (`/api`), media (`/media`) and web (all other routes).
