@@ -107,9 +107,8 @@ class File(Base):
     # Relationship to pools through junction table
     pool_entries: Mapped[list["PoolMember"]] = relationship(
         "PoolMember",
-        back_populates="file",
-        cascade="all, delete-orphan"
-    )
+        back_populates="file"
+        )
     
     def __repr__(self) -> str:
         """String representation of File."""
