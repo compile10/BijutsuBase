@@ -33,7 +33,7 @@
 			
 			<SortDropdown
 				bind:value={sortOption}
-				class="py-3!"
+				class="py-3! h-full"
 			/>
 
 			<button
