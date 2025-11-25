@@ -34,7 +34,7 @@ class FileAiGeneratedUpdate(BaseModel):
 
 @router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
 async def search_files(
-    tags: str = Query(..., description="Space-separated list of tag names"),
+    tags: str = Query("", description="Space-separated list of tag names"),
     sort: str = Query("date_desc", description="Sort order: date_desc, date_asc, size_desc, size_asc"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -52,12 +52,6 @@ async def search_files(
     # Split space-separated tag names and filter out empty strings
     tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
     
-    if not tag_names:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one tag name must be provided"
-        )
-    
     # Determine sort order
     sort_column = None
     if sort == "date_desc":
@@ -72,18 +66,22 @@ async def search_files(
         # Default to date_desc if invalid sort param provided
         sort_column = FileModel.date_added.desc()
 
-    # Query files that have ALL of the specified tags
-    # We join File -> FileTag -> Tag, filter by tag names, group by file,
-    # and ensure the count of distinct tags matches the number of requested tags
-    query = (
-        select(FileModel.sha256_hash)
-        .join(FileTag, FileModel.sha256_hash == FileTag.file_sha256_hash)
-        .join(Tag, FileTag.tag_id == Tag.id)
-        .where(Tag.name.in_(tag_names))
-        .group_by(FileModel.sha256_hash)
-        .having(func.count(func.distinct(Tag.id)) == len(tag_names))
-        .order_by(sort_column)
-    )
+    if tag_names:
+        # Query files that have ALL of the specified tags
+        # We join File -> FileTag -> Tag, filter by tag names, group by file,
+        # and ensure the count of distinct tags matches the number of requested tags
+        query = (
+            select(FileModel.sha256_hash)
+            .join(FileTag, FileModel.sha256_hash == FileTag.file_sha256_hash)
+            .join(Tag, FileTag.tag_id == Tag.id)
+            .where(Tag.name.in_(tag_names))
+            .group_by(FileModel.sha256_hash)
+            .having(func.count(func.distinct(Tag.id)) == len(tag_names))
+            .order_by(sort_column)
+        )
+    else:
+        # If no tags provided, return all files
+        query = select(FileModel.sha256_hash).order_by(sort_column)
     
     result = await db.execute(query)
     file_hashes = result.scalars().all()
