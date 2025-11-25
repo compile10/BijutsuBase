@@ -180,9 +180,9 @@
 	});
 </script>
 
-<div class="min-h-screen">
+<div class="flex h-screen flex-col">
 	<!-- Top Bar -->
-	<div class="sticky top-0 z-10 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900">
+	<div class="shrink-0 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900">
 		<div class="mx-auto max-w-7xl px-4 py-4">
 			<div class="flex items-center gap-4">
 				<a
@@ -258,7 +258,7 @@
 		</div>
 	{/if}
 
-	<div class="flex flex-col px-2 sm:px-4 pt-2" style="height: calc(100vh - 69px);">
+	<div class="flex flex-1 flex-col overflow-hidden">
 
 		<!-- Loading State -->
 		{#if loading}
@@ -288,51 +288,51 @@
 
 		<!-- Results Grid with VList -->
 		{#if !loading && !error && thumbnails.length > 0}
-			<div class="mb-2 shrink-0 text-sm text-gray-600 dark:text-gray-400">
-				Found {thumbnails.length} {thumbnails.length === 1 ? 'result' : 'results'}
-				for <span class="font-mono font-semibold">{tags}</span>
-			</div>
-			<div class="flex-1 min-h-0">
-				<VList data={rows} class="h-full px-4">
-					{#snippet children(row, rowIndex)}
-						<div
-							class="grid gap-2 pb-2"
-							style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
-						>
-							{#each row as thumb, colIndex}
-								{@const index = rowIndex * itemsPerRow + colIndex}
-								{@const isSelected = selectedFiles.has(thumb.sha256_hash)}
-								<button
-									use:longpress={() => handleLongPress(thumb)}
-									onclick={() => toggleSelection(thumb, index)}
-									class="group relative aspect-square overflow-hidden rounded-lg border bg-gray-100 transition-transform dark:bg-gray-800 
-									{isSelectMode && isSelected 
-										? 'border-primary-500 ring-2 ring-primary-500 dark:border-primary-400 dark:ring-primary-400' 
-										: 'border-gray-200 hover:scale-105 dark:border-gray-700'}"
-								>
-									<img
-										src={thumb.thumbnail_url}
-										alt="Thumbnail"
-										class="h-full w-full object-cover {isSelectMode && isSelected ? 'opacity-75' : ''}"
-									/>
-									
-									{#if isSelectMode}
-										<div class="absolute right-2 top-2 z-10">
-											{#if isSelected}
-												<IconCheckCircle class="h-6 w-6 text-primary-600 bg-white rounded-full dark:text-primary-400 dark:bg-gray-900" />
-											{:else}
-												<IconCircleOutline class="h-6 w-6 text-white drop-shadow-md" />
-											{/if}
-										</div>
-									{:else}
-										<div class="absolute inset-0 bg-black opacity-0 transition-opacity group-hover:opacity-10"></div>
-									{/if}
-								</button>
-							{/each}
+			<VList data={rows} class="flex-1 min-h-0 px-2 sm:px-4">
+				{#snippet children(row, rowIndex)}
+					{#if rowIndex === 0}
+						<div class="mb-2 pb-2 text-sm text-gray-600 dark:text-gray-400 pt-2">
+							Found {thumbnails.length} {thumbnails.length === 1 ? 'result' : 'results'}
+							for <span class="font-mono font-semibold">{tags}</span>
 						</div>
-					{/snippet}
-				</VList>
-			</div>
+					{/if}
+					<div
+						class="grid gap-2 pb-2"
+						style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
+					>
+						{#each row as thumb, colIndex}
+							{@const index = rowIndex * itemsPerRow + colIndex}
+							{@const isSelected = selectedFiles.has(thumb.sha256_hash)}
+							<button
+								use:longpress={() => handleLongPress(thumb)}
+								onclick={() => toggleSelection(thumb, index)}
+								class="group relative aspect-square overflow-hidden rounded-lg border bg-gray-100 transition-transform dark:bg-gray-800 
+								{isSelectMode && isSelected 
+									? 'border-primary-500 ring-2 ring-primary-500 dark:border-primary-400 dark:ring-primary-400' 
+									: 'border-gray-200 hover:scale-105 dark:border-gray-700'}"
+							>
+								<img
+									src={thumb.thumbnail_url}
+									alt="Thumbnail"
+									class="h-full w-full object-cover {isSelectMode && isSelected ? 'opacity-75' : ''}"
+								/>
+								
+								{#if isSelectMode}
+									<div class="absolute right-2 top-2 z-10">
+										{#if isSelected}
+											<IconCheckCircle class="h-6 w-6 text-primary-600 bg-white rounded-full dark:text-primary-400 dark:bg-gray-900" />
+										{:else}
+											<IconCircleOutline class="h-6 w-6 text-white drop-shadow-md" />
+										{/if}
+									</div>
+								{:else}
+									<div class="absolute inset-0 bg-black opacity-0 transition-opacity group-hover:opacity-10"></div>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/snippet}
+			</VList>
 		{/if}
 	</div>
 </div>
