@@ -288,7 +288,7 @@
 
 		<!-- Results Grid with VList -->
 		{#if !loading && !error && thumbnails.length > 0}
-			<VList data={rows} class="flex-1 min-h-0 px-2 sm:px-4">
+			<VList data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8">
 				{#snippet children(row, rowIndex)}
 					{#if rowIndex === 0}
 						<div class="mb-2 pb-2 text-sm text-gray-600 dark:text-gray-400 pt-4">
