@@ -14,6 +14,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>BijutsuBase</title>
+</svelte:head>
+
 <div class="flex min-h-screen items-center justify-center px-4">
 	<div class="w-full max-w-2xl">
 		<h1 class="mb-8 text-center text-4xl font-bold text-gray-900 dark:text-white">

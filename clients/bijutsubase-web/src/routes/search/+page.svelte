@@ -180,6 +180,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{tags ? `${tags} - BijutsuBase` : 'Search - BijutsuBase'}</title>
+</svelte:head>
+
 <div class="flex h-screen flex-col">
 	<!-- Top Bar -->
 	<div class="shrink-0 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900">

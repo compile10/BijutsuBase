@@ -9,7 +9,6 @@
 </script>
 
 <svelte:head>
-	<title>BijutsuBase</title>
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
