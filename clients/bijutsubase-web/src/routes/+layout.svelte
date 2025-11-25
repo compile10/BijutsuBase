@@ -13,7 +13,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="min-h-screen bg-white dark:bg-zinc-950 text-gray-900 dark:text-gray-100">
+<div class="min-h-screen">
 	<!-- Global Upload Button - fixed top right -->
 	<button
 		onclick={() => (isUploadModalOpen = true)}
