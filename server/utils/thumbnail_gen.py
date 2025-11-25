@@ -11,6 +11,7 @@ from PIL import Image, ImageSequence
 # Thumbnail configuration
 MAX_THUMBNAIL_DIMENSION = 350
 MAX_VIDEO_DURATION_SECONDS = 180  # 3 minutes
+MAX_ANIMATION_DURATION_MS = 15 * 60 * 1000  # 15 minutes
 
 
 def _calculate_thumbnail_dimensions(width: int, height: int) -> tuple[int, int]:
@@ -66,6 +67,7 @@ def generate_thumbnail(path: Path) -> bytes:
         if is_animated:
             frames = []
             durations = []
+            total_duration = 0
             
             # Calculate new dimensions
             new_width, new_height = _calculate_thumbnail_dimensions(width, height)
@@ -73,7 +75,14 @@ def generate_thumbnail(path: Path) -> bytes:
             
             # Iterate over frames
             for frame in ImageSequence.Iterator(img):
-                durations.append(frame.info.get("duration", 100))
+                duration = frame.info.get("duration", 100)
+                
+                # Stop if we exceed the max duration
+                if total_duration + duration > MAX_ANIMATION_DURATION_MS:
+                    break
+                
+                durations.append(duration)
+                total_duration += duration
                 
                 if should_resize:
                     # Resize frame (must convert to RGBA to preserve transparency during resize)
