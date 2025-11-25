@@ -6,7 +6,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageSequence
 
 # Thumbnail configuration
 MAX_THUMBNAIL_DIMENSION = 350
@@ -43,6 +43,7 @@ def generate_thumbnail(path: Path) -> bytes:
     
     Resizes the image to fit within MAX_THUMBNAIL_DIMENSION while maintaining aspect ratio.
     The output is converted to WebP format with quality=85.
+    Supports animated images (WebP, GIF, etc.).
     
     Args:
         path: Path to image file on disk (any PIL-supported format)
@@ -59,6 +60,45 @@ def generate_thumbnail(path: Path) -> bytes:
         # Calculate new dimensions to fit within MAX_THUMBNAIL_DIMENSION while maintaining aspect ratio
         width, height = img.size
         
+        # Check if image is animated
+        is_animated = getattr(img, "is_animated", False)
+        
+        if is_animated:
+            frames = []
+            durations = []
+            
+            # Calculate new dimensions
+            new_width, new_height = _calculate_thumbnail_dimensions(width, height)
+            should_resize = width > MAX_THUMBNAIL_DIMENSION or height > MAX_THUMBNAIL_DIMENSION
+            
+            # Iterate over frames
+            for frame in ImageSequence.Iterator(img):
+                durations.append(frame.info.get("duration", 100))
+                
+                if should_resize:
+                    # Resize frame (must convert to RGBA to preserve transparency during resize)
+                    f = frame.convert("RGBA").resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    frames.append(f)
+                else:
+                    # Copy frame to ensure we keep it
+                    frames.append(frame.copy())
+            
+            if not frames:
+                raise ValueError("No frames extracted from animated image")
+                
+            # Save as animated WebP
+            buffer = io.BytesIO()
+            frames[0].save(
+                buffer,
+                format="WEBP",
+                save_all=True,
+                append_images=frames[1:],
+                duration=durations,
+                loop=0,
+                quality=85
+            )
+            return buffer.getvalue()
+            
         # If image is already small enough, just convert to WebP
         if width <= MAX_THUMBNAIL_DIMENSION and height <= MAX_THUMBNAIL_DIMENSION:
             buffer = io.BytesIO()
