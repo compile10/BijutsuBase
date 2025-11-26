@@ -41,8 +41,7 @@
 	<IconUpload class="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
 </button>
 
-<!-- Added pt-16 to account for fixed buttons on mobile -->
-<div class="flex min-h-screen items-center justify-center px-4 pt-16 pb-4">
+<div class="flex min-h-screen items-center justify-center px-4 pb-4">
 	<div class="w-full max-w-2xl">
 		<h1 class="mb-8 text-center text-4xl font-bold text-gray-900 dark:text-white">
 			BijutsuBase
