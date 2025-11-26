@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { VList } from 'virtua/svelte';
+	import type { VListHandle } from 'virtua/svelte';
 	import { fade } from 'svelte/transition';
 	import { searchFiles, deleteFile, type FileThumb } from '$lib/api';
 	import Lightbox from '$lib/components/Lightbox.svelte';
@@ -17,11 +18,18 @@
 	import SearchInput from '$lib/components/SearchInput.svelte';
 
 	let thumbnails = $state<FileThumb[]>([]);
-	let loading = $state(true);
+	let loading = $state(true); // Full page loading state
 	let error = $state<string | null>(null);
 	let itemsPerRow = $state(6);
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
+	
+	// Pagination state
+	let fetching = $state(false); // Fetching more items for page (non-blocking)
+	let nextCursor = $state<string | null>(null);
+	let hasMore = $state(false);
+	let fetchedCountRef = $state(-1);
+	let vlistRef: VListHandle | undefined = $state();
 	
 	// Selection Mode State
 	let isSelectMode = $state(false);
@@ -62,22 +70,74 @@
 		}
 	}
 
-	// Fetch thumbnails from API
-	async function fetchThumbnails() {
+	// Fetch initial results (first page)
+	async function fetchInitialResults() {
 		if (!tags) {
 			loading = false;
+			thumbnails = [];
+			nextCursor = null;
+			hasMore = false;
+			fetchedCountRef = -1;
 			return;
 		}
 
 		loading = true;
 		error = null;
+		thumbnails = [];
+		nextCursor = null;
+		hasMore = false;
+		fetchedCountRef = -1;
 
 		try {
-			thumbnails = await searchFiles(tags, currentSort);
+			const response = await searchFiles(tags, currentSort);
+			thumbnails = response.items;
+			nextCursor = response.next_cursor;
+			hasMore = response.has_more;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An error occurred';
 		} finally {
 			loading = false;
+		}
+	}
+
+	// Fetch more items for infinite scroll
+	async function fetchMoreItems() {
+		if (!tags || fetching || !hasMore || !nextCursor) {
+			return;
+		}
+
+		fetching = true;
+
+		try {
+			const response = await searchFiles(tags, currentSort, nextCursor);
+			thumbnails = [...thumbnails, ...response.items];
+			nextCursor = response.next_cursor;
+			hasMore = response.has_more;
+		} catch (err) {
+			console.error('Failed to fetch more items:', err);
+		} finally {
+			fetching = false;
+		}
+	}
+
+	// Handle scroll events for infinite scrolling
+	// Mimics React example: if (fetchedCountRef.current < count && ref.current.findItemIndex(ref.current.scrollOffset + ref.current.viewportSize) + 50 > count)
+	async function handleScroll() {
+		if (!vlistRef) return;
+		
+		const count = thumbnails.length;
+		
+		// Find the last visible row index and convert to item index
+		// endRowIndex gives us which row is at the bottom, multiply by itemsPerRow to get approximate item index
+		const endRowIndex = vlistRef.findEndIndex();
+		const lastVisibleItemIndex = (endRowIndex + 1) * itemsPerRow; // +1 because we want items up to and including this row
+		
+		// Check if we should fetch more:
+		// 1. fetchedCountRef < count (haven't fetched for current count yet)
+		// 2. lastVisibleItemIndex >= count (at the end)
+		if (fetchedCountRef < count && lastVisibleItemIndex >= count && hasMore && !fetching) {
+			fetchedCountRef = count;
+			await fetchMoreItems();
 		}
 	}
 
@@ -94,7 +154,7 @@
 		if (query) {
 			// Check if parameters are the same as current URL
 			if (query === tags && sortOption === currentSort) {
-				fetchThumbnails();
+				fetchInitialResults();
 			} else {
 				goto(`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`);
 			}
@@ -164,7 +224,7 @@
 	$effect(() => {
 		searchQuery = tags;
 		sortOption = currentSort;
-		fetchThumbnails();
+		fetchInitialResults();
 	});
 
 	// Update items per row on window resize
@@ -292,11 +352,11 @@
 
 		<!-- Results Grid with VList -->
 		{#if !loading && !error && thumbnails.length > 0}
-			<VList data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8">
+			<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8" onscroll={handleScroll}>
 				{#snippet children(row, rowIndex)}
 					{#if rowIndex === 0}
 						<div class="mb-2 pb-2 text-sm text-gray-600 dark:text-gray-400 pt-4">
-							Found {thumbnails.length} {thumbnails.length === 1 ? 'result' : 'results'}
+							Found {thumbnails.length}{hasMore ? '+' : ''} {thumbnails.length === 1 ? 'result' : 'results'}
 							for <span class="font-mono font-semibold">{tags}</span>
 						</div>
 					{/if}
@@ -335,6 +395,13 @@
 							</button>
 						{/each}
 					</div>
+					
+					<!-- Loading indicator at the end of the list -->
+					{#if rowIndex === rows.length - 1 && fetching && hasMore}
+						<div class="flex justify-center py-8">
+							<div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+						</div>
+					{/if}
 				{/snippet}
 			</VList>
 		{/if}
@@ -355,5 +422,5 @@
 <BulkEditModal
 	bind:isOpen={bulkEditModalOpen}
 	selectedFiles={selectedFiles}
-	onChange={fetchThumbnails}
+	onChange={fetchInitialResults}
 />

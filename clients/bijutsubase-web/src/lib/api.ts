@@ -7,6 +7,12 @@ export interface FileThumb {
 	thumbnail_url: string;
 }
 
+export interface FileSearchResponse {
+	items: FileThumb[];
+	next_cursor: string | null;
+	has_more: boolean;
+}
+
 export interface TagResponse {
 	name: string;
 	category: string;
@@ -97,13 +103,20 @@ export async function getDanbooruRecommendedTags(query: string, limit: number = 
 }
 
 /**
- * Search for files by tags
+ * Search for files by tags with cursor-based pagination
  * @param tags - Space-separated list of tag names
  * @param sort - Sort order (date_desc, date_asc, size_desc, size_asc)
- * @returns Array of file thumbnails
+ * @param cursor - Optional pagination cursor for fetching next page
+ * @param limit - Number of items to return per page (default: 60)
+ * @returns FileSearchResponse with items, next_cursor, and has_more flag
  */
-export async function searchFiles(tags: string, sort: string = 'date_desc'): Promise<FileThumb[]> {
-	const response = await fetch(`/api/files/search?tags=${encodeURIComponent(tags)}&sort=${encodeURIComponent(sort)}`);
+export async function searchFiles(tags: string, sort: string = 'date_desc', cursor?: string, limit: number = 60): Promise<FileSearchResponse> {
+	let url = `/api/files/search?tags=${encodeURIComponent(tags)}&sort=${encodeURIComponent(sort)}&limit=${limit}`;
+	if (cursor) {
+		url += `&cursor=${encodeURIComponent(cursor)}`;
+	}
+	
+	const response = await fetch(url);
 	
 	if (!response.ok) {
 		throw new Error(`Search failed: ${response.statusText}`);

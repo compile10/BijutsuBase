@@ -14,7 +14,8 @@ from database.config import get_db
 from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
 from utils.file_storage import generate_file_path
-from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest
+from utils.pagination import encode_cursor, decode_cursor
+from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
 from api.serializers.tag import TagResponse
 
 
@@ -32,73 +33,121 @@ class FileAiGeneratedUpdate(BaseModel):
     ai_generated: bool
 
 
-@router.get("/search", response_model=list[FileThumb], status_code=status.HTTP_200_OK)
+@router.get("/search", response_model=FileSearchResponse, status_code=status.HTTP_200_OK)
 async def search_files(
     tags: str = Query("", description="Space-separated list of tag names"),
     sort: str = Query("date_desc", description="Sort order: date_desc, date_asc, size_desc, size_asc"),
+    limit: int = Query(60, ge=1, le=200, description="Number of items to return per page"),
+    cursor: str = Query(None, description="Pagination cursor from previous response"),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Search for files that contain ALL of the specified tags.
+    Search for files that contain ALL of the specified tags with cursor-based pagination.
     
     Args:
         tags: Space-separated list of tag names to search for
         sort: Sort order (date_desc, date_asc, size_desc, size_asc)
+        limit: Number of items to return (max 200)
+        cursor: Pagination cursor for fetching next page
         db: Database session
         
     Returns:
-        List of FileThumb objects containing sha256_hash and thumbnail_url for matching files
+        FileSearchResponse with items, next_cursor, and has_more flag
     """
     # Split space-separated tag names and filter out empty strings
     tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
     
-    # Determine sort order
-    sort_column = None
+    # Decode cursor if provided
+    cursor_sort_value = None
+    cursor_sha256 = None
+    if cursor:
+        cursor_sort_value, cursor_sha256 = decode_cursor(cursor)
+    
+    # Determine sort field and direction
     if sort == "date_desc":
-        sort_column = FileModel.date_added.desc()
+        sort_field = FileModel.date_added
+        sort_order = "desc"
     elif sort == "date_asc":
-        sort_column = FileModel.date_added.asc()
+        sort_field = FileModel.date_added
+        sort_order = "asc"
     elif sort == "size_desc":
-        sort_column = FileModel.file_size.desc()
+        sort_field = FileModel.file_size
+        sort_order = "desc"
     elif sort == "size_asc":
-        sort_column = FileModel.file_size.asc()
+        sort_field = FileModel.file_size
+        sort_order = "asc"
     else:
         # Default to date_desc if invalid sort param provided
-        sort_column = FileModel.date_added.desc()
+        sort_field = FileModel.date_added
+        sort_order = "desc"
 
+    # Build base query
     if tag_names:
         # Query files that have ALL of the specified tags
-        # We join File -> FileTag -> Tag, filter by tag names, group by file,
-        # and ensure the count of distinct tags matches the number of requested tags
+        # We need to select both the hash and the sort field for cursor filtering
         query = (
-            select(FileModel.sha256_hash)
+            select(FileModel.sha256_hash, sort_field)
             .join(FileTag, FileModel.sha256_hash == FileTag.file_sha256_hash)
             .join(Tag, FileTag.tag_id == Tag.id)
             .where(Tag.name.in_(tag_names))
-            .group_by(FileModel.sha256_hash)
+            .group_by(FileModel.sha256_hash, sort_field)
             .having(func.count(func.distinct(Tag.id)) == len(tag_names))
-            .order_by(sort_column)
         )
     else:
         # If no tags provided, return all files
-        query = select(FileModel.sha256_hash).order_by(sort_column)
+        query = select(FileModel.sha256_hash, sort_field)
+    
+    # Apply cursor-based filtering
+    if cursor_sort_value is not None and cursor_sha256 is not None:
+        if sort_order == "desc":
+            # For descending order: (sort_field, sha256) < (cursor_sort, cursor_sha256)
+            query = query.where(
+                (sort_field < cursor_sort_value) |
+                ((sort_field == cursor_sort_value) & (FileModel.sha256_hash < cursor_sha256))
+            )
+        else:
+            # For ascending order: (sort_field, sha256) > (cursor_sort, cursor_sha256)
+            query = query.where(
+                (sort_field > cursor_sort_value) |
+                ((sort_field == cursor_sort_value) & (FileModel.sha256_hash > cursor_sha256))
+            )
+    
+    # Apply ordering
+    if sort_order == "desc":
+        query = query.order_by(sort_field.desc(), FileModel.sha256_hash.desc())
+    else:
+        query = query.order_by(sort_field.asc(), FileModel.sha256_hash.asc())
+    
+    # Fetch limit + 1 to determine if there are more results
+    query = query.limit(limit + 1)
     
     result = await db.execute(query)
-    file_hashes = result.scalars().all()
+    rows = result.all()
+    
+    # Check if there are more results
+    has_more = len(rows) > limit
+    items = rows[:limit]  # Take only the requested limit
     
     # Convert to FileThumb objects
-    # generate_file_path returns "media/thumb/ab/cd/hash.webp"
-    # Prepend "/" to make it a URL path: "/media/thumb/ab/cd/hash.webp"
-    # TODO: Cleanup to match other file responses
     file_thumbs = [
         FileThumb(
-            sha256_hash=sha256_hash,
-            thumbnail_url="/" + str(generate_file_path(sha256_hash, "webp", thumb=True)).replace("\\", "/")
+            sha256_hash=item[0],
+            thumbnail_url="/" + str(generate_file_path(item[0], "webp", thumb=True)).replace("\\", "/")
         )
-        for sha256_hash in file_hashes
+        for item in items
     ]
     
-    return file_thumbs
+    # Generate next cursor if there are more results
+    next_cursor = None
+    if has_more and items:
+        last_row = items[-1]
+        next_cursor = encode_cursor(last_row[1], last_row[0])
+    
+    return FileSearchResponse(
+        items=file_thumbs,
+        next_cursor=next_cursor,
+        has_more=has_more
+    )
 
 
 @router.post("/bulk-common-tags", response_model=list[TagResponse], status_code=status.HTTP_200_OK)

@@ -101,3 +101,10 @@ class BulkUpdateFileRequest(BaseModel):
     file_hashes: list[str]
     rating: Optional[str] = None
     ai_generated: Optional[bool] = None
+
+
+class FileSearchResponse(BaseModel):
+    """Response model for paginated file search."""
+    items: list[FileThumb]
+    next_cursor: Optional[str] = None
+    has_more: bool
