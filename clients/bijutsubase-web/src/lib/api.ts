@@ -110,7 +110,7 @@ export async function getDanbooruRecommendedTags(query: string, limit: number = 
  * @param limit - Number of items to return per page (default: 60)
  * @returns FileSearchResponse with items, next_cursor, and has_more flag
  */
-export async function searchFiles(tags: string, sort: string = 'date_desc', cursor?: string, limit: number = 60): Promise<FileSearchResponse> {
+export async function searchFiles(tags: string, sort: string = 'date_desc', cursor?: string, limit: number = 100): Promise<FileSearchResponse> {
 	let url = `/api/files/search?tags=${encodeURIComponent(tags)}&sort=${encodeURIComponent(sort)}&limit=${limit}`;
 	if (cursor) {
 		url += `&cursor=${encodeURIComponent(cursor)}`;
