@@ -3,8 +3,13 @@
 	import { goto } from '$app/navigation';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import SearchGrid from '$lib/components/SearchGrid.svelte';
+	import { getAppState } from '$lib/state.svelte';
 	import IconSearch from '~icons/mdi/magnify';
+	import IconMenu from '~icons/mdi/menu';
+	import IconUpload from '~icons/mdi/image-plus';
+
+	let { children } = $props();
+	const appState = getAppState();
 
 	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
@@ -12,19 +17,13 @@
 	
 	let searchQuery = $state('');
 	let sortOption = $state('date_desc');
-	let grid: ReturnType<typeof SearchGrid> | undefined = $state();
 
 	// Handle search form submission
 	function handleSearch(event: Event) {
 		event.preventDefault();
 		const query = searchQuery.trim();
 		if (query) {
-			// Check if parameters are the same as current URL
-			if (query === tags && sortOption === currentSort) {
-				grid?.refresh();
-			} else {
-				goto(`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`);
-			}
+			goto(`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`);
 		}
 	}
 
@@ -35,24 +34,28 @@
 		}
 	}
 
-	// Run on mount and when tags/sort change
+	// Sync URL params with local state
 	$effect(() => {
 		searchQuery = tags;
 		sortOption = currentSort;
 	});
 </script>
 
-<svelte:head>
-	<title>{tags ? `${tags} - BijutsuBase` : 'Search - BijutsuBase'}</title>
-</svelte:head>
-
 <div class="flex h-screen flex-col">
 	<!-- Top Bar -->
 	<div class="shrink-0 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900">
-		<div class="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-				<!-- Logo Link - Centered on mobile to sit between fixed buttons -->
-				<div class="flex h-10 items-center justify-center sm:h-auto sm:justify-start">
+		<div class="px-4 py-3 sm:px-6 lg:px-8">
+			<div class="flex items-center justify-between gap-4">
+				<!-- Left Side: Menu & Logo -->
+				<div class="flex items-center gap-3 shrink-0">
+					<button
+						onclick={() => (appState.isSidebarOpen = true)}
+						class="p-1.5 text-gray-700 transition-transform hover:scale-110 focus:outline-none dark:text-gray-200"
+						aria-label="Open menu"
+					>
+						<IconMenu class="h-6 w-6" />
+					</button>
+
 					<a
 						href="/"
 						class="text-lg font-bold text-gray-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
@@ -61,8 +64,8 @@
 					</a>
 				</div>
 
-				<!-- Search Form -->
-				<form onsubmit={handleSearch} class="flex flex-1 gap-2">
+				<!-- Center: Search Form -->
+				<form onsubmit={handleSearch} class="flex max-w-2xl flex-1 gap-2">
 					<SearchInput
 						bind:value={searchQuery}
 						placeholder="Enter tags..."
@@ -89,13 +92,21 @@
 						<IconSearch class="h-6 w-6 sm:hidden" />
 					</button>
 				</form>
+
+				<!-- Right Side: Upload Button -->
+				<div class="flex shrink-0 justify-end" style="width: 100px">
+					<button
+						onclick={() => (appState.isUploadModalOpen = true)}
+						class="rounded-full bg-primary-600 p-2 text-white shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"
+						aria-label="Upload file"
+					>
+						<IconUpload class="h-5 w-5" />
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
 
-	<SearchGrid
-		bind:this={grid}
-		{tags}
-		sort={currentSort}
-	/>
+	{@render children()}
 </div>
+

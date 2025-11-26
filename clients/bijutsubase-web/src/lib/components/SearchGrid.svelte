@@ -10,10 +10,14 @@
 
 	let {
 		tags = '',
-		sort = 'date_desc'
+		sort = 'date_desc',
+		allowEmptySearch = false,
+		hideHeader = false
 	}: {
 		tags?: string;
 		sort?: string;
+		allowEmptySearch?: boolean;
+		hideHeader?: boolean;
 	} = $props();
 
 	let files = $state<FileThumb[]>([]);
@@ -63,7 +67,7 @@
 	}
 
 	async function fetchInitialResults() {
-		if (!tags) {
+		if (!tags && !allowEmptySearch) {
 			loading = false;
 			files = [];
 			nextCursor = null;
@@ -90,7 +94,7 @@
 	}
 
 	async function fetchMoreItems() {
-		if (!tags || fetching || !hasMore || !nextCursor) {
+		if ((!tags && !allowEmptySearch) || fetching || !hasMore || !nextCursor) {
 			return;
 		}
 
@@ -219,7 +223,7 @@
 	{#if !loading && !error && files.length === 0}
 		<div class="flex flex-1 items-center justify-center">
 			<p class="text-xl text-gray-600 dark:text-gray-400">
-				{tags ? 'No results found' : 'Enter tags to search'}
+				{tags ? 'No results found' : (allowEmptySearch ? 'No images found' : 'Enter tags to search')}
 			</p>
 		</div>
 	{/if}
@@ -228,13 +232,16 @@
 	{#if !loading && !error && files.length > 0}
 		<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8 px-4" onscroll={handleScroll}>
 			{#snippet children(row, rowIndex)}
-				{#if rowIndex === 0}
+				{#if rowIndex === 0 && !hideHeader}
 					<div class="mb-2 pb-2 text-sm text-gray-600 dark:text-gray-400 pt-4">
 						Found {files.length}{hasMore ? '+' : ''} {files.length === 1 ? 'result' : 'results'}
 						{#if tags}
 							for <span class="font-mono font-semibold">{tags}</span>
 						{/if}
 					</div>
+				{/if}
+				{#if rowIndex === 0 && hideHeader}
+					<div class="pt-4"></div>
 				{/if}
 				<div
 					class="grid gap-2 pb-2"

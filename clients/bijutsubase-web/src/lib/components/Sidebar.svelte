@@ -2,6 +2,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
 	import IconSearch from '~icons/mdi/magnify';
+	import IconClock from '~icons/mdi/clock-outline';
 
 	let { isOpen = $bindable(false) } = $props();
 
@@ -74,6 +75,16 @@
 						>
 							<IconSearch class="h-5 w-5" />
 							<span>Search</span>
+						</a>
+					</li>
+					<li>
+						<a
+							href="/latest"
+							class="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+							onclick={close}
+						>
+							<IconClock class="h-5 w-5" />
+							<span>Latest</span>
 						</a>
 					</li>
 				</ul>
