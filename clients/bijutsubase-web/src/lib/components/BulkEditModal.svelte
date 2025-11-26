@@ -13,7 +13,7 @@
 	} = $props<{
 		isOpen: boolean;
 		selectedFiles: Set<string>;
-		onChange: () => void;
+		onChange: (changes: { removedTags: Set<string> }) => void;
 	}>();
 
 	let commonTags = $state<TagResponse[]>([]);
@@ -21,6 +21,7 @@
 	let isUpdatingMetadata = $state(false);
 	let hasChanges = $state(false);
 	let error = $state<string | null>(null);
+	let removedTags = $state(new Set<string>());
 
 	// Metadata selection state
 	let selectedRating = $state('no_change');
@@ -56,9 +57,10 @@
 		selectedAi = 'no_change';
 		
 		if (hasChanges) {
-			onChange();
+			onChange({ removedTags });
 		}
 		hasChanges = false;
+		removedTags = new Set();
 	}
 
 	async function handleBulkAddTag(name: string, category: string) {
@@ -72,6 +74,7 @@
 				category
 			});
 			hasChanges = true;
+			removedTags.delete(name);
 		} catch (err) {
 			isUpdatingTags = false;
 			error = err instanceof Error ? err.message : 'Failed to add tag';
@@ -96,6 +99,7 @@
 				tag_name: name
 			});
 			hasChanges = true;
+			removedTags.add(name);
 		} catch (err) {
 			isUpdatingTags = false;
 			error = err instanceof Error ? err.message : 'Failed to delete tag';

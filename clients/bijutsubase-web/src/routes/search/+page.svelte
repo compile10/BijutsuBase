@@ -3,18 +3,13 @@
 	import { goto } from '$app/navigation';
 	import { VList } from 'virtua/svelte';
 	import type { VListHandle } from 'virtua/svelte';
-	import { fade } from 'svelte/transition';
-	import { searchFiles, deleteFile, type FileThumb } from '$lib/api';
+	import { searchFiles, type FileThumb } from '$lib/api';
 	import Lightbox from '$lib/components/Lightbox.svelte';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
-	import DeleteConfirmationModal from '$lib/components/DeleteConfirmationModal.svelte';
-	import BulkEditModal from '$lib/components/BulkEditModal.svelte';
+	import SelectionManager from '$lib/components/SelectionManager.svelte';
 	import { longpress } from '$lib/actions/longpress';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconCircleOutline from '~icons/mdi/checkbox-blank-circle-outline';
-	import IconClose from '~icons/mdi/close';
-	import IconDelete from '~icons/mdi/trash-can-outline';
-	import IconPencil from '~icons/mdi/pencil';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 
 	let thumbnails = $state<FileThumb[]>([]);
@@ -34,8 +29,6 @@
 	// Selection Mode State
 	let isSelectMode = $state(false);
 	let selectedFiles = $state(new Set<string>());
-	let deleteModalOpen = $state(false);
-	let bulkEditModalOpen = $state(false);
 
 	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
@@ -193,31 +186,23 @@
 			openLightbox(index);
 		}
 	}
-
-	function exitSelectMode() {
-		isSelectMode = false;
-		selectedFiles = new Set();
+	
+	function handleFilesDeleted(deletedHashes: Set<string>) {
+		thumbnails = thumbnails.filter(t => !deletedHashes.has(t.sha256_hash));
 	}
 
-	async function handleDeleteConfirm() {
-		const filesToDelete = Array.from(selectedFiles);
-		
-		// Optimistic update or wait for all?
-		// Let's wait for all to ensure success, but we could show progress.
-		// For simplicity, we'll just await all.
-		
-		try {
-			await Promise.all(filesToDelete.map(hash => deleteFile(hash)));
-			
-			// Remove from local state
+	function handleBulkEdit(changes: { removedTags: Set<string> }) {
+		const currentSearchTags = tags.split(' ').filter(t => t.trim());
+		const hasConflict = currentSearchTags.some(t => changes.removedTags.has(t));
+
+		if (hasConflict) {
+			// Remove selected files from thumbnails as they no longer match the search
 			thumbnails = thumbnails.filter(t => !selectedFiles.has(t.sha256_hash));
-			
-			exitSelectMode();
-		} catch (err) {
-			console.error('Failed to delete files:', err);
-			// Ideally show a toast here
-			alert('Failed to delete some files');
 		}
+		
+		// Always clear selection and exit select mode
+		selectedFiles = new Set();
+		isSelectMode = false;
 	}
 
 	// Run on mount and when tags/sort change
@@ -282,45 +267,12 @@
 		</div>
 	</div>
 
-	<!-- TODO: Disable selection mode between search results 
-	     and update the selected files when the search results change -->
-	<!-- Selection Mode Bar -->
-	{#if isSelectMode}
-		<div 
-			class="fixed bottom-0 left-0 right-0 z-20 border-t border-primary-200 bg-primary-50 px-4 py-3 shadow-lg dark:border-primary-800 dark:bg-primary-900/90 backdrop-blur-sm"
-			transition:fade={{ duration: 200 }}
-		>
-			<div class="mx-auto flex max-w-7xl items-center justify-between">
-				<div class="flex items-center gap-4">
-					<button 
-						onclick={exitSelectMode}
-						class="rounded-full p-1 text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
-					>
-						<IconClose class="h-6 w-6" />
-					</button>
-					<span class="font-semibold text-primary-900 dark:text-primary-100">
-						{selectedFiles.size} selected
-					</span>
-				</div>
-				<div class="flex gap-2">
-					<button
-						onclick={() => bulkEditModalOpen = true}
-						class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
-					>
-						<IconPencil class="h-5 w-5" />
-						Edit
-					</button>
-					<button
-						onclick={() => deleteModalOpen = true}
-						class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-red-500 dark:hover:bg-red-600"
-					>
-						<IconDelete class="h-5 w-5" />
-						Delete
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<SelectionManager
+		bind:isSelectMode
+		bind:selectedFiles
+		onBulkEdit={handleBulkEdit}
+		onFilesDeleted={handleFilesDeleted}
+	/>
 
 	<div class="flex flex-1 flex-col overflow-hidden">
 
@@ -410,17 +362,3 @@
 
 <!-- Lightbox -->
 <Lightbox bind:isOpen={lightboxOpen} bind:currentIndex={lightboxIndex} files={thumbnails} />
-
-<!-- Delete Confirmation Modal -->
-<DeleteConfirmationModal 
-	bind:isOpen={deleteModalOpen} 
-	count={selectedFiles.size} 
-	onConfirm={handleDeleteConfirm} 
-/>
-
-<!-- Bulk Edit Modal -->
-<BulkEditModal
-	bind:isOpen={bulkEditModalOpen}
-	selectedFiles={selectedFiles}
-	onChange={fetchInitialResults}
-/>
