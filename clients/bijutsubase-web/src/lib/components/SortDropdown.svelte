@@ -65,25 +65,25 @@
 	});
 </script>
 
-<div class="relative" bind:this={container}>
+<div class="relative h-full" bind:this={container}>
 	<button
 		onclick={(e) => {
             e.stopPropagation(); 
             isOpen = !isOpen;
         }}
-		class="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:focus:border-primary-400 dark:focus:ring-primary-400 {className}"
+		class="h-full flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:focus:border-primary-400 dark:focus:ring-primary-400 {className}"
 		type="button"
 	>
 		<span class="flex items-center gap-2">
 			{#if value.startsWith('date')}
-				<CalendarIcon class="text-gray-500 dark:text-gray-400" />
+				<CalendarIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
 			{:else}
-				<FileSizeIcon class="text-gray-500 dark:text-gray-400" />
+				<FileSizeIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
 			{/if}
-			<span>{getLabel(value)}</span>
+			<span class="hidden sm:inline">{getLabel(value)}</span>
 		</span>
 		<ChevronDown
-			class="h-4 w-4 text-gray-500 transition-transform duration-200 dark:text-gray-400 {isOpen
+			class="h-5 w-5 sm:h-4 sm:w-4 text-gray-500 transition-transform duration-200 dark:text-gray-400 {isOpen
 				? 'rotate-180'
 				: ''}"
 		/>

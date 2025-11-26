@@ -22,7 +22,7 @@
 		class="fixed left-4 top-4 z-40 p-1.5 text-gray-700 transition-transform hover:scale-110 focus:outline-none sm:p-2 md:p-2 dark:text-gray-200"
 		aria-label="Open menu"
 	>
-		<IconMenu class="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 shadow-sm" />
+		<IconMenu class="h-6 w-6 shadow-sm" />
 	</button>
 
 	<!-- Global Upload Button - fixed top right -->

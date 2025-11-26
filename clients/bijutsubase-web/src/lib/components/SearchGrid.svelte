@@ -226,7 +226,7 @@
 
 	<!-- Results Grid with VList -->
 	{#if !loading && !error && files.length > 0}
-		<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8" onscroll={handleScroll}>
+		<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8 px-4" onscroll={handleScroll}>
 			{#snippet children(row, rowIndex)}
 				{#if rowIndex === 0}
 					<div class="mb-2 pb-2 text-sm text-gray-600 dark:text-gray-400 pt-4">
