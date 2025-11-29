@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from pydantic import BaseModel, computed_field, field_validator
+from pydantic import BaseModel, computed_field, field_validator, Field
 
 from api.serializers.tag import TagResponse
+
+if TYPE_CHECKING:
+    from api.serializers.pool import PoolSimple
 
 
 class FileThumb(BaseModel):
@@ -37,6 +40,7 @@ class FileResponse(BaseModel):
     ai_generated: bool
     tag_source: str
     tags: list["TagResponse"]
+    pools: list["PoolSimple"] = Field(default=[], alias="pool_entries")
     
     @field_validator('tags')
     @classmethod
@@ -48,6 +52,12 @@ class FileResponse(BaseModel):
                     for text in re.split(r'(\d+)', tag.name)]
         
         return sorted(tags, key=natural_sort_key)
+    
+    @field_validator('pools', mode='before')
+    @classmethod
+    def extract_pools(cls, v):
+        """Extract pools from pool_entries relationship."""
+        return [x.pool for x in v] if v and isinstance(v, list) and hasattr(v[0], 'pool') else (v or [])
     
     @computed_field
     @property
@@ -108,3 +118,7 @@ class FileSearchResponse(BaseModel):
     items: list[FileThumb]
     next_cursor: Optional[str] = None
     has_more: bool
+
+# Late import to avoid circular dependency issues at runtime
+# This allows FileResponse to reference PoolSimple
+from api.serializers.pool import PoolSimple

@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from database.config import get_db
 from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
+from models.pool import PoolMember
 from utils.file_storage import generate_file_path
 from utils.pagination import encode_cursor, decode_cursor
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
@@ -240,7 +241,12 @@ async def get_file(
 ):
     """Fetch a file by its SHA-256 hash and return serialized details including tags."""
     result = await db.execute(
-        select(FileModel).options(selectinload(FileModel.tags)).where(FileModel.sha256_hash == sha256)
+        select(FileModel)
+        .options(
+            selectinload(FileModel.tags),
+            selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+        )
+        .where(FileModel.sha256_hash == sha256)
     )
     file_model = result.scalar_one_or_none()
     if file_model is None:
@@ -282,10 +288,18 @@ async def update_file_rating(
         # Update the rating while row is locked
         file_model.rating = new_rating
         await db.flush()
-        
-        # Load tags for response (still within same transaction)
-        await db.refresh(file_model, ["tags"])
         await db.commit()
+        
+        # Re-fetch with all relationships for response
+        result = await db.execute(
+            select(FileModel)
+            .options(
+                selectinload(FileModel.tags),
+                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+            )
+            .where(FileModel.sha256_hash == sha256)
+        )
+        file_model = result.scalar_one()
         
     except HTTPException:
         await db.rollback()
@@ -324,10 +338,18 @@ async def update_file_ai_generated(
         # Update the status while row is locked
         file_model.ai_generated = ai_generated_update.ai_generated
         await db.flush()
-        
-        # Load tags for response (still within same transaction)
-        await db.refresh(file_model, ["tags"])
         await db.commit()
+        
+        # Re-fetch with all relationships for response
+        result = await db.execute(
+            select(FileModel)
+            .options(
+                selectinload(FileModel.tags),
+                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+            )
+            .where(FileModel.sha256_hash == sha256)
+        )
+        file_model = result.scalar_one()
         
     except HTTPException:
         await db.rollback()
@@ -349,9 +371,14 @@ async def delete_file(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a file by its SHA-256 hash and return its details prior to deletion."""
-    # Load file with tags for serialization and to ensure relationships are present
+    # Load file with tags and pools for serialization and to ensure relationships are present
     result = await db.execute(
-        select(FileModel).options(selectinload(FileModel.tags)).where(FileModel.sha256_hash == sha256)
+        select(FileModel)
+        .options(
+            selectinload(FileModel.tags),
+            selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+        )
+        .where(FileModel.sha256_hash == sha256)
     )
     file_model = result.scalar_one_or_none()
     if file_model is None:
@@ -372,8 +399,10 @@ async def delete_file(
             await db.delete(assoc)
 
         # refresh the file model to get the latest tags
-        await db.refresh(file_model, ["tags"])
-
+        # Actually, if we delete the file, we don't need to refresh tags on the object we already serialized
+        # But deleting associations will update tags counts. 
+        # We don't need to refresh file_model as we are deleting it.
+        
         # Delete the file record; after_delete hook removes files from disk
         await db.delete(file_model)
         await db.commit()
