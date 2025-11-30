@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 from database.config import get_db
 from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
-from models.pool import PoolMember
+from models.pool import PoolMember, Pool
 from utils.file_storage import generate_file_path
 from utils.pagination import encode_cursor, decode_cursor
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
@@ -244,7 +244,10 @@ async def get_file(
         select(FileModel)
         .options(
             selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+            selectinload(FileModel.pool_entries)
+            .selectinload(PoolMember.pool)
+            .selectinload(Pool.members)
+            .selectinload(PoolMember.file)
         )
         .where(FileModel.sha256_hash == sha256)
     )
@@ -376,7 +379,10 @@ async def delete_file(
         select(FileModel)
         .options(
             selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+            selectinload(FileModel.pool_entries)
+            .selectinload(PoolMember.pool)
+            .selectinload(Pool.members)
+            .selectinload(PoolMember.file)
         )
         .where(FileModel.sha256_hash == sha256)
     )
@@ -397,11 +403,6 @@ async def delete_file(
         associations = assoc_result.scalars().all()
         for assoc in associations:
             await db.delete(assoc)
-
-        # refresh the file model to get the latest tags
-        # Actually, if we delete the file, we don't need to refresh tags on the object we already serialized
-        # But deleting associations will update tags counts. 
-        # We don't need to refresh file_model as we are deleting it.
         
         # Delete the file record; after_delete hook removes files from disk
         await db.delete(file_model)
