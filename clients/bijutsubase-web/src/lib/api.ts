@@ -70,6 +70,38 @@ export interface BulkTagDissociateRequest {
 	tag_name: string;
 }
 
+export enum PoolCategory {
+	SERIES = 'series',
+	COLLECTION = 'collection'
+}
+
+export interface PoolSimple {
+	id: string;
+	name: string;
+	member_count: number;
+	thumbnail_url: string | null;
+}
+
+export interface CreatePoolRequest {
+	name: string;
+	description?: string;
+	category?: PoolCategory;
+}
+
+export interface PoolResponse extends PoolSimple {
+	description: string | null;
+	category: PoolCategory;
+	created_at: string;
+	updated_at: string;
+	members: PoolMemberResponse[];
+}
+
+export interface PoolMemberResponse {
+	file: FileThumb;
+	order: number;
+	added_at: string;
+}
+
 /**
  * Recommend tags based on user input
  * @param query - Partial tag name to search for
@@ -340,4 +372,39 @@ export async function bulkDissociateTag(request: BulkTagDissociateRequest): Prom
 	if (!response.ok) {
 		throw new Error(`Failed to bulk dissociate tag: ${response.statusText}`);
 	}
+}
+
+/**
+ * Get list of pools
+ * @param skip - Number of items to skip
+ * @param limit - Number of items to return
+ * @returns Array of pools
+ */
+export async function getPools(skip: number = 0, limit: number = 50): Promise<PoolSimple[]> {
+	const response = await fetch(`/api/pools/?skip=${skip}&limit=${limit}`);
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch pools: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Create a new pool
+ * @param request - Pool creation request
+ * @returns Created pool details
+ */
+export async function createPool(request: CreatePoolRequest): Promise<PoolResponse> {
+	const response = await fetch('/api/pools/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to create pool: ${response.statusText}`);
+	}
+
+	return response.json();
 }

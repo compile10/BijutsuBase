@@ -63,8 +63,9 @@ async def create_pool(
     )
     
     db.add(pool)
+    await db.flush()
+    await db.refresh(pool, attribute_names=["members"])
     await db.commit()
-    await db.refresh(pool)
     
     response = PoolResponse.model_validate(pool)
     return response
