@@ -408,3 +408,17 @@ export async function createPool(request: CreatePoolRequest): Promise<PoolRespon
 
 	return response.json();
 }
+
+/**
+ * Fetch full details for a single pool
+ * @param id - Pool ID (UUID string)
+ */
+export async function getPool(id: string): Promise<PoolResponse> {
+	const response = await fetch(`/api/pools/${id}`);
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch pool: ${response.statusText}`);
+	}
+
+	return response.json();
+}

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -56,7 +57,20 @@ async def search_files(
         FileSearchResponse with items, next_cursor, and has_more flag
     """
     # Split space-separated tag names and filter out empty strings
-    tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
+    raw_tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
+    pool_id: uuid.UUID | None = None
+    tag_names: list[str] = []
+    for tag in raw_tag_names:
+        if tag.lower().startswith("pool:"):
+            try:
+                pool_id = uuid.UUID(tag.split(":", 1)[1])
+            except (ValueError, IndexError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid pool identifier. Expected pool:<UUID>."
+                )
+        else:
+            tag_names.append(tag)
     
     # Decode cursor if provided
     cursor_sort_value = None
@@ -97,6 +111,10 @@ async def search_files(
     else:
         # If no tags provided, return all files
         query = select(FileModel.sha256_hash, sort_field)
+    
+    if pool_id:
+        query = query.join(PoolMember, PoolMember.file_sha256_hash == FileModel.sha256_hash)
+        query = query.where(PoolMember.pool_id == pool_id)
     
     # Apply cursor-based filtering
     if cursor_sort_value is not None and cursor_sha256 is not None:
