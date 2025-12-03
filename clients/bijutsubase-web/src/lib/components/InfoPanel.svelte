@@ -335,7 +335,7 @@
 					<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
 						Pools
 					</h4>
-					<div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+					<div class="flex gap-3 overflow-x-auto scrollbar-thin">
 						{#each file.pools as pool (pool.id)}
 							<a
 								href={`/pools/${pool.id}`}
