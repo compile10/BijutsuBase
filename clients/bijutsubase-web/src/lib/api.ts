@@ -2,6 +2,18 @@
  * API client for BijutsuBase backend
  */
 
+export class APIError extends Error {
+	status: number;
+	statusText: string;
+
+	constructor(response: Response, message?: string) {
+		super(message ?? `Request failed with status ${response.status} ${response.statusText}`);
+		this.name = 'APIError';
+		this.status = response.status;
+		this.statusText = response.statusText;
+	}
+}
+
 export interface FileThumb {
 	sha256_hash: string;
 	thumbnail_url: string;
@@ -166,7 +178,7 @@ export async function getFile(sha256: string): Promise<FileResponse> {
 	const response = await fetch(`/api/files/${sha256}`);
 	
 	if (!response.ok) {
-		throw new Error(`Failed to fetch file: ${response.statusText}`);
+		throw new APIError(response, `Failed to fetch file: ${response.statusText}`);
 	}
 	
 	return response.json();
@@ -418,6 +430,27 @@ export async function getPool(id: string): Promise<PoolResponse> {
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch pool: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Add one or more files to a pool
+ * @param poolId - Pool ID (UUID string)
+ * @param fileHashes - Array of SHA-256 hashes to add
+ */
+export async function addFilesToPool(poolId: string, fileHashes: string[]): Promise<PoolResponse> {
+	const response = await fetch(`/api/pools/${poolId}/files`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			file_hashes: fileHashes
+		} satisfies BulkFileRequest)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to add files to pool: ${response.statusText}`);
 	}
 
 	return response.json();

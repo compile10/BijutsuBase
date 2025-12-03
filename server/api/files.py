@@ -149,10 +149,7 @@ async def search_files(
     
     # Convert to FileThumb objects
     file_thumbs = [
-        FileThumb(
-            sha256_hash=item[0],
-            thumbnail_url="/" + str(generate_file_path(item[0], "webp", thumb=True)).replace("\\", "/")
-        )
+        FileThumb.model_validate({'sha256_hash': item[0]})
         for item in items
     ]
     

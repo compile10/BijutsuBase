@@ -190,13 +190,11 @@ async def add_files_to_pool(
             select(Pool)
             .options(selectinload(Pool.members).selectinload(PoolMember.file))
             .where(Pool.id == pool_id)
-        )
-
-        if not response_query:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
-        
+        )        
         result = await db.execute(response_query)
-        pool = result.scalar_one()
+        pool = result.scalar_one_or_none()
+        if pool is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
         response = PoolResponse.model_validate(pool)
         response.member_count = len(pool.members)
         return response
@@ -223,12 +221,11 @@ async def add_files_to_pool(
         select(Pool)
         .options(selectinload(Pool.members).selectinload(PoolMember.file))
         .where(Pool.id == pool_id)
-    )
-    if not response_query:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
-        
+    ) 
     result = await db.execute(response_query)
-    pool = result.scalar_one()
+    pool = result.scalar_one_or_none()
+    if pool is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
     
     response = PoolResponse.model_validate(pool)
     return response

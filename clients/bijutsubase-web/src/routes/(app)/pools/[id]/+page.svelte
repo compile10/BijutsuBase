@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import SearchGrid from '$lib/components/SearchGrid.svelte';
+	import AddToPoolByHashModal from '$lib/components/AddToPoolByHashModal.svelte';
 	import { getPool, type PoolResponse } from '$lib/api';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 
@@ -9,6 +10,8 @@
 	let pool = $state<PoolResponse | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let addByHashOpen = $state(false);
+	let grid: ReturnType<typeof SearchGrid> | undefined = $state();
 
 	async function loadPool() {
 		if (!poolId) {
@@ -60,9 +63,18 @@
 					</p>
 				{/if}
 				{#if pool}
-					<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-						{pool.member_count} {pool.member_count === 1 ? 'item' : 'items'}
-					</p>
+					<div class="mt-3 flex flex-wrap items-center gap-4">
+						<p class="text-xs text-gray-500 dark:text-gray-400">
+							{pool.member_count} {pool.member_count === 1 ? 'item' : 'items'}
+						</p>
+
+						<button
+							class="rounded-lg bg-primary-600 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
+							onclick={() => (addByHashOpen = true)}
+						>
+							Add image by hash
+						</button>
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -88,6 +100,7 @@
 	{:else if pool}
 		<div class="flex flex-1 flex-col">
 			<SearchGrid
+				bind:this={grid}
 				tags={`pool:${poolId}`}
 				allowEmptySearch={true}
 				hideHeader={true}
@@ -95,4 +108,13 @@
 		</div>
 	{/if}
 </div>
+
+<AddToPoolByHashModal
+	bind:isOpen={addByHashOpen}
+	poolId={poolId}
+	onFilesAdded={(updatedPool) => {
+		pool = updatedPool;
+		grid?.refresh();
+	}}
+/>
 

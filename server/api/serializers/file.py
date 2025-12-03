@@ -17,10 +17,22 @@ class FileThumb(BaseModel):
     """Simplified file response model with only thumbnail URL and hash."""
     
     sha256_hash: str
-    thumbnail_url: str
     
     class Config:
         from_attributes = True
+
+    @computed_field
+    @property
+    def thumbnail_url(self) -> str:
+        """
+        Generate thumbnail URL using the file's hash.
+        """
+        from utils.file_storage import generate_file_path
+        
+        # Thumbnails are always WebP format
+        thumbnail_path = generate_file_path(self.sha256_hash, "webp", thumb=True)
+        
+        return "/" + str(thumbnail_path).replace("\\", "/")
 
 
 class FileResponse(BaseModel):
