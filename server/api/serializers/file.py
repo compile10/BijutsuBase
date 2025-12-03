@@ -52,7 +52,7 @@ class FileResponse(BaseModel):
     ai_generated: bool
     tag_source: str
     tags: list["TagResponse"]
-    pools: list["PoolSimple"] = Field(default=[], alias="pool_entries")
+    pools: list["PoolSimple"] = Field(default=[], validation_alias="pool_entries")
     
     @field_validator('tags')
     @classmethod

@@ -329,6 +329,51 @@
 				{/if}
 			</section>
 
+			<!-- Pools Section -->
+			{#if file.pools && file.pools.length > 0}
+				<section class="mb-6">
+					<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+						Pools
+					</h4>
+					<div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+						{#each file.pools as pool (pool.id)}
+							<a
+								href={`/pools/${pool.id}`}
+								class="group relative flex w-32 shrink-0 flex-col overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50"
+								onclick={() => (open = false)}
+							>
+								<div class="aspect-4/3 w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+									{#if pool.thumbnail_url}
+										<img
+											src={pool.thumbnail_url}
+											alt={pool.name}
+											class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+										/>
+									{:else}
+										<div class="flex h-full w-full items-center justify-center text-gray-400">
+											<span class="text-xs font-medium">No Cover</span>
+										</div>
+									{/if}
+									<!-- Member count badge -->
+									<div class="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/50 text-[10px] font-medium text-white backdrop-blur-sm">
+										{pool.member_count} items
+									</div>
+								</div>
+								
+								<div class="p-2.5">
+									<span
+										class="block truncate text-xs font-semibold text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+										title={pool.name}
+									>
+										{pool.name}
+									</span>
+								</div>
+							</a>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
 			<!-- Tags Section -->
 			<TagSection bind:file={file} />
 

@@ -46,6 +46,7 @@ export interface FileResponse {
 	ai_generated: boolean;
 	tag_source: string;
 	tags: TagResponse[];
+	pools: PoolSimple[];
 	thumbnail_url: string;
 	original_url: string;
 }
