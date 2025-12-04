@@ -6,7 +6,7 @@ import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,21 +30,35 @@ logger = logging.getLogger(__name__)
 async def list_pools(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    query: str | None = Query(None, description="Search query for pool name or description"),
     db: AsyncSession = Depends(get_db),
 ):
     """List pools with pagination."""
     
-    query = (
+    stmt = (
         select(Pool)
         .options(
             selectinload(Pool.members).selectinload(PoolMember.file)
         )
+    )
+
+    if query:
+        search_filter = f"%{query}%"
+        stmt = stmt.where(
+            or_(
+                Pool.name.ilike(search_filter),
+                Pool.description.ilike(search_filter)
+            )
+        )
+
+    stmt = (
+        stmt
         .order_by(Pool.updated_at.desc())
         .offset(skip)
         .limit(limit)
     )
     
-    result = await db.execute(query)
+    result = await db.execute(stmt)
     pools = result.scalars().all()
     
     return [PoolSimple.model_validate(pool) for pool in pools]

@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { VList } from 'virtua/svelte';
 	import type { VListHandle } from 'virtua/svelte';
 	import { getPools, type PoolSimple, type PoolResponse } from '$lib/api';
+	import { debounce } from '$lib/utils';
 	import CreatePoolModal from '$lib/components/CreatePoolModal.svelte';
 	import IconPlus from '~icons/mdi/plus';
 	import IconFolder from '~icons/mdi/folder-outline';
+	import IconSearch from '~icons/mdi/magnify';
 
 	let pools = $state<PoolSimple[]>([]);
 	let loading = $state(false);
@@ -12,6 +15,7 @@
 	let fetching = $state(false);
 	let hasMore = $state(true);
 	let skip = $state(0);
+	let searchQuery = $state('');
 	const limit = 50;
 
 	let itemsPerRow = $state(6);
@@ -44,6 +48,10 @@
 		}
 	}
 
+	const debouncedSearch = debounce(() => {
+		fetchInitialResults();
+	}, 200);
+
 	async function fetchInitialResults() {
 		loading = true;
 		error = null;
@@ -52,7 +60,7 @@
 		hasMore = true;
 
 		try {
-			const newPools = await getPools(0, limit);
+			const newPools = await getPools(0, limit, searchQuery);
 			pools = newPools;
 			if (newPools.length < limit) {
 				hasMore = false;
@@ -70,7 +78,7 @@
 
 		fetching = true;
 		try {
-			const newPools = await getPools(skip, limit);
+			const newPools = await getPools(skip, limit, searchQuery);
 			
 			if (newPools.length > 0) {
 				pools = [...pools, ...newPools];
@@ -116,7 +124,7 @@
 		};
 	});
 
-	$effect(() => {
+	onMount(() => {
 		fetchInitialResults();
 	});
 </script>
@@ -124,7 +132,23 @@
 <div class="flex flex-1 flex-col overflow-hidden">
 	<!-- Header -->
 	<div class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Pools</h1>
+		<div class="flex items-center gap-5 flex-1">
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Pools</h1>
+			
+			<div class="flex-1 max-w-xs relative">
+				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+					<IconSearch class="h-5 w-5 text-gray-400" />
+				</div>
+				<input
+					type="text"
+					class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 pl-10 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500"
+					placeholder="Search pools..."
+					bind:value={searchQuery}
+					oninput={debouncedSearch}
+				/>
+			</div>
+		</div>
+
 		<button
 			onclick={() => (createPoolModalOpen = true)}
 			class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"

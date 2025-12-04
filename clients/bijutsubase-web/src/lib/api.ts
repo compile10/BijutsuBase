@@ -393,8 +393,12 @@ export async function bulkDissociateTag(request: BulkTagDissociateRequest): Prom
  * @param limit - Number of items to return
  * @returns Array of pools
  */
-export async function getPools(skip: number = 0, limit: number = 50): Promise<PoolSimple[]> {
-	const response = await fetch(`/api/pools/?skip=${skip}&limit=${limit}`);
+export async function getPools(skip: number = 0, limit: number = 50, query?: string): Promise<PoolSimple[]> {
+	let url = `/api/pools/?skip=${skip}&limit=${limit}`;
+	if (query) {
+		url += `&query=${encodeURIComponent(query)}`;
+	}
+	const response = await fetch(url);
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch pools: ${response.statusText}`);
