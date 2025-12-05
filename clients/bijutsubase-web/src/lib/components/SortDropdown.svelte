@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CalendarIcon from '~icons/mdi/calendar';
 	import FileSizeIcon from '~icons/mdi/file-document-outline';
+	import ShuffleIcon from '~icons/mdi/shuffle';
 	import ChevronDown from '~icons/mdi/chevron-down';
 	import ArrowUp from '~icons/mdi/arrow-up';
 	import ArrowDown from '~icons/mdi/arrow-down';
@@ -30,6 +31,13 @@
 			options: [
 				{ label: 'Largest', value: 'size_desc', icon: ArrowDown },
 				{ label: 'Smallest', value: 'size_asc', icon: ArrowUp }
+			]
+		},
+		{
+			title: 'Random',
+			icon: ShuffleIcon,
+			options: [
+				{ label: 'Random', value: 'random', icon: ShuffleIcon }
 			]
 		}
 	];
@@ -77,6 +85,8 @@
 		<span class="flex items-center gap-2">
 			{#if value.startsWith('date')}
 				<CalendarIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
+			{:else if value === 'random'}
+				<ShuffleIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
 			{:else}
 				<FileSizeIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
 			{/if}

@@ -18,19 +18,31 @@
 	let searchQuery = $state('');
 	let sortOption = $state('date_desc');
 
+	function getClientSeed() {
+		return Math.random().toString(36).substring(2, 15);
+	}
+
 	// Handle search form submission
 	function handleSearch(event: Event) {
 		event.preventDefault();
 		const query = searchQuery.trim();
 		if (query) {
-			goto(`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`);
+			let url = `/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`;
+			if (sortOption === 'random') {
+				url += `&seed=${getClientSeed()}`;
+			}
+			goto(url);
 		}
 	}
 
 	// Handle sort change
 	function handleSortChange() {
 		if (searchQuery.trim()) {
-			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`);
+			let url = `/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`;
+			if (sortOption === 'random') {
+				url += `&seed=${getClientSeed()}`;
+			}
+			goto(url);
 		}
 	}
 

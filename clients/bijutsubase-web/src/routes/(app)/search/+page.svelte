@@ -5,6 +5,7 @@
 	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
 	let currentSort = $derived(page.url.searchParams.get('sort') || 'date_desc');
+	let currentSeed = $derived(page.url.searchParams.get('seed') || undefined);
 	
 	let grid: ReturnType<typeof SearchGrid> | undefined = $state();
 	
@@ -22,4 +23,5 @@
 	bind:this={grid}
 	{tags}
 	sort={currentSort}
+	seed={currentSeed}
 />

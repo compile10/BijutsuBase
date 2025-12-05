@@ -11,11 +11,13 @@
 	let {
 		tags = '',
 		sort = 'date_desc',
+		seed,
 		allowEmptySearch = false,
 		hideHeader = false
 	}: {
 		tags?: string;
 		sort?: string;
+		seed?: string;
 		allowEmptySearch?: boolean;
 		hideHeader?: boolean;
 	} = $props();
@@ -82,7 +84,7 @@
 		hasMore = false;
 
 		try {
-			const response = await searchFiles(tags, sort);
+			const response = await searchFiles(tags, sort, undefined, undefined, seed);
 			files = response.items;
 			nextCursor = response.next_cursor;
 			hasMore = response.has_more;
@@ -101,7 +103,7 @@
 		fetching = true;
 
 		try {
-			const response = await searchFiles(tags, sort, nextCursor);
+			const response = await searchFiles(tags, sort, nextCursor, undefined, seed);
 			files = [...files, ...response.items];
 			nextCursor = response.next_cursor;
 			hasMore = response.has_more;

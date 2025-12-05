@@ -38,7 +38,8 @@ class FileAiGeneratedUpdate(BaseModel):
 @router.get("/search", response_model=FileSearchResponse, status_code=status.HTTP_200_OK)
 async def search_files(
     tags: str = Query("", description="Space-separated list of tag names"),
-    sort: str = Query("date_desc", description="Sort order: date_desc, date_asc, size_desc, size_asc"),
+    sort: str = Query("date_desc", description="Sort order: date_desc, date_asc, size_desc, size_asc, random"),
+    seed: str = Query(None, description="Seed for random sorting"),
     limit: int = Query(60, ge=1, le=200, description="Number of items to return per page"),
     cursor: str = Query(None, description="Pagination cursor from previous response"),
     db: AsyncSession = Depends(get_db),
@@ -48,7 +49,8 @@ async def search_files(
     
     Args:
         tags: Space-separated list of tag names to search for
-        sort: Sort order (date_desc, date_asc, size_desc, size_asc)
+        sort: Sort order (date_desc, date_asc, size_desc, size_asc, random)
+        seed: Seed for random sorting (required if sort is random)
         limit: Number of items to return (max 200)
         cursor: Pagination cursor for fetching next page
         db: Database session
@@ -91,6 +93,16 @@ async def search_files(
     elif sort == "size_asc":
         sort_field = FileModel.file_size
         sort_order = "asc"
+    elif sort == "random":
+        if not seed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Seed is required for random sorting."
+            )
+        else:
+            # Deterministic random sort using MD5 of hash + seed
+            sort_field = func.md5(FileModel.sha256_hash + seed)
+            sort_order = "asc"  # Direction doesn't strictly matter for random, but we need one
     else:
         # Default to date_desc if invalid sort param provided
         sort_field = FileModel.date_added
