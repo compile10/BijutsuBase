@@ -19,7 +19,7 @@
 
 	const debouncedUpdate = debounce(() => {
 		query = inputValue;
-	}, 200);
+	}, 300);
 
 	function handleClose() {
 		isOpen = false;

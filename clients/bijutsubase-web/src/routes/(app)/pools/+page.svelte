@@ -13,7 +13,7 @@
 
 	const debouncedUpdate = debounce(() => {
 		query = inputValue;
-	}, 200);
+	}, 300);
 
 	function handlePoolCreated(newPool: PoolResponse) {
 		grid?.addPool(newPool);
