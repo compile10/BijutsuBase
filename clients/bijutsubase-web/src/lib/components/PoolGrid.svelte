@@ -7,10 +7,14 @@
 
 	let {
 		query = '',
-		hideHeader = false
+		hideHeader = false,
+		onSelect,
+		isModal = false
 	}: {
 		query?: string;
 		hideHeader?: boolean;
+		onSelect?: (pool: PoolSimple) => void;
+		isModal?: boolean;
 	} = $props();
 
 	let pools = $state<PoolSimple[]>([]);
@@ -166,19 +170,25 @@
 
 	<!-- Results Grid -->
 	{#if !loading && !error && pools.length > 0}
-		<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 lg:px-16 md:px-8 px-4" onscroll={handleScroll}>
+		<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 {isModal ? 'p-4' : 'lg:px-16 lg:py-4 md:px-8 md:py-4 p-4'}" onscroll={handleScroll}>
 			{#snippet children(row, rowIndex)}
-				{#if rowIndex === 0 && !hideHeader}
-					<div class="pt-4"></div>
-				{/if}
 				<div
 					class="grid gap-4 pb-4"
 					style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
 				>
 					{#each row as pool}
-						<a
-							href="/pools/{pool.id}"
-							class="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+						<button
+							onclick={() => {
+								if (onSelect) {
+									onSelect(pool);
+								} else {
+									// Default behavior: navigate to pool page
+									if (typeof window !== 'undefined') {
+										window.location.href = `/pools/${pool.id}`;
+									}
+								}
+							}}
+							class="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
 						>
 							<!-- Thumbnail -->
 							<div class="aspect-square w-full overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -204,7 +214,7 @@
 									{pool.member_count} {pool.member_count === 1 ? 'item' : 'items'}
 								</p>
 							</div>
-						</a>
+						</button>
 					{/each}
 				</div>
 				

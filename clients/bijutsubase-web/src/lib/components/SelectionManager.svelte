@@ -3,9 +3,11 @@
 	import IconClose from '~icons/mdi/close';
 	import IconDelete from '~icons/mdi/trash-can-outline';
 	import IconPencil from '~icons/mdi/pencil';
+	import IconFolderPlus from '~icons/mdi/folder-plus-outline';
 	import DeleteConfirmationModal from '$lib/components/DeleteConfirmationModal.svelte';
 	import BulkEditModal from '$lib/components/BulkEditModal.svelte';
-	import { deleteFile } from '$lib/api';
+	import SelectPoolModal from '$lib/components/SelectPoolModal.svelte';
+	import { deleteFile, addFilesToPool, type PoolSimple } from '$lib/api';
 
 	let { 
 		isSelectMode = $bindable(), 
@@ -21,6 +23,7 @@
 
 	let deleteModalOpen = $state(false);
 	let bulkEditModalOpen = $state(false);
+	let selectPoolModalOpen = $state(false);
 
 	function exitSelectMode() {
 		isSelectMode = false;
@@ -43,6 +46,16 @@
 			alert('Failed to delete some files');
 		}
 	}
+
+	async function handlePoolSelected(pool: PoolSimple) {
+		const files = Array.from(selectedFiles);
+		try {
+			await addFilesToPool(pool.id, files);
+			exitSelectMode();
+		} catch (err) {
+			console.error('Failed to add files to pool:', err);
+		}
+	}
 </script>
 
 {#if isSelectMode}
@@ -63,6 +76,13 @@
 				</span>
 			</div>
 			<div class="flex gap-2">
+				<button
+					onclick={() => selectPoolModalOpen = true}
+					class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
+				>
+					<IconFolderPlus class="h-5 w-5" />
+					Add to Pool
+				</button>
 				<button
 					onclick={() => bulkEditModalOpen = true}
 					class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
@@ -94,5 +114,11 @@
 	bind:isOpen={bulkEditModalOpen}
 	selectedFiles={selectedFiles}
 	onChange={onBulkEdit}
+/>
+
+<!-- Select Pool Modal -->
+<SelectPoolModal
+	bind:isOpen={selectPoolModalOpen}
+	onPoolSelected={handlePoolSelected}
 />
 
