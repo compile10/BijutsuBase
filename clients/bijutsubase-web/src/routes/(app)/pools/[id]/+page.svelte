@@ -104,6 +104,7 @@
 				tags={`pool:${poolId}`}
 				allowEmptySearch={true}
 				hideHeader={true}
+				poolId={poolId}
 			/>
 		</div>
 	{/if}

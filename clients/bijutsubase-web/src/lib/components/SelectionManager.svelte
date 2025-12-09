@@ -4,26 +4,31 @@
 	import IconDelete from '~icons/mdi/trash-can-outline';
 	import IconPencil from '~icons/mdi/pencil';
 	import IconFolderPlus from '~icons/mdi/folder-plus-outline';
+	import IconFolderMinus from '~icons/mdi/folder-minus-outline';
 	import DeleteConfirmationModal from '$lib/components/DeleteConfirmationModal.svelte';
 	import BulkEditModal from '$lib/components/BulkEditModal.svelte';
 	import SelectPoolModal from '$lib/components/SelectPoolModal.svelte';
-	import { deleteFile, addFilesToPool, type PoolSimple } from '$lib/api';
+	import RemoveFromPoolConfirmationModal from '$lib/components/RemoveFromPoolConfirmationModal.svelte';
+	import { deleteFile, addFilesToPool, removeFileFromPool, type PoolSimple } from '$lib/api';
 
 	let { 
 		isSelectMode = $bindable(), 
 		selectedFiles = $bindable(),
 		onBulkEdit,
-		onFilesDeleted
+		onFilesDeleted,
+		poolId
 	}: {
 		isSelectMode: boolean;
 		selectedFiles: Set<string>;
 		onBulkEdit: (changes: { removedTags: Set<string> }) => void;
 		onFilesDeleted: (deletedHashes: Set<string>) => void;
+		poolId?: string;
 	} = $props();
 
 	let deleteModalOpen = $state(false);
 	let bulkEditModalOpen = $state(false);
 	let selectPoolModalOpen = $state(false);
+	let removeFromPoolModalOpen = $state(false);
 
 	function exitSelectMode() {
 		isSelectMode = false;
@@ -56,6 +61,21 @@
 			console.error('Failed to add files to pool:', err);
 		}
 	}
+
+	async function handleRemoveFromPoolConfirm() {
+		if (!poolId) return;
+
+		const filesToRemove = Array.from(selectedFiles);
+
+		try {
+			await Promise.all(filesToRemove.map((hash) => removeFileFromPool(poolId, hash)));
+			onFilesDeleted(selectedFiles);
+			exitSelectMode();
+		} catch (err) {
+			console.error('Failed to remove files from pool:', err);
+			alert('Failed to remove some files from the pool');
+		}
+	}
 </script>
 
 {#if isSelectMode}
@@ -76,6 +96,15 @@
 				</span>
 			</div>
 			<div class="flex gap-2">
+				{#if poolId}
+					<button
+						onclick={() => removeFromPoolModalOpen = true}
+						class="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:bg-amber-500 dark:hover:bg-amber-600"
+					>
+						<IconFolderMinus class="h-5 w-5" />
+						Remove from Pool
+					</button>
+				{/if}
 				<button
 					onclick={() => selectPoolModalOpen = true}
 					class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
@@ -121,4 +150,13 @@
 	bind:isOpen={selectPoolModalOpen}
 	onPoolSelected={handlePoolSelected}
 />
+
+<!-- Remove from Pool Confirmation Modal -->
+{#if poolId}
+	<RemoveFromPoolConfirmationModal
+		bind:isOpen={removeFromPoolModalOpen}
+		count={selectedFiles.size}
+		onConfirm={handleRemoveFromPoolConfirm}
+	/>
+{/if}
 

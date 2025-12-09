@@ -464,3 +464,20 @@ export async function addFilesToPool(poolId: string, fileHashes: string[]): Prom
 
 	return response.json();
 }
+
+/**
+ * Remove a single file from a pool
+ * @param poolId - Pool ID (UUID string)
+ * @param sha256 - File SHA-256 hash to remove
+ */
+export async function removeFileFromPool(poolId: string, sha256: string): Promise<PoolResponse> {
+	const response = await fetch(`/api/pools/${poolId}/files/${sha256}`, {
+		method: 'DELETE'
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to remove file from pool: ${response.statusText}`);
+	}
+
+	return response.json();
+}

@@ -13,13 +13,15 @@
 		sort = 'date_desc',
 		seed,
 		allowEmptySearch = false,
-		hideHeader = false
+		hideHeader = false,
+		poolId
 	}: {
 		tags?: string;
 		sort?: string;
 		seed?: string;
 		allowEmptySearch?: boolean;
 		hideHeader?: boolean;
+		poolId?: string;
 	} = $props();
 
 	let files = $state<FileThumb[]>([]);
@@ -201,6 +203,7 @@
 	bind:selectedFiles
 	onBulkEdit={handleBulkEdit}
 	onFilesDeleted={handleFilesDeleted}
+	{poolId}
 />
 
 <div class="flex flex-1 flex-col overflow-hidden">
