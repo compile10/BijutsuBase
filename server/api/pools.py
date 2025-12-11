@@ -27,6 +27,17 @@ router = APIRouter(prefix="/pools", tags=["pools"])
 logger = logging.getLogger(__name__)
 
 
+def _normalize_pool_orders(members: list[PoolMember]) -> None:
+    """Normalize pool member orders to be consecutive starting from 1.
+    
+    Sorts members by their current order and reassigns orders as 1, 2, 3, ...
+    This ensures there are no gaps in the ordering.
+    """
+    sorted_members = sorted(members, key=lambda m: m.order)
+    for i, member in enumerate(sorted_members, start=1):
+        member.order = i
+
+
 @router.get("/", response_model=List[PoolSimple], status_code=status.HTTP_200_OK)
 async def list_pools(
     skip: int = Query(0, ge=0),
@@ -253,21 +264,39 @@ async def remove_file_from_pool(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a file from a pool."""
-    # Check if member exists
-    query = select(PoolMember).where(
-        PoolMember.pool_id == pool_id,
-        PoolMember.file_sha256_hash == sha256
+    # Fetch pool with members using FOR UPDATE lock to safely delete and reorder
+    pool_query = (
+        select(Pool)
+        .options(selectinload(Pool.members))
+        .where(Pool.id == pool_id)
+        .with_for_update()
     )
-    result = await db.execute(query)
-    member = result.scalar_one_or_none()
+    result = await db.execute(pool_query)
+    pool = result.scalar_one_or_none()
     
-    if not member:
+    if not pool:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
+    
+    # Find the member to remove
+    member_to_remove = None
+    for member in pool.members:
+        if member.file_sha256_hash == sha256:
+            member_to_remove = member
+            break
+    
+    if not member_to_remove:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File is not in the pool")
         
-    await db.delete(member)
+    await db.delete(member_to_remove)
+    await db.flush()
+    
+    # Normalize orders to eliminate gaps (refresh members list after delete)
+    await db.refresh(pool, attribute_names=["members"])
+    _normalize_pool_orders(pool.members)
+    
     await db.commit()
     
-    # Re-fetch complete pool data
+    # Re-fetch complete pool data with file details for response
     response_query = (
         select(Pool)
         .options(selectinload(Pool.members).selectinload(PoolMember.file))
@@ -277,7 +306,7 @@ async def remove_file_from_pool(
     pool = result.scalar_one_or_none()
 
     if not pool:
-         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
 
     response = PoolResponse.model_validate(pool)
     return response
@@ -289,10 +318,11 @@ async def reorder_pool_files(
     request: ReorderFilesRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Reorder files in a pool by moving specified files after a given order value.
+    """Reorder files in a pool by moving specified files after a given position.
     
-    Files in file_hashes will be placed at orders after_order+1, after_order+2, etc.
-    Existing members with orders > after_order will be shifted to make room.
+    Files in file_hashes will be placed starting at position after_order+1.
+    Positions are always consecutive (1, 2, 3, ...) with no gaps.
+    Use after_order=0 to move files to the beginning of the pool.
     """
     if not request.file_hashes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No files provided")
@@ -321,39 +351,33 @@ async def reorder_pool_files(
             )
     
     moving_hashes_set = set(request.file_hashes)
-
-    # Partition members into "moving" and "staying" sets
+    
+    # Get staying members sorted by current order
+    staying_members = sorted(
+        [m for m in pool.members if m.file_sha256_hash not in moving_hashes_set],
+        key=lambda m: m.order
+    )
+    
+    # Get moving members in the order specified by file_hashes
     moving_members = [member_map[h] for h in request.file_hashes]
-    staying_members = [m for m in pool.members if m.file_sha256_hash not in moving_hashes_set]
     
-    # Assign new orders
-    # 1. Staying members with order <= after_order: unchanged
-    # 2. Moving files: after_order + 1, after_order + 2, ...
-    # 3. Staying members with order > after_order: shift to positions after moving files
+    # Build the new sequence:
+    # 1. Staying members at positions 1..after_order (first `after_order` staying members)
+    # 2. Moving members
+    # 3. Remaining staying members
     
-    new_order_assignments = []
+    # Clamp after_order to valid range [0, len(staying_members)]
+    insert_position = max(0, min(request.after_order, len(staying_members)))
     
-    # Staying members with order <= after_order keep their orders
-    for member in staying_members:
-        if member.order <= request.after_order:
-            new_order_assignments.append((member, member.order))
+    new_sequence = (
+        staying_members[:insert_position] +
+        moving_members +
+        staying_members[insert_position:]
+    )
     
-    # Moving files get consecutive orders starting from after_order + 1
-    for i, member in enumerate(moving_members):
-        new_order_assignments.append((member, request.after_order + 1 + i))
-    
-    # Staying members with order > after_order get shifted
-    next_order = request.after_order + 1 + len(moving_members)
-    staying_after = [m for m in staying_members if m.order > request.after_order]
-    staying_after.sort(key=lambda m: m.order)
-    
-    for member in staying_after:
-        new_order_assignments.append((member, next_order))
-        next_order += 1
-    
-    # Update all member orders
-    for member, new_order in new_order_assignments:
-        member.order = new_order
+    # Assign consecutive orders starting from 1
+    for i, member in enumerate(new_sequence, start=1):
+        member.order = i
     
     await db.commit()
     
