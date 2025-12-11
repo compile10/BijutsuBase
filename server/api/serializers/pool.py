@@ -105,3 +105,9 @@ class PoolResponse(BaseModel):
              
         return data
 
+
+class ReorderFilesRequest(BaseModel):
+    """Request model for reordering files in a pool."""
+    file_hashes: List[str]
+    after_order: int
+

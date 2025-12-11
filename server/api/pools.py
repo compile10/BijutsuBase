@@ -17,7 +17,8 @@ from api.serializers.pool import (
     PoolResponse, 
     CreatePoolRequest, 
     UpdatePoolRequest, 
-    PoolSimple
+    PoolSimple,
+    ReorderFilesRequest
 )
 from api.serializers.file import BulkFileRequest
 from utils.file_storage import generate_file_path
@@ -278,6 +279,96 @@ async def remove_file_from_pool(
     if not pool:
          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
 
+    response = PoolResponse.model_validate(pool)
+    return response
+
+
+@router.post("/{pool_id}/reorder", response_model=PoolResponse, status_code=status.HTTP_200_OK)
+async def reorder_pool_files(
+    pool_id: uuid.UUID,
+    request: ReorderFilesRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reorder files in a pool by moving specified files after a given order value.
+    
+    Files in file_hashes will be placed at orders after_order+1, after_order+2, etc.
+    Existing members with orders > after_order will be shifted to make room.
+    """
+    if not request.file_hashes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No files provided")
+    
+    # Fetch pool with members using FOR UPDATE lock
+    pool_query = (
+        select(Pool)
+        .options(selectinload(Pool.members))
+        .where(Pool.id == pool_id)
+        .with_for_update()
+    )
+    result = await db.execute(pool_query)
+    pool = result.scalar_one_or_none()
+    
+    if not pool:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
+    
+    # Validate all file_hashes exist in the pool
+    member_map = {m.file_sha256_hash: m for m in pool.members}
+    
+    for file_hash in request.file_hashes:
+        if file_hash not in member_map:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=f"File {file_hash} is not in the pool"
+            )
+    
+    moving_hashes_set = set(request.file_hashes)
+
+    # Partition members into "moving" and "staying" sets
+    moving_members = [member_map[h] for h in request.file_hashes]
+    staying_members = [m for m in pool.members if m.file_sha256_hash not in moving_hashes_set]
+    
+    # Assign new orders
+    # 1. Staying members with order <= after_order: unchanged
+    # 2. Moving files: after_order + 1, after_order + 2, ...
+    # 3. Staying members with order > after_order: shift to positions after moving files
+    
+    new_order_assignments = []
+    
+    # Staying members with order <= after_order keep their orders
+    for member in staying_members:
+        if member.order <= request.after_order:
+            new_order_assignments.append((member, member.order))
+    
+    # Moving files get consecutive orders starting from after_order + 1
+    for i, member in enumerate(moving_members):
+        new_order_assignments.append((member, request.after_order + 1 + i))
+    
+    # Staying members with order > after_order get shifted
+    next_order = request.after_order + 1 + len(moving_members)
+    staying_after = [m for m in staying_members if m.order > request.after_order]
+    staying_after.sort(key=lambda m: m.order)
+    
+    for member in staying_after:
+        new_order_assignments.append((member, next_order))
+        next_order += 1
+    
+    # Update all member orders
+    for member, new_order in new_order_assignments:
+        member.order = new_order
+    
+    await db.commit()
+    
+    # Re-fetch complete pool data with file details
+    response_query = (
+        select(Pool)
+        .options(selectinload(Pool.members).selectinload(PoolMember.file))
+        .where(Pool.id == pool_id)
+    )
+    result = await db.execute(response_query)
+    pool = result.scalar_one_or_none()
+    
+    if not pool:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
+    
     response = PoolResponse.model_validate(pool)
     return response
 
