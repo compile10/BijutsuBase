@@ -43,7 +43,7 @@
 <WindowModal bind:isOpen title="Reorder Pool Members" maxWidth="max-w-md" onClose={handleClose}>
 	<div class="p-6">
 		<div class="mb-6 flex flex-col items-center text-center">
-			<div class="mb-4 rounded-full bg-primary-100 p-3 dark:bg-primary-900/30">
+			<div class="mb-4 rounded-full bg-primary-100 p-3 dark:bg-primary-900">
 				<IconSwapVertical class="h-8 w-8 text-primary-600 dark:text-primary-400" />
 			</div>
 			<h3 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
@@ -65,7 +65,7 @@
 				min="1"
 				disabled={isReordering}
 				class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
-				placeholder="Enter position (e.g., 1 for first)"
+				placeholder="Enter position (e.g. 1 for first)"
 			/>
 			<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
 				The selected files will be moved to start at this position. Use 1 to move to the beginning.
