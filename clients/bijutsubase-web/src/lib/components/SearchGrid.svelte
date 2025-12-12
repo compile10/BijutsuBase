@@ -204,6 +204,7 @@
 	onBulkEdit={handleBulkEdit}
 	onFilesDeleted={handleFilesDeleted}
 	{poolId}
+	onReorder={refresh}
 />
 
 <div class="flex flex-1 flex-col overflow-hidden">

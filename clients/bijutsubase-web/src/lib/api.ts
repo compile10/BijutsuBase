@@ -83,6 +83,11 @@ export interface BulkTagDissociateRequest {
 	tag_name: string;
 }
 
+export interface ReorderFilesRequest {
+	file_hashes: string[];
+	after_order: number;
+}
+
 export enum PoolCategory {
 	SERIES = 'series',
 	COLLECTION = 'collection'
@@ -477,6 +482,29 @@ export async function removeFileFromPool(poolId: string, sha256: string): Promis
 
 	if (!response.ok) {
 		throw new Error(`Failed to remove file from pool: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Reorder files in a pool
+ * @param poolId - Pool ID (UUID string)
+ * @param fileHashes - Array of SHA-256 hashes to reorder
+ * @param afterOrder - Position after which to insert the files (0-indexed)
+ */
+export async function reorderPoolFiles(poolId: string, fileHashes: string[], afterOrder: number): Promise<PoolResponse> {
+	const response = await fetch(`/api/pools/${poolId}/reorder`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			file_hashes: fileHashes,
+			after_order: afterOrder
+		} satisfies ReorderFilesRequest)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to reorder files in pool: ${response.statusText}`);
 	}
 
 	return response.json();

@@ -102,6 +102,7 @@
 			<SearchGrid
 				bind:this={grid}
 				tags={`pool:${poolId}`}
+				sort="pool_order"
 				allowEmptySearch={true}
 				hideHeader={true}
 				poolId={poolId}

@@ -5,23 +5,27 @@
 	import IconPencil from '~icons/mdi/pencil';
 	import IconFolderPlus from '~icons/mdi/folder-plus-outline';
 	import IconFolderMinus from '~icons/mdi/folder-minus-outline';
+	import IconSwapVertical from '~icons/mdi/swap-vertical';
 	import DeleteConfirmationModal from '$lib/components/DeleteConfirmationModal.svelte';
 	import BulkEditModal from '$lib/components/BulkEditModal.svelte';
 	import SelectPoolModal from '$lib/components/SelectPoolModal.svelte';
 	import RemoveFromPoolConfirmationModal from '$lib/components/RemoveFromPoolConfirmationModal.svelte';
-	import { deleteFile, addFilesToPool, removeFileFromPool, type PoolSimple } from '$lib/api';
+	import ReorderPoolModal from '$lib/components/ReorderPoolModal.svelte';
+	import { deleteFile, addFilesToPool, removeFileFromPool, reorderPoolFiles, type PoolSimple } from '$lib/api';
 
 	let { 
 		isSelectMode = $bindable(), 
 		selectedFiles = $bindable(),
 		onBulkEdit,
 		onFilesDeleted,
+		onReorder,
 		poolId
 	}: {
 		isSelectMode: boolean;
 		selectedFiles: Set<string>;
 		onBulkEdit: (changes: { removedTags: Set<string> }) => void;
 		onFilesDeleted: (deletedHashes: Set<string>) => void;
+		onReorder?: () => void;
 		poolId?: string;
 	} = $props();
 
@@ -29,6 +33,7 @@
 	let bulkEditModalOpen = $state(false);
 	let selectPoolModalOpen = $state(false);
 	let removeFromPoolModalOpen = $state(false);
+	let reorderModalOpen = $state(false);
 
 	function exitSelectMode() {
 		isSelectMode = false;
@@ -76,6 +81,27 @@
 			alert('Failed to remove some files from the pool');
 		}
 	}
+
+	async function handleReorderConfirm(position: number) {
+		if (!poolId) return;
+
+		const filesToReorder = Array.from(selectedFiles);
+
+		try {
+			// Convert 1-indexed position to 0-indexed after_order
+			await reorderPoolFiles(poolId, filesToReorder, position - 1);
+			
+			// Notify parent to refresh
+			if (onReorder) {
+				onReorder();
+			}
+			
+			exitSelectMode();
+		} catch (err) {
+			console.error('Failed to reorder files in pool:', err);
+			alert('Failed to reorder files in the pool');
+		}
+	}
 </script>
 
 {#if isSelectMode}
@@ -97,6 +123,13 @@
 			</div>
 			<div class="flex gap-2">
 				{#if poolId}
+					<button
+						onclick={() => reorderModalOpen = true}
+						class="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-purple-500 dark:hover:bg-purple-600"
+					>
+						<IconSwapVertical class="h-5 w-5" />
+						Reorder
+					</button>
 					<button
 						onclick={() => removeFromPoolModalOpen = true}
 						class="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:bg-amber-500 dark:hover:bg-amber-600"
@@ -157,6 +190,15 @@
 		bind:isOpen={removeFromPoolModalOpen}
 		count={selectedFiles.size}
 		onConfirm={handleRemoveFromPoolConfirm}
+	/>
+{/if}
+
+<!-- Reorder Pool Modal -->
+{#if poolId}
+	<ReorderPoolModal
+		bind:isOpen={reorderModalOpen}
+		count={selectedFiles.size}
+		onConfirm={handleReorderConfirm}
 	/>
 {/if}
 
