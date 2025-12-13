@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -22,6 +23,7 @@ from utils.file_storage import generate_file_path
 from sources.danbooru.enrich_file import enrich_file_with_danbooru
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from models.file import File as FileModel
+from models.pool import PoolMember, Pool
 import logging
 
 
@@ -249,11 +251,25 @@ async def _persist_ingest(
         # Flush to write tags to database
         await db.flush()
         
-        # Reload file with tags while still in transaction
-        await db.refresh(file_model, attribute_names=["tags"])
-        
         # Now commit everything together
         await db.commit()
+
+        # Reload file with all relationships needed for response
+        # We need to reload after commit because commit expires the instance
+        # and we need to eager load relationships to avoid MissingGreenlet error
+        result = await db.execute(
+            select(FileModel)
+            .options(
+                selectinload(FileModel.tags),
+                selectinload(FileModel.pool_entries)
+                .selectinload(PoolMember.pool)
+                .selectinload(Pool.members)
+                .selectinload(PoolMember.file)
+            )
+            .where(FileModel.sha256_hash == sha256_hash)
+        )
+        file_model = result.scalar_one()
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(
