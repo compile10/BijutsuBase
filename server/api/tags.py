@@ -1,36 +1,84 @@
 """Tags router for BijutsuBase API."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from database.config import get_db
 from models.file import File as FileModel
 from models.tag import Tag, TagCategory, FileTag
 from api.serializers.file import FileResponse
-from api.serializers.tag import (
-    TagAssociateRequest,
-    TagDissociateRequest,
-    BulkTagAssociateRequest,
-    BulkTagDissociateRequest,
-)
 from sources.danbooru import DanbooruClient
-from api.serializers.danbooru import DanbooruTag
 from api.serializers.tag import (
     TagAssociateRequest,
     TagDissociateRequest,
     BulkTagAssociateRequest,
     BulkTagDissociateRequest,
-    TagResponse
+    TagBrowseResponse,
+    TagResponse,
 )
 from utils.danbooru_utils import map_danbooru_category_int_to_str
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])
+
+@router.get("/browse", response_model=list[TagBrowseResponse], status_code=status.HTTP_200_OK)
+async def browse_tags(
+    category: TagCategory = Query(..., description="Tag category to browse"),
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Browse tags by category with pagination, sorted alphabetically.
+    Each tag includes an example thumbnail from the most recently added file
+    associated with the tag (if any).
+    """
+    file_tags_with_rn = (
+        select(
+            FileTag.tag_id,
+            FileTag.file_sha256_hash,
+            func.row_number()
+            .over(
+                partition_by=FileTag.tag_id,
+                order_by=(FileModel.date_added.desc(), FileModel.sha256_hash.asc()),
+            )
+            .label("rn"),
+        )
+        .join(FileModel, FileTag.file_sha256_hash == FileModel.sha256_hash)
+        .subquery()
+    )
+
+    latest_file_filtered = (
+        select(file_tags_with_rn.c.tag_id, file_tags_with_rn.c.file_sha256_hash)
+        .where(file_tags_with_rn.c.rn == 1)
+        .subquery()
+    )
+
+    latest_file = aliased(latest_file_filtered)
+
+    stmt = (
+        select(
+            Tag.name,
+            Tag.count,
+            latest_file.c.file_sha256_hash.label("example_thumbnail"),
+        )
+        .outerjoin(latest_file, Tag.id == latest_file.c.tag_id)
+        .where(Tag.category == category)
+        .order_by(Tag.name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [
+        TagBrowseResponse(name=row.name, count=row.count, example_thumbnail=row.example_thumbnail)
+        for row in rows
+    ]
 
 
 @router.get("/recommend", response_model=list[str], status_code=status.HTTP_200_OK)

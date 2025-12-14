@@ -5,6 +5,7 @@
 	import IconClock from '~icons/mdi/clock-outline';
 	import IconFolderMultiple from '~icons/mdi/folder-multiple-outline';
 	import IconAccountMultipleOutline from '~icons/mdi/account-multiple-outline';
+	import IconCopyright from '~icons/mdi/copyright';
 
 	let { isOpen = $bindable(false) } = $props();
 
@@ -97,6 +98,16 @@
 						>
 							<IconAccountMultipleOutline class="h-5 w-5" />
 							<span>Characters</span>
+						</a>
+					</li>
+					<li>
+						<a
+							href="/copyright"
+							class="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+							onclick={close}
+						>
+							<IconCopyright class="h-5 w-5" />
+							<span>Copyright</span>
 						</a>
 					</li>
 				</ul>

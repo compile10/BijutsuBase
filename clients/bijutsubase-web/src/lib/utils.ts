@@ -28,3 +28,15 @@ export function debounce<T extends (...args: any[]) => void>(func: T, wait: numb
 	};
 }
 
+/**
+ * Convert a danbooru-style tag name to a human readable title.
+ * Example: `hatsune_miku` -> `Hatsune Miku`
+ */
+export function humanizeTag(tag: string): string {
+	return tag
+		.split('_')
+		.filter(Boolean)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(' ');
+}
+

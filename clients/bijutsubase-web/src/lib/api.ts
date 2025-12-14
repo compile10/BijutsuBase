@@ -31,6 +31,8 @@ export interface TagResponse {
 	count: number;
 }
 
+export type TagCategory = 'general' | 'artist' | 'copyright' | 'character' | 'meta';
+
 export interface FileResponse {
 	sha256_hash: string;
 	md5_hash: string;
@@ -120,7 +122,7 @@ export interface PoolMemberResponse {
 	added_at: string;
 }
 
-export interface Character {
+export interface TagBrowseItem {
 	name: string;
 	count: number;
 	thumbnail_url: string | null;
@@ -423,16 +425,18 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
 }
 
 /**
- * Get list of character tags
+ * Browse tags by category (alphabetical, paginated)
  * @param skip - Number of items to skip
  * @param limit - Number of items to return
- * @returns Array of characters
+ * @returns Array of tags with example thumbnails
  */
-export async function getCharacters(skip: number = 0, limit: number = 50): Promise<Character[]> {
-	const response = await fetch(`/api/explore/characters?skip=${skip}&limit=${limit}`);
+export async function getTagsByCategory(category: TagCategory, skip: number = 0, limit: number = 50): Promise<TagBrowseItem[]> {
+	const response = await fetch(
+		`/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`
+	);
 
 	if (!response.ok) {
-		throw new Error(`Failed to fetch characters: ${response.statusText}`);
+		throw new Error(`Failed to fetch tags: ${response.statusText}`);
 	}
 
 	return response.json();

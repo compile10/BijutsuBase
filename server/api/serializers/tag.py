@@ -41,8 +41,8 @@ class BulkTagDissociateRequest(BaseModel):
     tag_name: str
 
 
-class CharacterResponse(BaseModel):
-    """Response model for Character tag objects with example thumbnail."""
+class TagBrowseResponse(BaseModel):
+    """Response model for browsing tags with an example thumbnail."""
     
     name: str
     count: int
