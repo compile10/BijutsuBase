@@ -5,7 +5,7 @@
 	import { getPool, type PoolResponse } from '$lib/api';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 
-	const poolId = $derived(page.params.id);
+	const poolId = $derived(page.params.id ?? '');
 
 	let pool = $state<PoolResponse | null>(null);
 	let loading = $state(true);

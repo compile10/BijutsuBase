@@ -120,6 +120,12 @@ export interface PoolMemberResponse {
 	added_at: string;
 }
 
+export interface Character {
+	name: string;
+	count: number;
+	thumbnail_url: string | null;
+}
+
 /**
  * Recommend tags based on user input
  * @param query - Partial tag name to search for
@@ -411,6 +417,22 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch pools: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Get list of character tags
+ * @param skip - Number of items to skip
+ * @param limit - Number of items to return
+ * @returns Array of characters
+ */
+export async function getCharacters(skip: number = 0, limit: number = 50): Promise<Character[]> {
+	const response = await fetch(`/api/explore/characters?skip=${skip}&limit=${limit}`);
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch characters: ${response.statusText}`);
 	}
 
 	return response.json();
