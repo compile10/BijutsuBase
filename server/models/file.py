@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import enum
 import os
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -10,8 +11,9 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from models.tag import Tag
     from models.pool import PoolMember
+    from models.family import FileFamily
 
-from sqlalchemy import String, Integer, DateTime, Boolean, func, event, Enum as SQLEnum
+from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, func, event, Enum as SQLEnum, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from database.config import Base
@@ -98,6 +100,13 @@ class File(Base):
         server_default=TagSource.ONNX.name
     )
     
+    # Family this file belongs to as a child
+    parent_family_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("file_families.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    
     # Relationship to tags through junction table
     tags: Mapped[list["Tag"]] = relationship(
         secondary="file_tags",
@@ -109,6 +118,18 @@ class File(Base):
         "PoolMember",
         back_populates="file"
         )
+    
+    # Family relationships
+    family_as_child: Mapped[Optional["FileFamily"]] = relationship(
+        "FileFamily",
+        back_populates="children",
+        foreign_keys=[parent_family_id]
+    )
+    family_as_parent: Mapped[Optional["FileFamily"]] = relationship(
+        "FileFamily",
+        back_populates="parent",
+        foreign_keys="FileFamily.parent_sha256_hash"
+    )
     
     def __repr__(self) -> str:
         """String representation of File."""

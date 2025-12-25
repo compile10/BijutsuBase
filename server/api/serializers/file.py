@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Any
 
-from pydantic import BaseModel, computed_field, field_validator, Field
+from pydantic import BaseModel, computed_field, field_validator, Field, model_validator
 
 from api.serializers.tag import TagResponse
 
@@ -53,6 +53,8 @@ class FileResponse(BaseModel):
     tag_source: str
     tags: list["TagResponse"]
     pools: list["PoolSimple"] = Field(default=[], validation_alias="pool_entries")
+    parent: Optional[FileThumb] = None  # Parent file thumbnail if this file is a child
+    children: list[FileThumb] = Field(default_factory=list)  # Children file thumbnails if this file is a parent
     
     @field_validator('tags')
     @classmethod
@@ -70,6 +72,35 @@ class FileResponse(BaseModel):
     def extract_pools(cls, v):
         """Extract pools from pool_entries relationship."""
         return [x.pool for x in v] if v and isinstance(v, list) and hasattr(v[0], 'pool') else (v or [])
+    
+    @model_validator(mode='before')
+    @classmethod
+    def extract_family_relationships(cls, data: Any) -> Any:
+        """Extract parent and children FileThumb objects from family relationships."""
+        parent = None
+        children = []
+        
+        # Extract parent file if this file is a child in a family
+        if hasattr(data, 'family_as_child') and data.family_as_child:
+            # This file is a child, so get the parent File object
+            if hasattr(data.family_as_child, 'parent') and data.family_as_child.parent:
+                parent = FileThumb.model_validate(data.family_as_child.parent)
+        
+        # Extract children files if this file is a parent of a family
+        if hasattr(data, 'family_as_parent') and data.family_as_parent:
+            # This file is a parent, so get all children File objects
+            if hasattr(data.family_as_parent, 'children') and data.family_as_parent.children:
+                children = [FileThumb.model_validate(child) for child in data.family_as_parent.children]
+        
+        # Set the extracted values
+        if isinstance(data, dict):
+            data['parent'] = parent
+            data['children'] = children
+        else:
+            data.parent = parent
+            data.children = children
+        
+        return data
     
     @computed_field
     @property

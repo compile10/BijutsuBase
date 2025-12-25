@@ -15,6 +15,7 @@ from database.config import get_db
 from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
 from models.pool import PoolMember, Pool
+from models.family import FileFamily
 from utils.file_storage import generate_file_path
 from utils.pagination import encode_cursor, decode_cursor
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
@@ -287,7 +288,9 @@ async def get_file(
             selectinload(FileModel.pool_entries)
             .selectinload(PoolMember.pool)
             .selectinload(Pool.members)
-            .selectinload(PoolMember.file)
+            .selectinload(PoolMember.file),
+            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
+            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
         )
         .where(FileModel.sha256_hash == sha256)
     )
@@ -338,7 +341,9 @@ async def update_file_rating(
             select(FileModel)
             .options(
                 selectinload(FileModel.tags),
-                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool),
+                selectinload(FileModel.family_as_child),
+                selectinload(FileModel.family_as_parent)
             )
             .where(FileModel.sha256_hash == sha256)
         )
@@ -388,7 +393,9 @@ async def update_file_ai_generated(
             select(FileModel)
             .options(
                 selectinload(FileModel.tags),
-                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool)
+                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool),
+                selectinload(FileModel.family_as_child),
+                selectinload(FileModel.family_as_parent)
             )
             .where(FileModel.sha256_hash == sha256)
         )
@@ -408,30 +415,16 @@ async def update_file_ai_generated(
     return FileResponse.model_validate(file_model)
 
 
-@router.delete("/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
+@router.delete("/{sha256}", status_code=status.HTTP_200_OK)
 async def delete_file(
     sha256: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a file by its SHA-256 hash and return its details prior to deletion."""
-    # Load file with tags and pools for serialization and to ensure relationships are present
-    result = await db.execute(
-        select(FileModel)
-        .options(
-            selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries)
-            .selectinload(PoolMember.pool)
-            .selectinload(Pool.members)
-            .selectinload(PoolMember.file)
-        )
-        .where(FileModel.sha256_hash == sha256)
-    )
+    """Delete a file by its SHA-256 hash."""
+    result = await db.execute(select(FileModel).where(FileModel.sha256_hash == sha256))
     file_model = result.scalar_one_or_none()
     if file_model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-
-    # Serialize before deletion to return details after deletion
-    response = FileResponse.model_validate(file_model)
 
     try:
         # Delete association rows via ORM to trigger tag count decrements
@@ -451,4 +444,4 @@ async def delete_file(
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete file: {str(e)}")
 
-    return response
+    return {"ok": True}

@@ -205,9 +205,9 @@ export async function getFile(sha256: string): Promise<FileResponse> {
 /**
  * Delete a file by SHA256 hash
  * @param sha256 - SHA256 hash of the file
- * @returns File details prior to deletion
+ * @returns ok response
  */
-export async function deleteFile(sha256: string): Promise<FileResponse> {
+export async function deleteFile(sha256: string): Promise<{ ok: boolean }> {
 	const response = await fetch(`/api/files/${sha256}`, {
 		method: 'DELETE'
 	});
