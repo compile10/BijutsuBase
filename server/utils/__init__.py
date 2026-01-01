@@ -9,6 +9,7 @@ from utils.file_storage import (
     generate_file_path,
     save_file_to_disk,
 )
+from utils.parent_determination import determine_parent
 
 __all__ = [
     "generate_file_path",
@@ -17,5 +18,5 @@ __all__ = [
     "get_image_dimensions",
     "get_video_dimensions",
     "get_file_sha256",
+    "determine_parent",
 ]
-
