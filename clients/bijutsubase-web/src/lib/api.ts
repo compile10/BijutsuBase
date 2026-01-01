@@ -49,8 +49,28 @@ export interface FileResponse {
 	tag_source: string;
 	tags: TagResponse[];
 	pools: PoolSimple[];
+	parent?: FileThumb | null;
+	children?: FileThumb[];
+	family_id?: string | null;
 	thumbnail_url: string;
 	original_url: string;
+}
+
+export interface FileFamilyResponse {
+	id: string; // UUID
+	parent_sha256_hash: string;
+	parent: FileThumb | null;
+	children: FileThumb[];
+	created_at: string;
+	updated_at: string;
+}
+
+export interface CreateFamilyRequest {
+	parent_sha256_hash: string;
+}
+
+export interface AddChildRequest {
+	child_sha256_hash: string;
 }
 
 export interface TagAssociateRequest {
@@ -511,6 +531,81 @@ export async function removeFileFromPool(poolId: string, sha256: string): Promis
 	}
 
 	return response.json();
+}
+
+/**
+ * Create a new family for a parent file
+ */
+export async function createFamily(parentSha256: string): Promise<FileFamilyResponse> {
+	const response = await fetch('/api/families/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			parent_sha256_hash: parentSha256
+		} satisfies CreateFamilyRequest)
+	});
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => null);
+		const detail = errorData?.detail ?? response.statusText;
+		throw new Error(detail);
+	}
+
+	return response.json();
+}
+
+/**
+ * Add a child file to a family
+ */
+export async function addChildToFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
+	const response = await fetch(`/api/families/${familyId}/children`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			child_sha256_hash: childSha256
+		} satisfies AddChildRequest)
+	});
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => null);
+		const detail = errorData?.detail ?? response.statusText;
+		throw new Error(detail);
+	}
+
+	return response.json();
+}
+
+/**
+ * Remove a child file from a family
+ */
+export async function removeChildFromFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
+	const response = await fetch(`/api/families/${familyId}/children/${childSha256}`, {
+		method: 'DELETE'
+	});
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => null);
+		const detail = errorData?.detail ?? response.statusText;
+		throw new Error(detail);
+	}
+
+	return response.json();
+}
+
+/**
+ * Delete a family (unlinks children; does not delete files)
+ */
+export async function deleteFamily(familyId: string): Promise<void> {
+	const response = await fetch(`/api/families/${familyId}`, {
+		method: 'DELETE'
+	});
+
+	// delete returns 204 on success
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => null);
+		const detail = errorData?.detail ?? response.statusText;
+		throw new Error(detail);
+	}
 }
 
 /**

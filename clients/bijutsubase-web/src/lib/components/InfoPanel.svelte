@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { FileResponse } from '$lib/api';
-	import { updateFileRating, updateFileAiGenerated } from '$lib/api';
+	import { createFamily, deleteFamily, removeChildFromFamily, updateFileAiGenerated, updateFileRating } from '$lib/api';
 	import { processTagSource } from '$lib/utils';
 	import { fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
@@ -9,7 +9,14 @@
 
 	// TODO: Make sure this updates the search results if there are any changes
 
-	let { open = $bindable(false), file = $bindable<FileResponse>() } = $props<{ open: boolean; file: FileResponse }>();
+	type NavigateToFile = (sha256: string) => void;
+
+	let {
+		open = $bindable(false),
+		file = $bindable<FileResponse>(),
+		onNavigateToFile = (() => {}) as NavigateToFile,
+		isAddChildModalOpen = $bindable(false)
+	} = $props<{ open: boolean; file: FileResponse; onNavigateToFile?: NavigateToFile; isAddChildModalOpen?: boolean }>();
 
 	// Rating state management
 	let isUpdatingRating = $state(false);
@@ -20,6 +27,11 @@
 	let isUpdatingAi = $state(false);
 	let aiError = $state<string | null>(null);
 	let isEditingAi = $state(false);
+
+	// Family state management
+	let isEditingFamily = $state(false);
+	let isUpdatingFamily = $state(false);
+	let familyError = $state<string | null>(null);
 
 	// Available rating options
 	const ratingOptions = ['safe', 'sensitive', 'questionable', 'explicit'] as const;
@@ -118,11 +130,117 @@
 		
 		return `${baseClasses} bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700`;
 	}
+
+	function isChild(): boolean {
+		return !!file.parent;
+	}
+
+	function familyId(): string | null {
+		return file.family_id ?? null;
+	}
+
+	function isParent(): boolean {
+		return !!familyId() && !isChild();
+	}
+
+	function hasFamily(): boolean {
+		return !!familyId() || isChild();
+	}
+
+	async function handleStartFamily() {
+		if (isUpdatingFamily) return;
+
+		isUpdatingFamily = true;
+		familyError = null;
+
+		try {
+			const family = await createFamily(file.sha256_hash);
+			file = {
+				...file,
+				family_id: family.id,
+				parent: null,
+				children: family.children
+			};
+		} catch (err) {
+			familyError = err instanceof Error ? err.message : 'Failed to start family.';
+		} finally {
+			isUpdatingFamily = false;
+		}
+	}
+
+	async function handleRemoveChild(childSha256: string) {
+		const fid = familyId();
+		if (!fid || isUpdatingFamily) return;
+
+		isUpdatingFamily = true;
+		familyError = null;
+
+		try {
+			const family = await removeChildFromFamily(fid, childSha256);
+			file = {
+				...file,
+				family_id: family.id,
+				children: family.children
+			};
+		} catch (err) {
+			familyError = err instanceof Error ? err.message : 'Failed to remove child from family.';
+		} finally {
+			isUpdatingFamily = false;
+		}
+	}
+
+	async function handleRemoveSelfFromFamily() {
+		const fid = familyId();
+		if (!fid || isUpdatingFamily) return;
+
+		isUpdatingFamily = true;
+		familyError = null;
+
+		try {
+			await removeChildFromFamily(fid, file.sha256_hash);
+			file = {
+				...file,
+				parent: null,
+				family_id: null,
+				children: undefined
+			};
+		} catch (err) {
+			familyError = err instanceof Error ? err.message : 'Failed to remove from family.';
+		} finally {
+			isUpdatingFamily = false;
+		}
+	}
+
+	async function handleDeleteFamily() {
+		const fid = familyId();
+		if (!fid || isUpdatingFamily) return;
+
+		const confirmed = typeof window === 'undefined' ? false : window.confirm('Delete this family? Children will be unlinked.');
+		if (!confirmed) return;
+
+		isUpdatingFamily = true;
+		familyError = null;
+
+		try {
+			await deleteFamily(fid);
+			file = {
+				...file,
+				parent: null,
+				family_id: null,
+				children: undefined
+			};
+		} catch (err) {
+			familyError = err instanceof Error ? err.message : 'Failed to delete family.';
+		} finally {
+			isEditingFamily = false;
+			isUpdatingFamily = false;
+		}
+	}
 </script>
 
 {#if open}
 	<div
-		class="fixed right-0 top-0 z-60 flex h-screen w-[400px] md:w-[450px] lg:w-[500px] xl:w-[550px] 2xl:w-[600px] flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
+		class="fixed right-0 top-0 z-30 flex h-screen w-[400px] md:w-[450px] lg:w-[500px] xl:w-[550px] 2xl:w-[600px] flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
 		transition:fly={{ x: 400, duration: 200 }}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
@@ -374,6 +492,165 @@
 				</section>
 			{/if}
 
+			<!-- Start Family Action (when no family exists) -->
+			{#if !hasFamily()}
+				<section class="mb-6">
+					<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+						Actions
+					</h4>
+
+					<div class="flex items-center gap-3">
+						<button
+							type="button"
+							onclick={handleStartFamily}
+							disabled={isUpdatingFamily}
+							class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600"
+						>
+							{isUpdatingFamily ? 'Starting...' : 'Start Family'}
+						</button>
+						{#if familyError}
+							<p class="text-sm text-red-600 dark:text-red-400">{familyError}</p>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			<!-- Family Section -->
+			{#if hasFamily()}
+				<section class="mb-6">
+					<div class="mb-3 flex items-center justify-between">
+						<h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+							Family
+						</h4>
+
+						{#if isParent()}
+							<button
+								type="button"
+								onclick={() => {
+									isEditingFamily = !isEditingFamily;
+									familyError = null;
+								}}
+								class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-colors"
+								aria-label="Toggle family edit mode"
+							>
+								<IconEdit class="h-4 w-4" />
+							</button>
+						{/if}
+					</div>
+
+					<div class="space-y-4">
+						{#if familyError}
+							<p class="text-xs text-red-600 dark:text-red-400">{familyError}</p>
+						{/if}
+
+						{#if file.parent}
+							<div>
+								<div class="mb-2 flex items-center justify-between">
+									<div class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+										Parent
+									</div>
+								</div>
+								<div class="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+									<button
+										type="button"
+										class="group flex w-20 shrink-0 flex-col overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50"
+										onclick={() => onNavigateToFile(file.parent!.sha256_hash)}
+										aria-label="Open parent file"
+									>
+										<div class="aspect-square w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+											<img
+												src={file.parent.thumbnail_url}
+												alt="Parent thumbnail"
+												class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+											/>
+										</div>
+									</button>
+								</div>
+							</div>
+						{/if}
+
+						{#if file.children && file.children.length > 0}
+							<div>
+								<div class="mb-2 flex items-center">
+									<div class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+										Children
+									</div>
+								</div>
+								<div class="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+									{#each file.children as child (child.sha256_hash)}
+										<div
+											class="group relative flex w-20 shrink-0 flex-col overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50"
+										>
+											{#if isParent() && isEditingFamily}
+												<button
+													type="button"
+													class="absolute right-1 top-1 z-10 rounded bg-black/60 p-0.5 text-white hover:bg-black/80"
+													aria-label="Remove child from family"
+													onclick={() => {
+														handleRemoveChild(child.sha256_hash);
+													}}
+												>
+													<IconClose class="h-3 w-3" />
+												</button>
+											{/if}
+
+											<button
+												type="button"
+												class="flex w-full flex-col"
+												onclick={() => onNavigateToFile(child.sha256_hash)}
+												aria-label="Open child file"
+											>
+												<div class="aspect-square w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+													<img
+														src={child.thumbnail_url}
+														alt="Child thumbnail"
+														class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+													/>
+												</div>
+											</button>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						{#if isChild()}
+							<div class="flex justify-start gap-2 pt-2">
+								<button
+									type="button"
+									onclick={handleRemoveSelfFromFamily}
+									disabled={isUpdatingFamily}
+									class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+								>
+									{isUpdatingFamily ? 'Removing...' : 'Remove from family'}
+								</button>
+							</div>
+						{/if}
+
+						{#if isParent() && isEditingFamily}
+							<div class="flex justify-start gap-2 pt-2">
+								<button
+									type="button"
+									onclick={() => (isAddChildModalOpen = true)}
+									disabled={isUpdatingFamily}
+									class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+								>
+									Add child
+								</button>
+								<button
+									type="button"
+									onclick={handleDeleteFamily}
+									disabled={isUpdatingFamily}
+									class="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+								>
+									{isUpdatingFamily ? 'Deleting...' : 'Delete family'}
+								</button>
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
 			<!-- Tags Section -->
 			<TagSection bind:file={file} />
 
@@ -403,5 +680,6 @@
 			</section>
 		</div>
 	</div>
+
 {/if}
 

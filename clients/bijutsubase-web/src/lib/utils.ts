@@ -40,3 +40,20 @@ export function humanizeTag(tag: string): string {
 		.join(' ');
 }
 
+/**
+ * Validate if a string is a valid SHA-256 hash
+ * @param value - The string to validate
+ * @returns true if the string is a valid 64-character hexadecimal hash
+ */
+export function isValidHash(value: string): boolean {
+	return /^[a-f0-9]{64}$/i.test(value.trim());
+}
+// TODO: Use this across the project
+/**
+ * Format a byte count as MB (mebibytes).
+ * Example: 1048576 -> "1.00 MB"
+ */
+export function formatBytesToMB(bytes: number, fractionDigits: number = 2): string {
+	if (!Number.isFinite(bytes)) return '—';
+	return `${(bytes / (1024 * 1024)).toFixed(fractionDigits)} MB`;
+}

@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING, Any
 
 from pydantic import BaseModel, computed_field, field_validator, Field, model_validator
-from sqlalchemy import inspect
 
 from api.serializers.tag import TagResponse
 
@@ -56,7 +56,7 @@ class FileResponse(BaseModel):
     pools: list["PoolSimple"] = Field(default=[], validation_alias="pool_entries")
     parent: Optional[FileThumb] = None  # Parent file thumbnail if this file is a child
     children: list[FileThumb] = Field(default_factory=list)  # Children file thumbnails if this file is a parent
-    family_id: Optional[str] = None  # Family ID if this file is a parent of a family
+    family_id: Optional[uuid.UUID] = None  # Family ID if this file is in/owns a family (supports empty families)
     
     @field_validator('tags')
     @classmethod
@@ -78,41 +78,38 @@ class FileResponse(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def extract_family_relationships(cls, data: Any) -> Any:
-        """Extract parent, children, and family_id from family relationships."""
+        """Extract parent and children FileThumb objects from family relationships."""
         parent = None
         children = []
         family_id = None
         
-        # Assume `data` is a SQLAlchemy ORM `File`  instance.
-        # (If it isn't, we want to fail loudly rather than silently returning empty family fields.)
-        state = inspect(data)
-        
         # Extract parent file if this file is a child in a family
-        # Check if the relationship is loaded to avoid lazy loading
-        if 'family_as_child' not in state.unloaded:
-            family_as_child = data.family_as_child
-            if family_as_child and family_as_child.parent:
-                parent = FileThumb.model_validate(family_as_child.parent)
-            # Set family_id for children too
-            if family_as_child and hasattr(family_as_child, 'id'):
-                family_id = str(family_as_child.id)
+        if hasattr(data, 'family_as_child') and data.family_as_child:
+            # This file is a child, so get the parent File object
+            if hasattr(data.family_as_child, 'parent') and data.family_as_child.parent:
+                parent = FileThumb.model_validate(data.family_as_child.parent)
+            # This file is a child, so family id is stored on the file row
+            if hasattr(data, 'parent_family_id'):
+                family_id = data.parent_family_id
         
         # Extract children files if this file is a parent of a family
-        # Check if the relationship is loaded to avoid lazy loading
-        if 'family_as_parent' not in state.unloaded:
-            family_as_parent = data.family_as_parent
-            if family_as_parent:
-                # Set family_id for parent
-                if hasattr(family_as_parent, 'id'):
-                    family_id = str(family_as_parent.id)
-                child_files = getattr(family_as_parent, 'children', None)
-                if child_files:
-                    children = [FileThumb.model_validate(child) for child in child_files]
+        if hasattr(data, 'family_as_parent') and data.family_as_parent:
+            # This file is a parent, so get all children File objects
+            if hasattr(data.family_as_parent, 'children') and data.family_as_parent.children:
+                children = [FileThumb.model_validate(child) for child in data.family_as_parent.children]
+            # This file is a parent, so family id is the family row id
+            if hasattr(data.family_as_parent, 'id'):
+                family_id = data.family_as_parent.id
         
-        # Set the extracted values on the ORM instance
-        data.parent = parent
-        data.children = children
-        data.family_id = family_id
+        # Set the extracted values
+        if isinstance(data, dict):
+            data['parent'] = parent
+            data['children'] = children
+            data['family_id'] = family_id
+        else:
+            data.parent = parent
+            data.children = children
+            data.family_id = family_id
         
         return data
     

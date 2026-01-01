@@ -6,6 +6,7 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconInformation from '~icons/mdi/information-outline';
 	import InfoPanel from './InfoPanel.svelte';
+	import AddChildByHashModal from './AddChildByHashModal.svelte';
 
 	let { isOpen = $bindable(false), files = [], currentIndex = $bindable(0) } = $props();
 
@@ -14,6 +15,8 @@
 	let error = $state<string | null>(null);
 	let isVideo = $state(false);
 	let infoOpen = $state(false);
+	let ephemeralSha = $state<string | null>(null);
+	let isAddChildModalOpen = $state(false);
 
 	// Controls visibility state
 	let controlsVisible = $state(false);
@@ -22,19 +25,20 @@
 
 	// Current file from the array
 	let currentFile = $derived(files[currentIndex]);
+	let activeSha = $derived(ephemeralSha ?? currentFile?.sha256_hash);
 
 	// Check if navigation is possible
-	let canGoNext = $derived(currentIndex < files.length - 1);
-	let canGoPrev = $derived(currentIndex > 0);
+	let canGoNext = $derived(ephemeralSha === null && currentIndex < files.length - 1);
+	let canGoPrev = $derived(ephemeralSha === null && currentIndex > 0);
 
 	// Fetch file details when current file changes
 	$effect(() => {
-		if (isOpen && currentFile) {
+		if (isOpen && activeSha) {
 			loading = true;
 			error = null;
 			fileDetails = null;
 
-			getFile(currentFile.sha256_hash)
+			getFile(activeSha)
 				.then((data) => {
 					fileDetails = data;
 					// Check if it's a video based on file type
@@ -65,6 +69,7 @@
 		fileDetails = null;
 		error = null;
 		infoOpen = false;
+		ephemeralSha = null;
 		if (hideTimer !== null) {
 			clearTimeout(hideTimer);
 			hideTimer = null;
@@ -73,14 +78,28 @@
 
 	function goNext() {
 		if (canGoNext) {
+			ephemeralSha = null;
 			currentIndex++;
 		}
 	}
 
 	function goPrev() {
 		if (canGoPrev) {
+			ephemeralSha = null;
 			currentIndex--;
 		}
+	}
+
+	function openBySha(sha256: string) {
+		const index = files.findIndex((f: FileThumb) => f.sha256_hash === sha256);
+		if (index >= 0) {
+			ephemeralSha = null;
+			currentIndex = index;
+			return;
+		}
+
+		// Ephemeral mode: open this file even if it's not in the current list.
+		ephemeralSha = sha256;
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -230,8 +249,26 @@
 
 		<!-- Info Panel -->
 		{#if fileDetails}
-			<InfoPanel bind:open={infoOpen} bind:file={fileDetails} />
+			<InfoPanel bind:open={infoOpen} bind:file={fileDetails} onNavigateToFile={openBySha} bind:isAddChildModalOpen />
 		{/if}
 	</div>
+{/if}
+
+<!-- Add Child Modal - rendered outside the Lightbox stacking context -->
+{#if fileDetails?.family_id && isAddChildModalOpen}
+	<AddChildByHashModal
+		bind:isOpen={isAddChildModalOpen}
+		familyId={fileDetails.family_id}
+		onChildAdded={(family) => {
+			// We already have the updated family payload; patch the bound file state instead of refetching.
+			if (fileDetails && fileDetails.sha256_hash === family.parent_sha256_hash) {
+				fileDetails = {
+					...fileDetails,
+					family_id: family.id,
+					children: family.children
+				};
+			}
+		}}
+	/>
 {/if}
 
