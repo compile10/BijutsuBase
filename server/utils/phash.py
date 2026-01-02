@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 # Hamming distance threshold for considering images similar
 # 0 = identical, 1-5 = very similar, 6-10 = similar, 11-15 = somewhat similar
+# TODO: Adjust this threshold to better fit cropped images.
 SIMILARITY_THRESHOLD = 13
 
 # Constants for 64-bit signed/unsigned conversion
