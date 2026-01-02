@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from models.pool import PoolMember
     from models.family import FileFamily
 
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, func, event, Enum as SQLEnum, Uuid
+from sqlalchemy import String, Integer, BigInteger, DateTime, Boolean, ForeignKey, func, event, Enum as SQLEnum, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from database.config import Base
@@ -100,6 +100,12 @@ class File(Base):
         server_default=TagSource.ONNX.name
     )
     
+    phash: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        nullable=True,
+        index=True
+    )
+    
     # Family this file belongs to as a child
     parent_family_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid,
@@ -128,7 +134,8 @@ class File(Base):
     family_as_parent: Mapped[Optional["FileFamily"]] = relationship(
         "FileFamily",
         back_populates="parent",
-        foreign_keys="FileFamily.parent_sha256_hash"
+        foreign_keys="FileFamily.parent_sha256_hash",
+        passive_deletes=True  # Let DB CASCADE handle deletion
     )
     
     def __repr__(self) -> str:

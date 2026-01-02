@@ -188,15 +188,28 @@ async def _persist_ingest(
     width = None
     height = None
     ai_generated = False
+    phash = None
     try:
         if mime_type.startswith("image/"):
             from utils.file_info import get_image_dimensions, is_ai_generated_image
+            from utils.phash import compute_phash
+            
             width, height = get_image_dimensions(final_path)
+            
             # Detect AI-generated via EXIF UserComment
             try:
                 ai_generated = is_ai_generated_image(final_path)
             except Exception:
                 ai_generated = False
+            
+            # Compute perceptual hash for visual similarity detection
+            try:
+                phash = compute_phash(final_path)
+                logger.debug(f"Computed pHash {phash} for {sha256_hash}")
+            except Exception as e:
+                logger.warning(f"Failed to compute pHash for {sha256_hash}: {str(e)}")
+                # Continue without pHash - it's optional
+        
         elif mime_type.startswith("video/"):
             from utils.file_info import get_video_dimensions
             width, height = get_video_dimensions(final_path)
@@ -218,6 +231,7 @@ async def _persist_ingest(
         width=width,
         height=height,
         ai_generated=ai_generated,
+        phash=phash,
     )
 
     try:
@@ -269,6 +283,43 @@ async def _persist_ingest(
             .where(FileModel.sha256_hash == sha256_hash)
         )
         file_model = result.scalar_one()
+        
+        # Check for visually similar files and create/extend families
+        if phash is not None:
+            try:
+                from utils.phash import find_similar_files
+                from utils.similarity_family import handle_similar_files
+                
+                logger.debug(f"Searching for visually similar files to {sha256_hash}")
+                similar_files = await find_similar_files(
+                    phash=phash,
+                    db=db,
+                    exclude_hash=sha256_hash
+                )
+                
+                if similar_files:
+                    logger.info(f"Found {len(similar_files)} visually similar files for {sha256_hash}")
+                    await handle_similar_files(file_model, similar_files, db)
+                    
+                    # Reload file with updated family relationships
+                    from models.family import FileFamily
+                    result = await db.execute(
+                        select(FileModel)
+                        .options(
+                            selectinload(FileModel.tags),
+                            selectinload(FileModel.pool_entries)
+                            .selectinload(PoolMember.pool)
+                            .selectinload(Pool.members)
+                            .selectinload(PoolMember.file),
+                            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
+                            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
+                        )
+                        .where(FileModel.sha256_hash == sha256_hash)
+                    )
+                    file_model = result.scalar_one()
+            except Exception as e:
+                logger.error(f"Failed to process visual similarity for {sha256_hash}: {str(e)}", exc_info=True)
+                # Don't fail the upload if similarity detection fails
 
     except Exception as e:
         await db.rollback()
