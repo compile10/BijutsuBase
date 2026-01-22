@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
 from models.file import File as FileModel
+from models.user import User
+from auth.users import current_active_user
 
 
 router = APIRouter()
@@ -20,6 +22,7 @@ router = APIRouter()
 async def serve_media(
     file_path: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Serve media files from the media/original directory.
@@ -98,6 +101,7 @@ async def serve_media(
 @router.get("/thumb/{file_path:path}")
 async def serve_thumbnail(
     file_path: str,
+    user: User = Depends(current_active_user),
 ):
     # TODO: Consider adding a cache layer to serve thumbnails and original files
     # TODO: Consider adding a bulk thumbnail send endpoint

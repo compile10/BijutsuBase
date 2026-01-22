@@ -1,11 +1,13 @@
 """Authentication backend configuration."""
-from fastapi_users.authentication import AuthenticationBackend, BearerTransport, JWTStrategy
+from fastapi_users.authentication import AuthenticationBackend, CookieTransport, JWTStrategy
 
 from auth.config import JWT_SECRET, JWT_LIFETIME_SECONDS
 
 
-# Bearer transport for JWT tokens
-bearer_transport = BearerTransport(tokenUrl="/api/auth/jwt/login")
+# Cookie transport for JWT tokens
+# HttpOnly cookie prevents JavaScript access (XSS protection)
+# SameSite=Lax provides CSRF protection for most cases
+cookie_transport = CookieTransport(cookie_max_age=JWT_LIFETIME_SECONDS)
 
 
 def get_jwt_strategy() -> JWTStrategy:
@@ -15,7 +17,7 @@ def get_jwt_strategy() -> JWTStrategy:
 
 # Authentication backend combining transport and strategy
 auth_backend = AuthenticationBackend(
-    name="jwt",
-    transport=bearer_transport,
+    name="cookie",
+    transport=cookie_transport,
     get_strategy=get_jwt_strategy,
 )

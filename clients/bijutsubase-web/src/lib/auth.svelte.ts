@@ -4,6 +4,9 @@
  * This module provides SSR-safe auth state by using Svelte's context API.
  * The auth state is created per-request and attached to the component tree,
  * preventing state leakage between users during server-side rendering.
+ * 
+ * Authentication is handled via HttpOnly cookies set by the server,
+ * so no token storage is needed in the frontend.
  */
 
 import { setContext, getContext } from 'svelte';
@@ -21,15 +24,11 @@ export interface SetupStatus {
 }
 
 export interface AuthState {
-	token: string | null;
 	user: User | null;
 	isLoading: boolean;
 	needsSetup: boolean;
 	readonly isAuthenticated: boolean;
 }
-
-// Token storage key
-const TOKEN_KEY = 'bijutsubase_token';
 
 // Context key for auth state
 const AUTH_CONTEXT_KEY = Symbol('auth');
@@ -42,20 +41,14 @@ let currentAuthState: AuthState | null = null;
  * Call this in the root +layout.svelte.
  */
 export function createAuthContext(): AuthState {
-	// Initialize token from localStorage (client-side only)
-	let initialToken: string | null = null;
-	if (typeof window !== 'undefined') {
-		initialToken = localStorage.getItem(TOKEN_KEY);
-	}
-
 	// Create reactive state with computed isAuthenticated
+	// With cookie-based auth, we determine authentication by whether we have a user object
 	const authState: AuthState = $state({
-		token: initialToken,
 		user: null as User | null,
 		isLoading: true,
 		needsSetup: false,
 		get isAuthenticated() {
-			return this.token !== null && this.user !== null;
+			return this.user !== null;
 		}
 	});
 
@@ -83,50 +76,12 @@ export function getAuthContext(): AuthState {
 }
 
 /**
- * Get the current auth token, or null if not authenticated.
+ * Clear the current user state (used on logout).
+ * The actual cookie is cleared by the server on logout.
  */
-export function getToken(): string | null {
-	return currentAuthState?.token ?? null;
-}
-
-/**
- * Get authorization headers for API requests.
- * Uses the current auth state reference.
- */
-export function getAuthHeaders(): HeadersInit {
-	const token = getToken();
-	if (token) {
-		return {
-			Authorization: `Bearer ${token}`
-		};
-	}
-	return {};
-}
-
-/**
- * Set the authentication token.
- * Updates both the state and localStorage.
- */
-export function setToken(newToken: string) {
+export function clearUser() {
 	if (currentAuthState) {
-		currentAuthState.token = newToken;
-	}
-	if (typeof window !== 'undefined') {
-		localStorage.setItem(TOKEN_KEY, newToken);
-	}
-}
-
-/**
- * Clear the authentication token.
- * Removes from both state and localStorage.
- */
-export function clearToken() {
-	if (currentAuthState) {
-		currentAuthState.token = null;
 		currentAuthState.user = null;
-	}
-	if (typeof window !== 'undefined') {
-		localStorage.removeItem(TOKEN_KEY);
 	}
 }
 

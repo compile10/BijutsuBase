@@ -1,8 +1,11 @@
 /**
  * API client for BijutsuBase backend
+ * 
+ * All API calls use credentials: 'include' to send cookies automatically.
+ * Authentication is handled via HttpOnly cookies set by the server.
  */
 
-import { getAuthHeaders, getToken, setToken, clearToken, setUser, setLoading, setNeedsSetup, type User, type SetupStatus } from './auth.svelte';
+import { clearUser, setUser, setLoading, setNeedsSetup, type User, type SetupStatus } from './auth.svelte';
 
 export class APIError extends Error {
 	status: number;
@@ -20,15 +23,8 @@ export class APIError extends Error {
 export type { User, SetupStatus };
 
 /**
- * Login response from the API
- */
-export interface LoginResponse {
-	access_token: string;
-	token_type: string;
-}
-
-/**
  * Check if the application needs initial setup
+ * Note: This endpoint is unauthenticated since it's called before any user exists
  */
 export async function checkSetupStatus(): Promise<SetupStatus> {
 	const response = await fetch('/api/setup/status');
@@ -42,6 +38,7 @@ export async function checkSetupStatus(): Promise<SetupStatus> {
 
 /**
  * Create the initial admin account
+ * Note: This endpoint is unauthenticated since it's only available when no users exist
  */
 export async function createAdminAccount(email: string, password: string): Promise<{ success: boolean; message: string }> {
 	const response = await fetch('/api/setup/admin', {
@@ -60,16 +57,18 @@ export async function createAdminAccount(email: string, password: string): Promi
 
 /**
  * Login with email and password
+ * The server sets an HttpOnly cookie on successful login
  */
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(email: string, password: string): Promise<void> {
 	// FastAPI Users expects form data for login
 	const formData = new URLSearchParams();
 	formData.append('username', email);
 	formData.append('password', password);
 	
-	const response = await fetch('/api/auth/jwt/login', {
+	const response = await fetch('/api/auth/cookie/login', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		credentials: 'include',
 		body: formData
 	});
 	
@@ -78,48 +77,40 @@ export async function login(email: string, password: string): Promise<LoginRespo
 		throw new APIError(response, error.detail || 'Login failed');
 	}
 	
-	const data: LoginResponse = await response.json();
-	setToken(data.access_token);
-	
+	// Cookie is set by the server via Set-Cookie header
 	// Fetch user info after login
 	await getCurrentUser();
-	
-	return data;
 }
 
 /**
  * Logout the current user
+ * The server clears the auth cookie on logout
  */
 export async function logout(): Promise<void> {
 	try {
-		await fetch('/api/auth/jwt/logout', {
+		await fetch('/api/auth/cookie/logout', {
 			method: 'POST',
-			headers: getAuthHeaders()
+			credentials: 'include'
 		});
 	} catch {
 		// Ignore errors during logout
 	}
 	
-	clearToken();
+	clearUser();
 }
 
 /**
  * Get the current authenticated user
+ * Uses the auth cookie automatically sent by the browser
  */
 export async function getCurrentUser(): Promise<User | null> {
-	if (!getToken()) {
-		setUser(null);
-		return null;
-	}
-	
 	const response = await fetch('/api/users/me', {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 	
 	if (!response.ok) {
 		if (response.status === 401) {
-			clearToken();
-			setUser(null);
+			clearUser();
 			return null;
 		}
 		throw new APIError(response, 'Failed to get current user');
@@ -132,7 +123,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
 /**
  * Initialize authentication state
- * Checks setup status and validates current token
+ * Checks setup status and validates current session via cookie
  */
 export async function initAuth(): Promise<void> {
 	setLoading(true);
@@ -143,7 +134,7 @@ export async function initAuth(): Promise<void> {
 		setNeedsSetup(status.needs_setup);
 		
 		if (!status.needs_setup) {
-			// Try to get current user (validates token)
+			// Try to get current user (validates session cookie)
 			await getCurrentUser();
 		}
 	} catch (error) {
@@ -295,7 +286,7 @@ export interface TagBrowseItem {
  */
 export async function getRecommendedTags(query: string, limit: number = 20): Promise<string[]> {
 	const response = await fetch(`/api/tags/recommend?query=${encodeURIComponent(query)}&limit=${limit}`, {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	if (!response.ok) {
@@ -313,7 +304,7 @@ export async function getRecommendedTags(query: string, limit: number = 20): Pro
  */
 export async function getDanbooruRecommendedTags(query: string, limit: number = 20): Promise<TagResponse[]> {
 	const response = await fetch(`/api/tags/danbooru-recs?query=${encodeURIComponent(query)}&limit=${limit}`, {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	if (!response.ok) {
@@ -342,7 +333,7 @@ export async function searchFiles(tags: string, sort: string = 'date_desc', curs
 	}
 	
 	const response = await fetch(url, {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 	
 	if (!response.ok) {
@@ -359,7 +350,7 @@ export async function searchFiles(tags: string, sort: string = 'date_desc', curs
  */
 export async function getFile(sha256: string): Promise<FileResponse> {
 	const response = await fetch(`/api/files/${sha256}`, {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 	
 	if (!response.ok) {
@@ -377,7 +368,7 @@ export async function getFile(sha256: string): Promise<FileResponse> {
 export async function deleteFile(sha256: string): Promise<{ ok: boolean }> {
 	const response = await fetch(`/api/files/${sha256}`, {
 		method: 'DELETE',
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 	
 	if (!response.ok) {
@@ -398,7 +389,7 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 	
 	const response = await fetch('/api/upload/file', {
 		method: 'PUT',
-		headers: getAuthHeaders(),
+		credentials: 'include',
 		body: formData
 	});
 	
@@ -417,7 +408,8 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 export async function uploadByUrl(url: string): Promise<FileResponse> {
 	const response = await fetch('/api/upload/url', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({ url })
 	});
 
@@ -436,7 +428,8 @@ export async function uploadByUrl(url: string): Promise<FileResponse> {
 export async function associateTag(request: TagAssociateRequest): Promise<FileResponse> {
 	const response = await fetch('/api/tags/associate', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(request)
 	});
 
@@ -455,7 +448,8 @@ export async function associateTag(request: TagAssociateRequest): Promise<FileRe
 export async function dissociateTag(request: TagDissociateRequest): Promise<FileResponse> {
 	const response = await fetch('/api/tags/dissociate', {
 		method: 'DELETE',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(request)
 	});
 
@@ -475,7 +469,8 @@ export async function dissociateTag(request: TagDissociateRequest): Promise<File
 export async function updateFileRating(sha256: string, rating: string): Promise<FileResponse> {
 	const response = await fetch(`/api/files/rating/${sha256}`, {
 		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({ rating })
 	});
 
@@ -495,7 +490,8 @@ export async function updateFileRating(sha256: string, rating: string): Promise<
 export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean): Promise<FileResponse> {
 	const response = await fetch(`/api/files/ai_generated/${sha256}`, {
 		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({ ai_generated: aiGenerated })
 	});
 
@@ -514,7 +510,8 @@ export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean
 export async function getCommonTags(hashes: string[]): Promise<TagResponse[]> {
 	const response = await fetch('/api/files/bulk-common-tags', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({ file_hashes: hashes })
 	});
 
@@ -532,7 +529,8 @@ export async function getCommonTags(hashes: string[]): Promise<TagResponse[]> {
 export async function bulkUpdateFileMetadata(request: BulkUpdateFileRequest): Promise<void> {
 	const response = await fetch('/api/files/bulk-update', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(request)
 	});
 
@@ -548,7 +546,8 @@ export async function bulkUpdateFileMetadata(request: BulkUpdateFileRequest): Pr
 export async function bulkAssociateTag(request: BulkTagAssociateRequest): Promise<void> {
 	const response = await fetch('/api/tags/bulk-associate', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(request)
 	});
 
@@ -564,7 +563,8 @@ export async function bulkAssociateTag(request: BulkTagAssociateRequest): Promis
 export async function bulkDissociateTag(request: BulkTagDissociateRequest): Promise<void> {
 	const response = await fetch('/api/tags/bulk-dissociate', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(request)
 	});
 
@@ -585,7 +585,7 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
 		url += `&query=${encodeURIComponent(query)}`;
 	}
 	const response = await fetch(url, {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	if (!response.ok) {
@@ -605,7 +605,7 @@ export async function getTagsByCategory(category: TagCategory, skip: number = 0,
 	const response = await fetch(
 		`/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`,
 		{
-			headers: getAuthHeaders()
+			credentials: 'include'
 		}
 	);
 
@@ -624,7 +624,8 @@ export async function getTagsByCategory(category: TagCategory, skip: number = 0,
 export async function createPool(request: CreatePoolRequest): Promise<PoolResponse> {
 	const response = await fetch('/api/pools/', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(request)
 	});
 
@@ -641,7 +642,7 @@ export async function createPool(request: CreatePoolRequest): Promise<PoolRespon
  */
 export async function getPool(id: string): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${id}`, {
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	if (!response.ok) {
@@ -659,7 +660,8 @@ export async function getPool(id: string): Promise<PoolResponse> {
 export async function addFilesToPool(poolId: string, fileHashes: string[]): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/files`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({
 			file_hashes: fileHashes
 		} satisfies BulkFileRequest)
@@ -680,7 +682,7 @@ export async function addFilesToPool(poolId: string, fileHashes: string[]): Prom
 export async function removeFileFromPool(poolId: string, sha256: string): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/files/${sha256}`, {
 		method: 'DELETE',
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	if (!response.ok) {
@@ -696,7 +698,8 @@ export async function removeFileFromPool(poolId: string, sha256: string): Promis
 export async function createFamily(parentSha256: string): Promise<FileFamilyResponse> {
 	const response = await fetch('/api/families/', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({
 			parent_sha256_hash: parentSha256
 		} satisfies CreateFamilyRequest)
@@ -717,7 +720,8 @@ export async function createFamily(parentSha256: string): Promise<FileFamilyResp
 export async function addChildToFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
 	const response = await fetch(`/api/families/${familyId}/children`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({
 			child_sha256_hash: childSha256
 		} satisfies AddChildRequest)
@@ -738,7 +742,7 @@ export async function addChildToFamily(familyId: string, childSha256: string): P
 export async function removeChildFromFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
 	const response = await fetch(`/api/families/${familyId}/children/${childSha256}`, {
 		method: 'DELETE',
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	if (!response.ok) {
@@ -756,7 +760,7 @@ export async function removeChildFromFamily(familyId: string, childSha256: strin
 export async function deleteFamily(familyId: string): Promise<void> {
 	const response = await fetch(`/api/families/${familyId}`, {
 		method: 'DELETE',
-		headers: getAuthHeaders()
+		credentials: 'include'
 	});
 
 	// delete returns 204 on success
@@ -776,7 +780,8 @@ export async function deleteFamily(familyId: string): Promise<void> {
 export async function reorderPoolFiles(poolId: string, fileHashes: string[], afterOrder: number): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/reorder`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify({
 			file_hashes: fileHashes,
 			after_order: afterOrder
