@@ -1,5 +1,6 @@
 """User manager for FastAPI Users."""
 import uuid
+import logging
 from typing import Optional
 
 from fastapi import Depends, Request
@@ -11,6 +12,8 @@ from database.config import get_db
 from models.user import User
 from auth.config import RESET_PASSWORD_TOKEN_SECRET, VERIFICATION_TOKEN_SECRET
 
+logger = logging.getLogger(__name__)
+
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     """User manager handling user lifecycle events."""
@@ -20,19 +23,21 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
         """Called after a user registers."""
-        print(f"User {user.id} ({user.email}) has registered.")
+        logger.info("User %s has registered.", user.id)
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
     ):
         """Called after a user requests password reset."""
-        print(f"User {user.id} has requested password reset. Token: {token}")
+        # SECURITY: Never log the token - it would allow account takeover
+        logger.info("Password reset requested for user %s.", user.id)
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Optional[Request] = None
     ):
         """Called after a user requests email verification."""
-        print(f"Verification requested for user {user.id}. Token: {token}")
+        # SECURITY: Never log the token - it would allow account takeover
+        logger.info("Email verification requested for user %s.", user.id)
 
 
 async def get_user_db(session: AsyncSession = Depends(get_db)):
