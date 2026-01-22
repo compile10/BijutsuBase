@@ -3,13 +3,16 @@
 	import { goto } from '$app/navigation';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import AccountMenu from '$lib/components/AccountMenu.svelte';
 	import { getAppState } from '$lib/state.svelte';
+	import { getAuthContext } from '$lib/auth.svelte';
 	import IconSearch from '~icons/mdi/magnify';
 	import IconMenu from '~icons/mdi/menu';
 	import IconUpload from '~icons/mdi/image-plus';
 
 	let { children } = $props();
 	const appState = getAppState();
+	const authState = getAuthContext();
 
 	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
@@ -105,15 +108,18 @@
 					</button>
 				</form>
 
-				<!-- Right Side: Upload Button -->
-				<div class="flex shrink-0 justify-end" style="width: 100px">
-					<button
-						onclick={() => (appState.isUploadModalOpen = true)}
-						class="rounded-full bg-primary-600 p-2 text-white shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"
-						aria-label="Upload file"
-					>
-						<IconUpload class="h-5 w-5" />
-					</button>
+				<!-- Right Side: Upload Button & Account Menu -->
+				<div class="flex shrink-0 items-center gap-3">
+					{#if authState.isAuthenticated}
+						<button
+							onclick={() => (appState.isUploadModalOpen = true)}
+							class="rounded-full bg-primary-600 p-2 text-white shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"
+							aria-label="Upload file"
+						>
+							<IconUpload class="h-5 w-5" />
+						</button>
+					{/if}
+					<AccountMenu />
 				</div>
 			</div>
 		</div>
@@ -127,4 +133,3 @@
 		overflow: hidden;
 	}
 </style>
-

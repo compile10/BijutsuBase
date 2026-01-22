@@ -16,10 +16,12 @@ from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag
 from models.pool import PoolMember, Pool
 from models.family import FileFamily
+from models.user import User
 from utils.file_storage import generate_file_path
 from utils.pagination import encode_cursor, decode_cursor
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
 from api.serializers.tag import TagResponse
+from auth.users import current_active_user
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -44,6 +46,7 @@ async def search_files(
     limit: int = Query(60, ge=1, le=200, description="Number of items to return per page"),
     cursor: str = Query(None, description="Pagination cursor from previous response"),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Search for files that contain ALL of the specified tags with cursor-based pagination.
@@ -196,6 +199,7 @@ async def search_files(
 async def get_common_tags(
     request: BulkFileRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Get tags common to all specified files.
@@ -229,6 +233,7 @@ async def get_common_tags(
 async def bulk_update_files(
     request: BulkUpdateFileRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Bulk update metadata (rating, ai_generated) for multiple files.
@@ -279,6 +284,7 @@ async def bulk_update_files(
 async def get_file(
     sha256: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Fetch a file by its SHA-256 hash and return serialized details including tags."""
     result = await db.execute(
@@ -306,6 +312,7 @@ async def update_file_rating(
     sha256: str,
     rating_update: FileRatingUpdate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Update the rating of a file by its SHA-256 hash."""
     # Validate and convert rating string to Rating enum
@@ -368,6 +375,7 @@ async def update_file_ai_generated(
     sha256: str,
     ai_generated_update: FileAiGeneratedUpdate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Update the ai_generated status of a file by its SHA-256 hash."""
     # Update the status with row locking to prevent race conditions
@@ -419,6 +427,7 @@ async def update_file_ai_generated(
 async def delete_file(
     sha256: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Delete a file by its SHA-256 hash."""
     result = await db.execute(select(FileModel).where(FileModel.sha256_hash == sha256))

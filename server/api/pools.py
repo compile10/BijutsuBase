@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from database.config import get_db
 from models.pool import Pool, PoolMember
 from models.file import File
+from models.user import User
 from api.serializers.pool import (
     PoolResponse, 
     CreatePoolRequest, 
@@ -22,6 +23,7 @@ from api.serializers.pool import (
 )
 from api.serializers.file import BulkFileRequest
 from utils.file_storage import generate_file_path
+from auth.users import current_active_user
 
 router = APIRouter(prefix="/pools", tags=["pools"])
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ async def list_pools(
     limit: int = Query(50, ge=1, le=100),
     query: str | None = Query(None, description="Search query for pool name or description"),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """List pools with pagination."""
     
@@ -80,6 +83,7 @@ async def list_pools(
 async def create_pool(
     request: CreatePoolRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Create a new pool."""
     pool = Pool(
@@ -101,6 +105,7 @@ async def create_pool(
 async def get_pool(
     pool_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Get pool details by ID."""
     query = (
@@ -126,6 +131,7 @@ async def update_pool(
     pool_id: uuid.UUID,
     request: UpdatePoolRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Update pool metadata."""
     # Fetch pool with members to return full object
@@ -162,6 +168,7 @@ async def update_pool(
 async def delete_pool(
     pool_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Delete a pool."""
     query = select(Pool).where(Pool.id == pool_id)
@@ -180,6 +187,7 @@ async def add_files_to_pool(
     pool_id: uuid.UUID,
     request: BulkFileRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Add files to a pool."""
     if not request.file_hashes:
@@ -262,6 +270,7 @@ async def remove_file_from_pool(
     pool_id: uuid.UUID,
     sha256: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Remove a file from a pool."""
     # Fetch pool with members using FOR UPDATE lock to safely delete and reorder
@@ -317,6 +326,7 @@ async def reorder_pool_files(
     pool_id: uuid.UUID,
     request: ReorderFilesRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Reorder files in a pool by moving specified files after a given position.
     

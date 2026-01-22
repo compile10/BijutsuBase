@@ -2,12 +2,15 @@
 	import { goto } from '$app/navigation';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import AccountMenu from '$lib/components/AccountMenu.svelte';
 	import { getAppState } from '$lib/state.svelte';
+	import { getAuthContext } from '$lib/auth.svelte';
 	import IconSearch from '~icons/mdi/magnify';
 	import IconMenu from '~icons/mdi/menu';
 	import IconUpload from '~icons/mdi/image-plus';
 
 	const appState = getAppState();
+	const authState = getAuthContext();
 	let searchQuery = $state('');
 	let sortOption = $state('date_desc');
 
@@ -32,14 +35,19 @@
 	<IconMenu class="h-6 w-6 shadow-sm" />
 </button>
 
-<!-- Global Upload Button - fixed top right -->
-<button
-	onclick={() => (appState.isUploadModalOpen = true)}
-	class="fixed right-4 top-4 z-40 rounded-full bg-primary-600 p-1.5 text-white shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:p-2 md:p-2 dark:bg-primary-500 dark:hover:bg-primary-600"
-	aria-label="Upload file"
->
-	<IconUpload class="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
-</button>
+<!-- Top Right Actions - fixed -->
+<div class="fixed right-4 top-4 z-40 flex items-center gap-3">
+	{#if authState.isAuthenticated}
+		<button
+			onclick={() => (appState.isUploadModalOpen = true)}
+			class="rounded-full bg-primary-600 p-1.5 text-white shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:p-2 md:p-2 dark:bg-primary-500 dark:hover:bg-primary-600"
+			aria-label="Upload file"
+		>
+			<IconUpload class="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
+		</button>
+	{/if}
+	<AccountMenu />
+</div>
 
 <div class="flex min-h-screen items-center justify-center px-4 pb-4">
 	<div class="w-full max-w-2xl">

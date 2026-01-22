@@ -12,12 +12,14 @@ from sqlalchemy.orm import selectinload
 from database.config import get_db
 from models.family import FileFamily
 from models.file import File
+from models.user import User
 from api.serializers.family import (
     FileFamilyResponse,
     CreateFamilyRequest,
     AddChildRequest
 )
 from api.serializers.file import FileThumb
+from auth.users import current_active_user
 
 router = APIRouter(prefix="/families", tags=["families"])
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ logger = logging.getLogger(__name__)
 async def create_family(
     request: CreateFamilyRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Create a new family with a parent file."""
     # Check if parent file exists
@@ -81,6 +84,7 @@ async def create_family(
 async def get_family(
     family_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Get family details by ID."""
     query = (
@@ -109,6 +113,7 @@ async def add_child_to_family(
     family_id: uuid.UUID,
     request: AddChildRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Add a child file to a family."""
     # Check if family exists
@@ -179,6 +184,7 @@ async def remove_child_from_family(
     family_id: uuid.UUID,
     sha256: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Remove a child file from a family."""
     # Check if family exists
@@ -227,6 +233,7 @@ async def remove_child_from_family(
 async def delete_family(
     family_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """Delete a family (unlinks children, doesn't delete files)."""
     # Check if family exists

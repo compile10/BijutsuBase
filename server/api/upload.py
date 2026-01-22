@@ -24,6 +24,8 @@ from sources.danbooru.enrich_file import enrich_file_with_danbooru
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from models.file import File as FileModel
 from models.pool import PoolMember, Pool
+from models.user import User
+from auth.users import current_active_user
 import logging
 
 
@@ -338,6 +340,7 @@ class UrlUploadRequest(BaseModel):
 async def upload_url(
     payload: UrlUploadRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Upload a file by URL. Downloads to a temp file, validates type, hashes content,
@@ -418,7 +421,8 @@ async def upload_url(
 @router.put("/file", response_model=FileResponse, status_code=status.HTTP_200_OK)
 async def upload_file(
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Upload a file (image or video) to BijutsuBase.

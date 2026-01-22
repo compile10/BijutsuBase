@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/original/{file_path:path}")
 async def serve_media(
     file_path: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Serve media files from the media/original directory.
@@ -98,7 +98,6 @@ async def serve_media(
 @router.get("/thumb/{file_path:path}")
 async def serve_thumbnail(
     file_path: str,
-    db: AsyncSession = Depends(get_db)
 ):
     # TODO: Consider adding a cache layer to serve thumbnails and original files
     # TODO: Consider adding a bulk thumbnail send endpoint

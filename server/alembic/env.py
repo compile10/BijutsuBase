@@ -10,6 +10,7 @@ from alembic import context
 from database.config import Base, get_sync_database_url
 from models import File  # noqa: F401 - Import to register with Base
 from models import Tag, FileTag  # noqa: F401 - Import to register with Base
+from models import User  # noqa: F401 - Import to register with Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

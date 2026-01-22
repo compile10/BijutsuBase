@@ -10,6 +10,7 @@ from sqlalchemy.orm import aliased, selectinload
 from database.config import get_db
 from models.file import File as FileModel
 from models.tag import Tag, TagCategory, FileTag
+from models.user import User
 from api.serializers.file import FileResponse
 from sources.danbooru import DanbooruClient
 from api.serializers.tag import (
@@ -21,6 +22,7 @@ from api.serializers.tag import (
     TagResponse,
 )
 from utils.danbooru_utils import map_danbooru_category_int_to_str
+from auth.users import current_active_user
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])
@@ -31,6 +33,7 @@ async def browse_tags(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Browse tags by category with pagination, sorted alphabetically.
@@ -86,6 +89,7 @@ async def recommend_tags(
     query: str,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Recommend tags based on user input, ordered by how frequently they
@@ -115,6 +119,7 @@ async def recommend_tags(
 async def danbooru_recommend_tags(
     query: str,
     limit: int = 20,
+    user: User = Depends(current_active_user),
 ):
     """
     Recommend tags from Danbooru based on user input.
@@ -147,6 +152,7 @@ async def danbooru_recommend_tags(
 async def associate_tag(
     request: TagAssociateRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Associate a tag with a file.
@@ -231,6 +237,7 @@ async def associate_tag(
 async def bulk_associate_tag(
     request: BulkTagAssociateRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Associate a tag with multiple files.
@@ -299,6 +306,7 @@ async def bulk_associate_tag(
 async def dissociate_tag(
     request: TagDissociateRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Dissociate a tag from a file.
@@ -367,6 +375,7 @@ async def dissociate_tag(
 async def bulk_dissociate_tag(
     request: BulkTagDissociateRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ):
     """
     Dissociate a tag from multiple files.

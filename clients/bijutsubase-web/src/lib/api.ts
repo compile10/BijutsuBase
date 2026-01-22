@@ -2,6 +2,8 @@
  * API client for BijutsuBase backend
  */
 
+import { getAuthHeaders, getToken, setToken, clearToken, setUser, setLoading, setNeedsSetup, type User, type SetupStatus } from './auth.svelte';
+
 export class APIError extends Error {
 	status: number;
 	statusText: string;
@@ -11,6 +13,143 @@ export class APIError extends Error {
 		this.name = 'APIError';
 		this.status = response.status;
 		this.statusText = response.statusText;
+	}
+}
+
+// Re-export User type for convenience
+export type { User, SetupStatus };
+
+/**
+ * Login response from the API
+ */
+export interface LoginResponse {
+	access_token: string;
+	token_type: string;
+}
+
+/**
+ * Check if the application needs initial setup
+ */
+export async function checkSetupStatus(): Promise<SetupStatus> {
+	const response = await fetch('/api/setup/status');
+	
+	if (!response.ok) {
+		throw new APIError(response, 'Failed to check setup status');
+	}
+	
+	return response.json();
+}
+
+/**
+ * Create the initial admin account
+ */
+export async function createAdminAccount(email: string, password: string): Promise<{ success: boolean; message: string }> {
+	const response = await fetch('/api/setup/admin', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ email, password })
+	});
+	
+	if (!response.ok) {
+		const error = await response.json().catch(() => ({ detail: 'Failed to create admin account' }));
+		throw new APIError(response, error.detail || 'Failed to create admin account');
+	}
+	
+	return response.json();
+}
+
+/**
+ * Login with email and password
+ */
+export async function login(email: string, password: string): Promise<LoginResponse> {
+	// FastAPI Users expects form data for login
+	const formData = new URLSearchParams();
+	formData.append('username', email);
+	formData.append('password', password);
+	
+	const response = await fetch('/api/auth/jwt/login', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: formData
+	});
+	
+	if (!response.ok) {
+		const error = await response.json().catch(() => ({ detail: 'Login failed' }));
+		throw new APIError(response, error.detail || 'Login failed');
+	}
+	
+	const data: LoginResponse = await response.json();
+	setToken(data.access_token);
+	
+	// Fetch user info after login
+	await getCurrentUser();
+	
+	return data;
+}
+
+/**
+ * Logout the current user
+ */
+export async function logout(): Promise<void> {
+	try {
+		await fetch('/api/auth/jwt/logout', {
+			method: 'POST',
+			headers: getAuthHeaders()
+		});
+	} catch {
+		// Ignore errors during logout
+	}
+	
+	clearToken();
+}
+
+/**
+ * Get the current authenticated user
+ */
+export async function getCurrentUser(): Promise<User | null> {
+	if (!getToken()) {
+		setUser(null);
+		return null;
+	}
+	
+	const response = await fetch('/api/users/me', {
+		headers: getAuthHeaders()
+	});
+	
+	if (!response.ok) {
+		if (response.status === 401) {
+			clearToken();
+			setUser(null);
+			return null;
+		}
+		throw new APIError(response, 'Failed to get current user');
+	}
+	
+	const user: User = await response.json();
+	setUser(user);
+	return user;
+}
+
+/**
+ * Initialize authentication state
+ * Checks setup status and validates current token
+ */
+export async function initAuth(): Promise<void> {
+	setLoading(true);
+	
+	try {
+		// Check if setup is needed
+		const status = await checkSetupStatus();
+		setNeedsSetup(status.needs_setup);
+		
+		if (!status.needs_setup) {
+			// Try to get current user (validates token)
+			await getCurrentUser();
+		}
+	} catch (error) {
+		console.error('Failed to initialize auth:', error);
+	} finally {
+		setLoading(false);
 	}
 }
 
@@ -155,7 +294,9 @@ export interface TagBrowseItem {
  * @returns Array of recommended tag names
  */
 export async function getRecommendedTags(query: string, limit: number = 20): Promise<string[]> {
-	const response = await fetch(`/api/tags/recommend?query=${encodeURIComponent(query)}&limit=${limit}`);
+	const response = await fetch(`/api/tags/recommend?query=${encodeURIComponent(query)}&limit=${limit}`, {
+		headers: getAuthHeaders()
+	});
 
 	if (!response.ok) {
 		throw new Error(`Failed to get recommendations: ${response.statusText}`);
@@ -171,7 +312,9 @@ export async function getRecommendedTags(query: string, limit: number = 20): Pro
  * @returns Array of Danbooru tag recommendations with mapped categories
  */
 export async function getDanbooruRecommendedTags(query: string, limit: number = 20): Promise<TagResponse[]> {
-	const response = await fetch(`/api/tags/danbooru-recs?query=${encodeURIComponent(query)}&limit=${limit}`);
+	const response = await fetch(`/api/tags/danbooru-recs?query=${encodeURIComponent(query)}&limit=${limit}`, {
+		headers: getAuthHeaders()
+	});
 
 	if (!response.ok) {
 		throw new Error(`Failed to get Danbooru recommendations: ${response.statusText}`);
@@ -198,7 +341,9 @@ export async function searchFiles(tags: string, sort: string = 'date_desc', curs
 		url += `&seed=${encodeURIComponent(seed)}`;
 	}
 	
-	const response = await fetch(url);
+	const response = await fetch(url, {
+		headers: getAuthHeaders()
+	});
 	
 	if (!response.ok) {
 		throw new Error(`Search failed: ${response.statusText}`);
@@ -213,7 +358,9 @@ export async function searchFiles(tags: string, sort: string = 'date_desc', curs
  * @returns File details including tags and URLs
  */
 export async function getFile(sha256: string): Promise<FileResponse> {
-	const response = await fetch(`/api/files/${sha256}`);
+	const response = await fetch(`/api/files/${sha256}`, {
+		headers: getAuthHeaders()
+	});
 	
 	if (!response.ok) {
 		throw new APIError(response, `Failed to fetch file: ${response.statusText}`);
@@ -229,7 +376,8 @@ export async function getFile(sha256: string): Promise<FileResponse> {
  */
 export async function deleteFile(sha256: string): Promise<{ ok: boolean }> {
 	const response = await fetch(`/api/files/${sha256}`, {
-		method: 'DELETE'
+		method: 'DELETE',
+		headers: getAuthHeaders()
 	});
 	
 	if (!response.ok) {
@@ -250,6 +398,7 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 	
 	const response = await fetch('/api/upload/file', {
 		method: 'PUT',
+		headers: getAuthHeaders(),
 		body: formData
 	});
 	
@@ -268,7 +417,7 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 export async function uploadByUrl(url: string): Promise<FileResponse> {
 	const response = await fetch('/api/upload/url', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({ url })
 	});
 
@@ -287,7 +436,7 @@ export async function uploadByUrl(url: string): Promise<FileResponse> {
 export async function associateTag(request: TagAssociateRequest): Promise<FileResponse> {
 	const response = await fetch('/api/tags/associate', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify(request)
 	});
 
@@ -306,7 +455,7 @@ export async function associateTag(request: TagAssociateRequest): Promise<FileRe
 export async function dissociateTag(request: TagDissociateRequest): Promise<FileResponse> {
 	const response = await fetch('/api/tags/dissociate', {
 		method: 'DELETE',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify(request)
 	});
 
@@ -326,7 +475,7 @@ export async function dissociateTag(request: TagDissociateRequest): Promise<File
 export async function updateFileRating(sha256: string, rating: string): Promise<FileResponse> {
 	const response = await fetch(`/api/files/rating/${sha256}`, {
 		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({ rating })
 	});
 
@@ -346,7 +495,7 @@ export async function updateFileRating(sha256: string, rating: string): Promise<
 export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean): Promise<FileResponse> {
 	const response = await fetch(`/api/files/ai_generated/${sha256}`, {
 		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({ ai_generated: aiGenerated })
 	});
 
@@ -365,7 +514,7 @@ export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean
 export async function getCommonTags(hashes: string[]): Promise<TagResponse[]> {
 	const response = await fetch('/api/files/bulk-common-tags', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({ file_hashes: hashes })
 	});
 
@@ -383,7 +532,7 @@ export async function getCommonTags(hashes: string[]): Promise<TagResponse[]> {
 export async function bulkUpdateFileMetadata(request: BulkUpdateFileRequest): Promise<void> {
 	const response = await fetch('/api/files/bulk-update', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify(request)
 	});
 
@@ -399,7 +548,7 @@ export async function bulkUpdateFileMetadata(request: BulkUpdateFileRequest): Pr
 export async function bulkAssociateTag(request: BulkTagAssociateRequest): Promise<void> {
 	const response = await fetch('/api/tags/bulk-associate', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify(request)
 	});
 
@@ -415,7 +564,7 @@ export async function bulkAssociateTag(request: BulkTagAssociateRequest): Promis
 export async function bulkDissociateTag(request: BulkTagDissociateRequest): Promise<void> {
 	const response = await fetch('/api/tags/bulk-dissociate', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify(request)
 	});
 
@@ -435,7 +584,9 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
 	if (query) {
 		url += `&query=${encodeURIComponent(query)}`;
 	}
-	const response = await fetch(url);
+	const response = await fetch(url, {
+		headers: getAuthHeaders()
+	});
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch pools: ${response.statusText}`);
@@ -452,7 +603,10 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
  */
 export async function getTagsByCategory(category: TagCategory, skip: number = 0, limit: number = 50): Promise<TagBrowseItem[]> {
 	const response = await fetch(
-		`/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`
+		`/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`,
+		{
+			headers: getAuthHeaders()
+		}
 	);
 
 	if (!response.ok) {
@@ -470,7 +624,7 @@ export async function getTagsByCategory(category: TagCategory, skip: number = 0,
 export async function createPool(request: CreatePoolRequest): Promise<PoolResponse> {
 	const response = await fetch('/api/pools/', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify(request)
 	});
 
@@ -486,7 +640,9 @@ export async function createPool(request: CreatePoolRequest): Promise<PoolRespon
  * @param id - Pool ID (UUID string)
  */
 export async function getPool(id: string): Promise<PoolResponse> {
-	const response = await fetch(`/api/pools/${id}`);
+	const response = await fetch(`/api/pools/${id}`, {
+		headers: getAuthHeaders()
+	});
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch pool: ${response.statusText}`);
@@ -503,7 +659,7 @@ export async function getPool(id: string): Promise<PoolResponse> {
 export async function addFilesToPool(poolId: string, fileHashes: string[]): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/files`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({
 			file_hashes: fileHashes
 		} satisfies BulkFileRequest)
@@ -523,7 +679,8 @@ export async function addFilesToPool(poolId: string, fileHashes: string[]): Prom
  */
 export async function removeFileFromPool(poolId: string, sha256: string): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/files/${sha256}`, {
-		method: 'DELETE'
+		method: 'DELETE',
+		headers: getAuthHeaders()
 	});
 
 	if (!response.ok) {
@@ -539,7 +696,7 @@ export async function removeFileFromPool(poolId: string, sha256: string): Promis
 export async function createFamily(parentSha256: string): Promise<FileFamilyResponse> {
 	const response = await fetch('/api/families/', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({
 			parent_sha256_hash: parentSha256
 		} satisfies CreateFamilyRequest)
@@ -560,7 +717,7 @@ export async function createFamily(parentSha256: string): Promise<FileFamilyResp
 export async function addChildToFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
 	const response = await fetch(`/api/families/${familyId}/children`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({
 			child_sha256_hash: childSha256
 		} satisfies AddChildRequest)
@@ -580,7 +737,8 @@ export async function addChildToFamily(familyId: string, childSha256: string): P
  */
 export async function removeChildFromFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
 	const response = await fetch(`/api/families/${familyId}/children/${childSha256}`, {
-		method: 'DELETE'
+		method: 'DELETE',
+		headers: getAuthHeaders()
 	});
 
 	if (!response.ok) {
@@ -597,7 +755,8 @@ export async function removeChildFromFamily(familyId: string, childSha256: strin
  */
 export async function deleteFamily(familyId: string): Promise<void> {
 	const response = await fetch(`/api/families/${familyId}`, {
-		method: 'DELETE'
+		method: 'DELETE',
+		headers: getAuthHeaders()
 	});
 
 	// delete returns 204 on success
@@ -617,7 +776,7 @@ export async function deleteFamily(familyId: string): Promise<void> {
 export async function reorderPoolFiles(poolId: string, fileHashes: string[], afterOrder: number): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/reorder`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
 		body: JSON.stringify({
 			file_hashes: fileHashes,
 			after_order: afterOrder

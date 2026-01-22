@@ -14,6 +14,9 @@ from api.media import router as media_router
 from api.tags import router as tags_router
 from api.pools import router as pools_router
 from api.families import router as families_router
+from api.setup import router as setup_router
+from auth import fastapi_users, auth_backend, UserRead, UserCreate, UserUpdate
+from models.user import User  # noqa: F401 - Import to register with Alembic
 
 # Configure logging
 logging.basicConfig(
@@ -67,6 +70,19 @@ app.include_router(upload_router, prefix="/api")
 app.include_router(tags_router, prefix="/api")
 app.include_router(pools_router, prefix="/api")
 app.include_router(families_router, prefix="/api")
+app.include_router(setup_router, prefix="/api")
+
+# Register auth routers
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/api/auth/jwt",
+    tags=["auth"]
+)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/api/users",
+    tags=["users"],
+)
 
 # Register media serving router (no /api prefix)
 app.include_router(media_router, prefix="/media")
