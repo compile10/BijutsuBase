@@ -45,6 +45,7 @@ async def search_files(
     seed: str = Query(None, description="Seed for random sorting"),
     limit: int = Query(60, ge=1, le=200, description="Number of items to return per page"),
     cursor: str = Query(None, description="Pagination cursor from previous response"),
+    max_rating: str = Query(None, description="Maximum rating to show (safe, sensitive, questionable, explicit)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
@@ -52,11 +53,12 @@ async def search_files(
     Search for files that contain ALL of the specified tags with cursor-based pagination.
     
     Args:
-        tags: Space-separated list of tag names to search for
+        tags: Space-separated list of tag names to search for (supports rating:X syntax)
         sort: Sort order (date_desc, date_asc, size_desc, size_asc, random, pool_order)
         seed: Seed for random sorting (required if sort is random)
         limit: Number of items to return (max 200)
         cursor: Pagination cursor for fetching next page
+        max_rating: Maximum rating to show (safe, sensitive, questionable, explicit)
         db: Database session
         
     Returns:
@@ -66,6 +68,8 @@ async def search_files(
     raw_tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
     pool_id: uuid.UUID | None = None
     tag_names: list[str] = []
+    rating_from_tag: str | None = None
+    
     for tag in raw_tag_names:
         if tag.lower().startswith("pool:"):
             try:
@@ -75,8 +79,36 @@ async def search_files(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid pool identifier. Expected pool:<UUID>."
                 )
+        elif tag.lower().startswith("rating:"):
+            try:
+                rating_from_tag = tag.split(":", 1)[1].lower()
+            except IndexError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid rating filter. Expected rating:<rating_value>."
+                )
         else:
             tag_names.append(tag)
+    
+    # Rating tag overrides query parameter if both are provided
+    effective_max_rating = rating_from_tag if rating_from_tag is not None else max_rating
+    
+    # Validate and prepare rating filter
+    allowed_ratings: list[Rating] | None = None
+    if effective_max_rating:
+        try:
+            max_rating_enum = Rating(effective_max_rating.lower())
+        except ValueError:
+            valid_ratings = [r.value for r in Rating]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid rating. Must be one of: {', '.join(valid_ratings)}"
+            )
+        
+        # Define rating order for filtering
+        rating_order = [Rating.SAFE, Rating.SENSITIVE, Rating.QUESTIONABLE, Rating.EXPLICIT]
+        max_index = rating_order.index(max_rating_enum)
+        allowed_ratings = rating_order[:max_index + 1]
     
     # Decode cursor if provided
     cursor_sort_value = None
@@ -139,6 +171,10 @@ async def search_files(
     if pool_id:
         query = query.join(PoolMember, PoolMember.file_sha256_hash == FileModel.sha256_hash)
         query = query.where(PoolMember.pool_id == pool_id)
+    
+    # Apply rating filter if specified
+    if allowed_ratings:
+        query = query.where(FileModel.rating.in_(allowed_ratings))
     
     # Apply grouping if we have tag filters
     if tag_names:

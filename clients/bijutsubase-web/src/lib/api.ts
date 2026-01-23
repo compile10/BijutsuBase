@@ -321,15 +321,19 @@ export async function getDanbooruRecommendedTags(query: string, limit: number = 
  * @param cursor - Optional pagination cursor for fetching next page
  * @param limit - Number of items to return per page (default: 60)
  * @param seed - Optional seed for random sorting
+ * @param maxRating - Optional maximum rating filter (safe, sensitive, questionable, explicit)
  * @returns FileSearchResponse with items, next_cursor, and has_more flag
  */
-export async function searchFiles(tags: string, sort: string = 'date_desc', cursor?: string, limit: number = 100, seed?: string): Promise<FileSearchResponse> {
+export async function searchFiles(tags: string, sort: string = 'date_desc', cursor?: string, limit: number = 100, seed?: string, maxRating?: string): Promise<FileSearchResponse> {
 	let url = `/api/files/search?tags=${encodeURIComponent(tags)}&sort=${encodeURIComponent(sort)}&limit=${limit}`;
 	if (cursor) {
 		url += `&cursor=${encodeURIComponent(cursor)}`;
 	}
 	if (seed) {
 		url += `&seed=${encodeURIComponent(seed)}`;
+	}
+	if (maxRating) {
+		url += `&max_rating=${encodeURIComponent(maxRating)}`;
 	}
 	
 	const response = await fetch(url, {

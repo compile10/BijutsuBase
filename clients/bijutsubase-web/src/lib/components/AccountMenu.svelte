@@ -3,13 +3,16 @@
 	import { goto } from '$app/navigation';
 	import { getAuthContext } from '$lib/auth.svelte';
 	import { logout } from '$lib/api';
+	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import IconAccount from '~icons/mdi/account-circle';
 	import IconLogout from '~icons/mdi/logout';
 	import IconLogin from '~icons/mdi/login';
 	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconSettings from '~icons/mdi/cog';
 
 	const authState = getAuthContext();
 	let isMenuOpen = $state(false);
+	let isSettingsOpen = $state(false);
 	let menuRef = $state<HTMLDivElement | null>(null);
 
 	function toggleMenu() {
@@ -18,6 +21,11 @@
 
 	function closeMenu() {
 		isMenuOpen = false;
+	}
+
+	function handleSettings() {
+		isSettingsOpen = true;
+		closeMenu();
 	}
 
 	async function handleLogout() {
@@ -75,6 +83,13 @@
 					<!-- Menu items -->
 					<div class="py-1">
 						<button
+							onclick={handleSettings}
+							class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+						>
+							<IconSettings class="h-4 w-4" />
+							Settings
+						</button>
+						<button
 							onclick={handleLogout}
 							class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
 						>
@@ -96,3 +111,5 @@
 		</a>
 	{/if}
 </div>
+
+<SettingsModal bind:isOpen={isSettingsOpen} />

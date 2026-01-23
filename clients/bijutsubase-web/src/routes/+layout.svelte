@@ -7,12 +7,15 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { getAppState } from '$lib/state.svelte';
 	import { createAuthContext } from '$lib/auth.svelte';
+	import { createSettingsContext } from '$lib/settings.svelte';
 	import { initAuth } from '$lib/api';
 
 	let { children } = $props();
 	const appState = getAppState();
 	// Create auth context - this provides auth state to all child components
 	const authState = createAuthContext();
+	// Create settings context - this provides settings to all child components
+	createSettingsContext();
 
 	// Pages that don't require authentication
 	const publicPaths = ['/login', '/setup'];

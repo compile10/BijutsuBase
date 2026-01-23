@@ -2,11 +2,14 @@
 	import { VList } from 'virtua/svelte';
 	import type { VListHandle } from 'virtua/svelte';
 	import { type FileThumb, searchFiles } from '$lib/api';
+	import { getSettingsContext } from '$lib/settings.svelte';
 	import Lightbox from '$lib/components/Lightbox.svelte';
 	import SelectionManager from '$lib/components/SelectionManager.svelte';
 	import { longpress } from '$lib/actions/longpress';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconCircleOutline from '~icons/mdi/checkbox-blank-circle-outline';
+
+	const settings = getSettingsContext();
 
 	let {
 		tags = '',
@@ -86,7 +89,14 @@
 		hasMore = false;
 
 		try {
-			const response = await searchFiles(tags, sort, undefined, undefined, seed);
+			const response = await searchFiles(
+				tags,
+				sort,
+				undefined,
+				undefined,
+				seed,
+				settings.maxRating ?? undefined
+			);
 			files = response.items;
 			nextCursor = response.next_cursor;
 			hasMore = response.has_more;
@@ -105,7 +115,14 @@
 		fetching = true;
 
 		try {
-			const response = await searchFiles(tags, sort, nextCursor, undefined, seed);
+			const response = await searchFiles(
+				tags,
+				sort,
+				nextCursor,
+				undefined,
+				seed,
+				settings.maxRating ?? undefined
+			);
 			files = [...files, ...response.items];
 			nextCursor = response.next_cursor;
 			hasMore = response.has_more;
