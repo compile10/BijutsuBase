@@ -581,12 +581,17 @@ export async function bulkDissociateTag(request: BulkTagDissociateRequest): Prom
  * Get list of pools
  * @param skip - Number of items to skip
  * @param limit - Number of items to return
+ * @param query - Optional search query for pool name or description
+ * @param maxRating - Optional maximum rating filter (safe, sensitive, questionable, explicit)
  * @returns Array of pools
  */
-export async function getPools(skip: number = 0, limit: number = 50, query?: string): Promise<PoolSimple[]> {
+export async function getPools(skip: number = 0, limit: number = 50, query?: string, maxRating?: string): Promise<PoolSimple[]> {
 	let url = `/api/pools/?skip=${skip}&limit=${limit}`;
 	if (query) {
 		url += `&query=${encodeURIComponent(query)}`;
+	}
+	if (maxRating) {
+		url += `&max_rating=${encodeURIComponent(maxRating)}`;
 	}
 	const response = await fetch(url, {
 		credentials: 'include'
@@ -601,17 +606,20 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
 
 /**
  * Browse tags by category (alphabetical, paginated)
+ * @param category - Tag category to browse
  * @param skip - Number of items to skip
  * @param limit - Number of items to return
+ * @param maxRating - Optional maximum rating filter (safe, sensitive, questionable, explicit)
  * @returns Array of tags with example thumbnails
  */
-export async function getTagsByCategory(category: TagCategory, skip: number = 0, limit: number = 50): Promise<TagBrowseItem[]> {
-	const response = await fetch(
-		`/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`,
-		{
-			credentials: 'include'
-		}
-	);
+export async function getTagsByCategory(category: TagCategory, skip: number = 0, limit: number = 50, maxRating?: string): Promise<TagBrowseItem[]> {
+	let url = `/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`;
+	if (maxRating) {
+		url += `&max_rating=${encodeURIComponent(maxRating)}`;
+	}
+	const response = await fetch(url, {
+		credentials: 'include'
+	});
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch tags: ${response.statusText}`);

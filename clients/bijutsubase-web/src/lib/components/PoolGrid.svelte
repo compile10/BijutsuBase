@@ -3,7 +3,10 @@
 	import { VList } from 'virtua/svelte';
 	import type { VListHandle } from 'virtua/svelte';
 	import { getPools, type PoolSimple } from '$lib/api';
+	import { getSettingsContext } from '$lib/settings.svelte';
 	import IconFolder from '~icons/mdi/folder-outline';
+
+	const settings = getSettingsContext();
 
 	let {
 		query = '',
@@ -71,7 +74,7 @@
 		hasMore = true;
 
 		try {
-			const newPools = await getPools(0, limit, query);
+			const newPools = await getPools(0, limit, query, settings.maxRating ?? undefined);
 			pools = newPools;
 			if (newPools.length < limit) {
 				hasMore = false;
@@ -89,7 +92,7 @@
 
 		fetching = true;
 		try {
-			const newPools = await getPools(skip, limit, query);
+			const newPools = await getPools(skip, limit, query, settings.maxRating ?? undefined);
 			
 			if (newPools.length > 0) {
 				pools = [...pools, ...newPools];
@@ -129,10 +132,11 @@
 		};
 	});
 
-	// Refetch when query changes
+	// Refetch when query or maxRating changes
 	$effect(() => {
-		// We need to access query to trigger the effect
+		// We need to access query and maxRating to trigger the effect
 		const q = query;
+		const rating = settings.maxRating;
 		fetchInitialResults();
 	});
 </script>

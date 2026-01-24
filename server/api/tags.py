@@ -22,6 +22,7 @@ from api.serializers.tag import (
     TagResponse,
 )
 from utils.danbooru_utils import map_danbooru_category_int_to_str
+from utils.rating import get_allowed_ratings
 from auth.users import current_active_user
 
 
@@ -32,15 +33,17 @@ async def browse_tags(
     category: TagCategory = Query(..., description="Tag category to browse"),
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
+    max_rating: str | None = Query(None, description="Maximum rating to show (safe, sensitive, questionable, explicit)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
     """
     Browse tags by category with pagination, sorted alphabetically.
     Each tag includes an example thumbnail from the most recently added file
-    associated with the tag (if any).
+    associated with the tag (if any), optionally filtered by rating.
     """
-    file_tags_with_rn = (
+    # Build file_tags subquery with optional rating filter
+    file_tags_query = (
         select(
             FileTag.tag_id,
             FileTag.file_sha256_hash,
@@ -52,8 +55,15 @@ async def browse_tags(
             .label("rn"),
         )
         .join(FileModel, FileTag.file_sha256_hash == FileModel.sha256_hash)
-        .subquery()
     )
+    
+    # Apply rating filter if specified
+    if max_rating:
+        allowed_ratings = get_allowed_ratings(max_rating)
+        if allowed_ratings:
+            file_tags_query = file_tags_query.where(FileModel.rating.in_(allowed_ratings))
+    
+    file_tags_with_rn = file_tags_query.subquery()
 
     latest_file_filtered = (
         select(file_tags_with_rn.c.tag_id, file_tags_with_rn.c.file_sha256_hash)

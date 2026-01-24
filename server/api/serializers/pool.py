@@ -5,11 +5,10 @@ import uuid
 from datetime import datetime
 from typing import Optional, List, Any
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, model_validator
 
 from models.pool import PoolCategory
 from api.serializers.file import FileThumb
-from utils.file_storage import generate_file_path
 
 
 class PoolSimple(BaseModel):
@@ -18,36 +17,6 @@ class PoolSimple(BaseModel):
     name: str
     member_count: int = 0
     thumbnail_url: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
-        
-    @model_validator(mode='before')
-    @classmethod
-    def compute_extras(cls, data: Any) -> Any:
-        """Compute member_count and thumbnail_url from ORM object."""
-        # If data is an ORM object (has 'members' attribute)
-        if hasattr(data, "members"):
-            try:
-                # Populate member_count
-                if not hasattr(data, "member_count") or data.member_count == 0:
-                    # We attach it to the object so Pydantic can read it
-                    data.member_count = len(data.members)
-                
-                # Populate thumbnail_url if not present
-                if not hasattr(data, "thumbnail_url") or data.thumbnail_url is None:
-                    data.thumbnail_url = None
-                    if data.members:
-                        # Members are usually sorted by order, take the first one
-                        first_member = data.members[0]
-                        if hasattr(first_member, "file") and first_member.file:
-                            path = generate_file_path(first_member.file.sha256_hash, "webp", thumb=True)
-                            data.thumbnail_url = "/" + str(path).replace("\\", "/")
-            except Exception:
-                # Fallback if something fails during attribute access
-                pass
-                
-        return data
 
 
 class CreatePoolRequest(BaseModel):

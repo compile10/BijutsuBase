@@ -23,6 +23,7 @@ from api.serializers.pool import (
 )
 from api.serializers.file import BulkFileRequest
 from utils.file_storage import generate_file_path
+from utils.rating import get_allowed_ratings
 from auth.users import current_active_user
 
 router = APIRouter(prefix="/pools", tags=["pools"])
@@ -45,10 +46,15 @@ async def list_pools(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     query: str | None = Query(None, description="Search query for pool name or description"),
+    max_rating: str | None = Query(None, description="Maximum rating for thumbnail selection (safe, sensitive, questionable, explicit)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
-    """List pools with pagination."""
+    """List pools with pagination.
+    
+    The max_rating parameter only affects which thumbnail is shown for each pool.
+    It does not filter the pools themselves or change the member count.
+    """
     
     stmt = (
         select(Pool)
@@ -76,7 +82,31 @@ async def list_pools(
     result = await db.execute(stmt)
     pools = result.scalars().all()
     
-    return [PoolSimple.model_validate(pool) for pool in pools]
+    # Get allowed ratings for thumbnail filtering
+    allowed_ratings = get_allowed_ratings(max_rating) if max_rating else None
+    
+    # Build response with rating-filtered thumbnails
+    response = []
+    for pool in pools:
+        # Find the first member with an allowed rating for thumbnail
+        thumbnail_url = None
+        sorted_members = sorted(pool.members, key=lambda m: m.order)
+        for member in sorted_members:
+            if member.file:
+                # If no rating filter, use first member; otherwise check rating
+                if allowed_ratings is None or member.file.rating in allowed_ratings:
+                    path = generate_file_path(member.file.sha256_hash, "webp", thumb=True)
+                    thumbnail_url = "/" + str(path).replace("\\", "/")
+                    break
+        
+        response.append(PoolSimple(
+            id=pool.id,
+            name=pool.name,
+            member_count=len(pool.members),
+            thumbnail_url=thumbnail_url
+        ))
+    
+    return response
 
 
 @router.post("/", response_model=PoolResponse, status_code=status.HTTP_201_CREATED)

@@ -66,7 +66,7 @@
 					Content Rating Filter
 				</div>
 				<p class="text-sm text-gray-600 dark:text-gray-400">
-					Control the maximum rating level of content shown in searches. This affects all search
+					Control the maximum rating level of content shown. This affects all
 					results across the application.
 				</p>
 

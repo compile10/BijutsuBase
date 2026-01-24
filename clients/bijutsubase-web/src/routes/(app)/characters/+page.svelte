@@ -2,11 +2,15 @@
 	import { goto } from '$app/navigation';
 	import VirtualCardGrid from '$lib/components/VirtualCardGrid.svelte';
 	import { getTagsByCategory, type TagBrowseItem } from '$lib/api';
+	import { getSettingsContext } from '$lib/settings.svelte';
 	import { humanizeTag } from '$lib/utils';
 
-	function loadPage(skip: number, limit: number): Promise<TagBrowseItem[]> {
-		return getTagsByCategory('character', skip, limit);
-	}
+	const settings = getSettingsContext();
+
+	// Create a reactive loadPage function that captures current maxRating
+	let loadPage = $derived((skip: number, limit: number): Promise<TagBrowseItem[]> => {
+		return getTagsByCategory('character', skip, limit, settings.maxRating ?? undefined);
+	});
 
 	function onCharacterClick(character: TagBrowseItem) {
 		goto(`/search?tags=${encodeURIComponent(character.name)}`);

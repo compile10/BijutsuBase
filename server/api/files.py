@@ -19,6 +19,7 @@ from models.family import FileFamily
 from models.user import User
 from utils.file_storage import generate_file_path
 from utils.pagination import encode_cursor, decode_cursor
+from utils.rating import get_allowed_ratings
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
 from api.serializers.tag import TagResponse
 from auth.users import current_active_user
@@ -96,19 +97,13 @@ async def search_files(
     # Validate and prepare rating filter
     allowed_ratings: list[Rating] | None = None
     if effective_max_rating:
-        try:
-            max_rating_enum = Rating(effective_max_rating.lower())
-        except ValueError:
+        allowed_ratings = get_allowed_ratings(effective_max_rating)
+        if allowed_ratings is None:
             valid_ratings = [r.value for r in Rating]
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid rating. Must be one of: {', '.join(valid_ratings)}"
             )
-        
-        # Define rating order for filtering
-        rating_order = [Rating.SAFE, Rating.SENSITIVE, Rating.QUESTIONABLE, Rating.EXPLICIT]
-        max_index = rating_order.index(max_rating_enum)
-        allowed_ratings = rating_order[:max_index + 1]
     
     # Decode cursor if provided
     cursor_sort_value = None
