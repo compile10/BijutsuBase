@@ -15,7 +15,7 @@ def _get_required_secret(name: str) -> str:
 
 # JWT Configuration - secrets are required, no defaults
 JWT_SECRET = _get_required_secret("JWT_SECRET")
-JWT_LIFETIME_SECONDS = int(os.getenv("JWT_LIFETIME_SECONDS", "3600"))
+JWT_LIFETIME_SECONDS = int(os.getenv("JWT_LIFETIME_SECONDS", "604800"))  # 1 week
 
 # Password reset and verification secrets
 # These default to JWT_SECRET if not explicitly set, but JWT_SECRET is required
