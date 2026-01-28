@@ -7,25 +7,25 @@ class DanbooruPost(BaseModel):
     # Required integer fields
     id: int
 
-    # Required tag strings
-    tag_string_general: str
-    tag_string_artist: str
-    tag_string_copyright: str
-    tag_string_character: str
-    tag_string_meta: str
+    # Tag strings (can be empty strings but always present)
+    tag_string_general: str = ""
+    tag_string_artist: str = ""
+    tag_string_copyright: str = ""
+    tag_string_character: str = ""
+    tag_string_meta: str = ""
 
-    # Required file/media fields
-    source: str
-    md5: str
-    file_url: str
-    large_file_url: str
-    preview_file_url: str
+    # File/media fields (can be null for restricted content)
+    source: Optional[str] = None
+    md5: Optional[str] = None
+    file_url: Optional[str] = None
+    large_file_url: Optional[str] = None
+    preview_file_url: Optional[str] = None
 
-    # Required boolean
-    has_children: bool
+    # Boolean fields
+    has_children: bool = False
 
     # Optional/nullable fields
-    rating: Optional[str] = None  # Values: g, s, q, e
+    rating: str = "e"  # Values: g, s, q, e - defaults to explicit
     parent_id: Optional[int] = None
     pixiv_id: Optional[int] = None
 
