@@ -40,6 +40,7 @@ services:
       - DB_PASSWORD=postgres
       - JWT_SECRET=${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION}
       - JWT_LIFETIME_SECONDS=${JWT_LIFETIME_SECONDS:-3600}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}  # Set to true for HTTPS in production
     depends_on:
       postgres:
         condition: service_healthy

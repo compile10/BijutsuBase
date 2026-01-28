@@ -76,12 +76,8 @@ def discover_files(folder: Path) -> list[Path]:
     return files
 
 
-def authenticate(client: httpx.Client, base_url: str, username: str, password: str) -> str | None:
-    """Authenticate with the API and get auth cookie value.
-    
-    Returns the auth cookie value on success, None on failure.
-    We extract the cookie manually because httpx won't send Secure cookies over HTTP.
-    """
+def authenticate(client: httpx.Client, base_url: str, username: str, password: str) -> bool:
+    """Authenticate with the API and get session cookie."""
     login_url = f"{base_url}/api/auth/cookie/login"
     try:
         response = client.post(
@@ -89,42 +85,32 @@ def authenticate(client: httpx.Client, base_url: str, username: str, password: s
             data={"username": username, "password": password},
         )
         if response.status_code == 200 or response.status_code == 204:
-            # Extract the auth cookie from Set-Cookie header
-            # FastAPI Users uses "fastapiusersauth" by default
-            cookie_value = response.cookies.get("fastapiusersauth")
-            if cookie_value:
-                print("Authentication successful!")
-                return cookie_value
-            else:
-                print("Authentication succeeded but no auth cookie received")
-                return None
+            print("Authentication successful!")
+            return True
         elif response.status_code == 400:
             error_detail = response.json().get("detail", "Bad request")
             print(f"Authentication failed: {error_detail}")
-            return None
+            return False
         else:
             print(f"Authentication failed with status {response.status_code}")
-            return None
+            return False
     except httpx.RequestError as e:
         print(f"Authentication request failed: {e}")
-        return None
+        return False
 
 
-def upload_file(client: httpx.Client, base_url: str, file_path: Path, auth_cookie: str) -> tuple[bool, str]:
+def upload_file(client: httpx.Client, base_url: str, file_path: Path) -> tuple[bool, str]:
     """
     Upload a single file to the API.
     Returns (success, message).
-    
-    We manually set the auth cookie header because httpx won't send Secure cookies over HTTP.
     """
     upload_url = f"{base_url}/api/upload/file"
-    headers = {"Cookie": f"fastapiusersauth={auth_cookie}"}
 
     for attempt in range(MAX_RETRIES):
         try:
             with open(file_path, "rb") as f:
                 files = {"file": (file_path.name, f, "application/octet-stream")}
-                response = client.put(upload_url, files=files, headers=headers, timeout=300.0)
+                response = client.put(upload_url, files=files, timeout=300.0)
 
             if response.status_code == 200:
                 return True, "uploaded"
@@ -243,12 +229,11 @@ def main() -> int:
         print("All files have already been uploaded!")
         return 0
 
-    # Create HTTP client
+    # Create HTTP client with cookie persistence
     with httpx.Client(timeout=30.0) as client:
         # Authenticate
         print("Authenticating...")
-        auth_cookie = authenticate(client, base_url, username, password)
-        if not auth_cookie:
+        if not authenticate(client, base_url, username, password):
             return 1
 
         print()
@@ -267,7 +252,7 @@ def main() -> int:
 
             print(f"{progress_str} {relative_path}...", end=" ", flush=True)
 
-            success, message = upload_file(client, base_url, file_path, auth_cookie)
+            success, message = upload_file(client, base_url, file_path)
 
             if success:
                 if message == "already exists":
