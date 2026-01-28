@@ -200,6 +200,20 @@ def _combine_probs_logit_mean(probs_list: List[np.ndarray], weights: Optional[np
     return combined.astype(np.float32)
 
 
+def _combine_probs_max(probs_list: List[np.ndarray]) -> Optional[np.ndarray]:
+    """
+    Combine multiple probability vectors by taking the maximum across frames.
+    
+    """
+    if not probs_list:
+        return None
+    # Stack to (F, N) where F = frames, N = number of tags
+    P = np.stack(probs_list, axis=0).astype(np.float32)
+    # Take max across frames (axis=0)
+    combined = np.max(P, axis=0)
+    return combined.astype(np.float32)
+
+
 async def enrich_file_with_onnx(
     file: FileModel,
     db: AsyncSession,
@@ -231,7 +245,8 @@ async def enrich_file_with_onnx(
         if not frame_scores:
             logger.warning("ONNX inference returned no outputs for frames of %s", file.sha256_hash)
             return db
-        scores = _combine_probs_logit_mean(frame_scores)
+        # Use max across frames so a tag detected clearly in any frame isn't suppressed
+        scores = _combine_probs_max(frame_scores)
         if scores is None:
             logger.warning("Failed to combine frame probabilities for %s", file.sha256_hash)
             return db
