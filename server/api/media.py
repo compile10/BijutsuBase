@@ -13,6 +13,7 @@ from database.config import get_db
 from models.file import File as FileModel
 from models.user import User
 from auth.users import current_active_user
+from utils.file_storage import get_media_storage_dir
 
 
 router = APIRouter()
@@ -41,8 +42,7 @@ async def serve_media(
         HTTPException: 404 if file not found or path is invalid
     """
     # Get the absolute path of the media/original directory
-    # This assumes the server is run from the server/ directory
-    media_dir = Path("media").resolve()
+    media_dir = get_media_storage_dir().resolve()
     original_dir = media_dir / "original"
     
     # Construct the requested file path
@@ -122,8 +122,7 @@ async def serve_thumbnail(
         HTTPException: 404 if file not found or path is invalid
     """
     # Get the absolute path of the media/thumb directory
-    # This assumes the server is run from the server/ directory
-    media_dir = Path("media").resolve()
+    media_dir = get_media_storage_dir().resolve()
     thumb_dir = media_dir / "thumb"
     
     # Construct the requested file path

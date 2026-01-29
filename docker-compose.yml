@@ -29,6 +29,7 @@ services:
       - ./server:/app
       - /app/.venv  # Prevent overwriting the container's virtual environment
       - ml_models:/app/ml/blobs  # Persistent storage for ML models
+      - ${MEDIA_PATH:-./media}:/app/media  # Bind mount for media files (configurable via MEDIA_PATH env var)
     environment:
       - PYTHONUNBUFFERED=1
       - UV_LINK_MODE=copy

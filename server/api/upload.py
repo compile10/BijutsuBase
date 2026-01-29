@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 from database.config import get_db
 from api.serializers.file import FileResponse
-from utils.file_storage import generate_file_path
+from utils.file_storage import generate_file_path, get_media_storage_dir
 from sources.danbooru.enrich_file import enrich_file_with_danbooru
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from models.file import File as FileModel
@@ -40,7 +40,7 @@ async def _stream_to_temp_and_hash(
     and compute sha256/md5 hashes and total size.
     Returns: (temp_path, sha256_hash, md5_hash, file_size, mime_type)
     """
-    temp_dir = Path("media/temp")
+    temp_dir = get_media_storage_dir() / "temp"
     temp_dir.mkdir(parents=True, exist_ok=True)
     temp_file = tempfile.NamedTemporaryFile(delete=False, dir=temp_dir)
     temp_path = Path(temp_file.name)

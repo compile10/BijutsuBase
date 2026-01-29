@@ -1,11 +1,26 @@
 """File storage utilities for BijutsuBase."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from models.file import File
+
+
+def get_media_storage_dir() -> Path:
+    """
+    Get the media storage directory from environment or use default.
+    
+    Returns:
+        Path object representing the media storage directory.
+    """
+    media_dir = os.getenv("MEDIA_STORAGE_DIR")
+    if media_dir:
+        return Path(media_dir)
+    # Default to 'media' relative to server root (resolves to /app/media in Docker)
+    return Path(__file__).parent.parent / "media"
 
 
 def generate_file_path(sha256_hash: str, ext: str, thumb: bool = False) -> Path:
@@ -37,7 +52,42 @@ def generate_file_path(sha256_hash: str, ext: str, thumb: bool = False) -> Path:
     subdir = "thumb" if thumb else "original"
     
     filename = f"{sha256_hash}.{ext}"
-    return Path("media") / subdir / first_two / next_two / filename
+    return get_media_storage_dir() / subdir / first_two / next_two / filename
+
+
+def generate_file_url(sha256_hash: str, ext: str, thumb: bool = False) -> str:
+    """
+    Generate URL path for a file based on hash and extension.
+    
+    This is used for generating URLs to serve files via the API, independent
+    of where files are actually stored on disk.
+    
+    URL format: /media/<original|thumb>/<first 2 chars>/<next 2 chars>/<hash>.<ext>
+    
+    Args:
+        sha256_hash: SHA256 hash of the file (64 character hex string)
+        ext: File extension (without leading dot)
+        thumb: If True, generates URL for thumbnail; if False, generates URL for original (default: False)
+    
+    Returns:
+        URL path string (e.g., /media/thumb/9f/a3/9fa39b...webp)
+    """
+    if not sha256_hash or len(sha256_hash) != 64:
+        raise ValueError("invalid sha256_hash. must be a 64 character hex string")
+    if not ext:
+        raise ValueError("ext must be set")
+    
+    first_two = sha256_hash[:2]
+    next_two = sha256_hash[2:4]
+    
+    # Ensure extension doesn't have leading dot
+    ext = ext.lstrip(".")
+    
+    # Determine subdirectory based on thumb parameter
+    subdir = "thumb" if thumb else "original"
+    
+    filename = f"{sha256_hash}.{ext}"
+    return f"/media/{subdir}/{first_two}/{next_two}/{filename}"
 
 
 def save_file_to_disk(file: File, content: bytes) -> None:

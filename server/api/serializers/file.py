@@ -28,12 +28,10 @@ class FileThumb(BaseModel):
         """
         Generate thumbnail URL using the file's hash.
         """
-        from utils.file_storage import generate_file_path
+        from utils.file_storage import generate_file_url
         
         # Thumbnails are always WebP format
-        thumbnail_path = generate_file_path(self.sha256_hash, "webp", thumb=True)
-        
-        return "/" + str(thumbnail_path).replace("\\", "/")
+        return generate_file_url(self.sha256_hash, "webp", thumb=True)
 
 
 class FileResponse(BaseModel):
@@ -125,15 +123,10 @@ class FileResponse(BaseModel):
         Returns:
             URL path to the thumbnail (e.g., /media/thumb/9f/a3/9fa39b...webp)
         """
-        from utils.file_storage import generate_file_path
+        from utils.file_storage import generate_file_url
         
         # Thumbnails are always WebP format
-        thumbnail_path = generate_file_path(self.sha256_hash, "webp", thumb=True)
-        
-        # Convert Path to URL path
-        # generate_file_path returns: media/thumb/<first_two>/<next_two>/<hash>.webp
-        # We want: /media/thumb/<first_two>/<next_two>/<hash>.webp
-        return "/" + str(thumbnail_path).replace("\\", "/")
+        return generate_file_url(self.sha256_hash, "webp", thumb=True)
     
     @computed_field
     @property
@@ -144,15 +137,10 @@ class FileResponse(BaseModel):
         Returns:
             URL path to the original file (e.g., /media/original/9f/a3/9fa39b...jpg)
         """
-        from utils.file_storage import generate_file_path
+        from utils.file_storage import generate_file_url
         
         # Original file uses the file's actual extension
-        original_path = generate_file_path(self.sha256_hash, self.file_ext, thumb=False)
-        
-        # Convert Path to URL path
-        # generate_file_path returns: media/original/<first_two>/<next_two>/<hash>.<ext>
-        # We want: /media/original/<first_two>/<next_two>/<hash>.<ext>
-        return "/" + str(original_path).replace("\\", "/")
+        return generate_file_url(self.sha256_hash, self.file_ext, thumb=False)
     
     class Config:
         from_attributes = True

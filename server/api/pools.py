@@ -22,7 +22,6 @@ from api.serializers.pool import (
     ReorderFilesRequest
 )
 from api.serializers.file import BulkFileRequest
-from utils.file_storage import generate_file_path
 from utils.rating import get_allowed_ratings
 from auth.users import current_active_user
 
@@ -95,8 +94,8 @@ async def list_pools(
             if member.file:
                 # If no rating filter, use first member; otherwise check rating
                 if allowed_ratings is None or member.file.rating in allowed_ratings:
-                    path = generate_file_path(member.file.sha256_hash, "webp", thumb=True)
-                    thumbnail_url = "/" + str(path).replace("\\", "/")
+                    from utils.file_storage import generate_file_url
+                    thumbnail_url = generate_file_url(member.file.sha256_hash, "webp", thumb=True)
                     break
         
         response.append(PoolSimple(

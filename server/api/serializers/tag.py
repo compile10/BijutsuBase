@@ -58,12 +58,10 @@ class TagBrowseResponse(BaseModel):
         if self.example_thumbnail is None:
             return None
         
-        from utils.file_storage import generate_file_path
+        from utils.file_storage import generate_file_url
         
         # Thumbnails are always WebP format
-        thumbnail_path = generate_file_path(self.example_thumbnail, "webp", thumb=True)
-        
-        return "/" + str(thumbnail_path).replace("\\", "/")
+        return generate_file_url(self.example_thumbnail, "webp", thumb=True)
     
     class Config:
         from_attributes = True
