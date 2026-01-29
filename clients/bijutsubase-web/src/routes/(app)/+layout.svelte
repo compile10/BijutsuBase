@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import SearchModal from '$lib/components/SearchModal.svelte';
 	import AccountMenu from '$lib/components/AccountMenu.svelte';
 	import { getAppState } from '$lib/state.svelte';
 	import { getAuthContext } from '$lib/auth.svelte';
@@ -79,8 +80,17 @@
 					</a>
 				</div>
 
-				<!-- Center: Search Form -->
-				<form onsubmit={handleSearch} class="flex max-w-2xl flex-1 gap-2">
+				<!-- Mobile Search Button -->
+				<button
+					onclick={() => (appState.isSearchModalOpen = true)}
+					class="flex md:hidden p-1.5 text-gray-700 transition-transform hover:scale-110 focus:outline-none dark:text-gray-200"
+					aria-label="Open search"
+				>
+					<IconSearch class="h-6 w-6" />
+				</button>
+
+				<!-- Center: Search Form (hidden on mobile) -->
+				<form onsubmit={handleSearch} class="hidden md:flex max-w-2xl flex-1 gap-2">
 					<SearchInput
 						bind:value={searchQuery}
 						placeholder="Enter tags..."
@@ -99,12 +109,11 @@
 
 					<button
 						type="submit"
-						class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none 
-						focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:px-6 dark:bg-primary-500 dark:hover:bg-primary-600 dark:focus:ring-primary-400 dark:focus:ring-offset-gray-900"
+						class="shrink-0 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none 
+						focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600 dark:focus:ring-primary-400 dark:focus:ring-offset-gray-900"
 						aria-label="Search"
 					>
-						<span class="hidden sm:inline">Search</span>
-						<IconSearch class="h-6 w-6 sm:hidden" />
+						Search
 					</button>
 				</form>
 
@@ -127,6 +136,14 @@
 
 	{@render children()}
 </div>
+
+<!-- Search Modal for mobile -->
+<SearchModal
+	bind:isOpen={appState.isSearchModalOpen}
+	bind:searchQuery
+	bind:sortOption
+	onSearch={handleSearch}
+/>
 
 <style>
 	:global(body) {

@@ -84,16 +84,16 @@
 	>
 		<span class="flex items-center gap-2">
 			{#if value.startsWith('date')}
-				<CalendarIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
+				<CalendarIcon class="h-4 w-4 text-gray-500 dark:text-gray-400" />
 			{:else if value === 'random'}
-				<ShuffleIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
+				<ShuffleIcon class="h-4 w-4 text-gray-500 dark:text-gray-400" />
 			{:else}
-				<FileSizeIcon class="text-gray-500 dark:text-gray-400 h-6 w-6 sm:h-4 sm:w-4" />
+				<FileSizeIcon class="h-4 w-4 text-gray-500 dark:text-gray-400" />
 			{/if}
-			<span class="hidden sm:inline">{getLabel(value)}</span>
+			<span>{getLabel(value)}</span>
 		</span>
 		<ChevronDown
-			class="h-5 w-5 sm:h-4 sm:w-4 text-gray-500 transition-transform duration-200 dark:text-gray-400 {isOpen
+			class="h-4 w-4 text-gray-500 transition-transform duration-200 dark:text-gray-400 {isOpen
 				? 'rotate-180'
 				: ''}"
 		/>

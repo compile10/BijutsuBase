@@ -22,7 +22,7 @@
 
 <div class="flex flex-1 flex-col overflow-hidden">
 	<!-- Header -->
-	<div class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
+	<div class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
 		<div class="flex items-center gap-5 flex-1">
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Pools</h1>
 			
@@ -42,10 +42,11 @@
 
 		<button
 			onclick={() => (createPoolModalOpen = true)}
-			class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"
+			class="flex shrink-0 items-center gap-2 rounded-lg bg-primary-600 p-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600 sm:px-4"
+			aria-label="Create Pool"
 		>
 			<IconPlus class="h-5 w-5" />
-			<span>Create Pool</span>
+			<span class="hidden sm:inline">Create Pool</span>
 		</button>
 	</div>
 

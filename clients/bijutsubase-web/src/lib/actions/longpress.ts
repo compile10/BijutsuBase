@@ -10,6 +10,7 @@ export function longpress(node: HTMLElement, params: { duration?: number, callba
     }
 
     let timer: ReturnType<typeof setTimeout>;
+    let touchActive = false;
 
     const handleMousedown = () => {
         timer = setTimeout(() => {
@@ -22,13 +23,22 @@ export function longpress(node: HTMLElement, params: { duration?: number, callba
     };
 
     const handleTouchstart = (e: TouchEvent) => {
+        touchActive = true;
         timer = setTimeout(() => {
             callback();
         }, duration);
     };
 
     const handleTouchend = () => {
+        touchActive = false;
         clearTimeout(timer);
+    };
+
+    // Prevent browser context menu on touch devices to avoid interfering with long-press
+    const handleContextmenu = (e: Event) => {
+        if (touchActive) {
+            e.preventDefault();
+        }
     };
 
     node.addEventListener('mousedown', handleMousedown);
@@ -37,6 +47,7 @@ export function longpress(node: HTMLElement, params: { duration?: number, callba
     node.addEventListener('touchstart', handleTouchstart);
     node.addEventListener('touchend', handleTouchend);
     node.addEventListener('touchcancel', handleTouchend);
+    node.addEventListener('contextmenu', handleContextmenu);
 
     return {
         update(newParams: { duration?: number, callback: () => void } | (() => void)) {
@@ -54,6 +65,7 @@ export function longpress(node: HTMLElement, params: { duration?: number, callba
             node.removeEventListener('touchstart', handleTouchstart);
             node.removeEventListener('touchend', handleTouchend);
             node.removeEventListener('touchcancel', handleTouchend);
+            node.removeEventListener('contextmenu', handleContextmenu);
         }
     };
 }
