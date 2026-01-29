@@ -50,6 +50,14 @@
 
 		const words = textBeforeCursor.split(/\s+/);
 		const currentWord = words[words.length - 1];
+		const lowerWord = currentWord.toLowerCase();
+		
+		// Skip suggestions for special search syntax (tag:, -tag:, pool:, -pool:, rating:)
+		if (lowerWord.startsWith('tag:') || lowerWord.startsWith('-tag:') ||
+		    lowerWord.startsWith('pool:') || lowerWord.startsWith('-pool:') ||
+		    lowerWord.startsWith('rating:')) {
+			return null;
+		}
 		
 		// Check if current word starts with - (negative tag for exclusion)
 		const isNegative = currentWord.startsWith('-');

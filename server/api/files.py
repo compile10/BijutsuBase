@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from database.config import get_db
 from models.file import File as FileModel, Rating
-from models.tag import Tag, FileTag
+from models.tag import Tag, FileTag, TagCategory
 from models.pool import PoolMember, Pool
 from models.family import FileFamily
 from models.user import User
@@ -71,6 +71,9 @@ async def search_files(
     tag_names: list[str] = []
     excluded_tag_names: list[str] = []
     rating_from_tag: str | None = None
+    category_filters: list[TagCategory] = []
+    excluded_categories: list[TagCategory] = []
+    excluded_pool_ids: list[uuid.UUID] = []
     
     for tag in raw_tag_names:
         if tag.lower().startswith("pool:"):
@@ -81,6 +84,15 @@ async def search_files(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid pool identifier. Expected pool:<UUID>."
                 )
+        elif tag.lower().startswith("-pool:"):
+            # Exclude pool
+            try:
+                excluded_pool_ids.append(uuid.UUID(tag.split(":", 1)[1]))
+            except (ValueError, IndexError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid pool identifier. Expected -pool:<UUID>."
+                )
         elif tag.lower().startswith("rating:"):
             try:
                 rating_from_tag = tag.split(":", 1)[1].lower()
@@ -88,6 +100,28 @@ async def search_files(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid rating filter. Expected rating:<rating_value>."
+                )
+        elif tag.lower().startswith("-tag:"):
+            # Exclude category
+            cat_name = tag.split(":", 1)[1].lower()
+            try:
+                excluded_categories.append(TagCategory(cat_name))
+            except ValueError:
+                valid_categories = [c.value for c in TagCategory]
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid tag category. Must be one of: {', '.join(valid_categories)}"
+                )
+        elif tag.lower().startswith("tag:"):
+            # Include category filter
+            cat_name = tag.split(":", 1)[1].lower()
+            try:
+                category_filters.append(TagCategory(cat_name))
+            except ValueError:
+                valid_categories = [c.value for c in TagCategory]
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid tag category. Must be one of: {', '.join(valid_categories)}"
                 )
         elif tag.startswith("-") and len(tag) > 1:
             # Negative tag - exclude files with this tag
@@ -189,6 +223,35 @@ async def search_files(
             .where(Tag.name.in_(excluded_tag_names))
         )
         query = query.where(~excluded_exists)
+    
+    # Apply category inclusion filter (files must have at least one tag in each category)
+    for cat in category_filters:
+        cat_exists = (
+            exists()
+            .where(FileTag.file_sha256_hash == FileModel.sha256_hash)
+            .where(FileTag.tag_id == Tag.id)
+            .where(Tag.category == cat)
+        )
+        query = query.where(cat_exists)
+    
+    # Apply category exclusion filter (files must not have any tags in each category)
+    for cat in excluded_categories:
+        cat_exists = (
+            exists()
+            .where(FileTag.file_sha256_hash == FileModel.sha256_hash)
+            .where(FileTag.tag_id == Tag.id)
+            .where(Tag.category == cat)
+        )
+        query = query.where(~cat_exists)
+    
+    # Apply pool exclusion filter
+    for excl_pool_id in excluded_pool_ids:
+        pool_exists = (
+            exists()
+            .where(PoolMember.file_sha256_hash == FileModel.sha256_hash)
+            .where(PoolMember.pool_id == excl_pool_id)
+        )
+        query = query.where(~pool_exists)
     
     # Apply cursor-based filtering
     if cursor_sort_value is not None and cursor_sha256 is not None:

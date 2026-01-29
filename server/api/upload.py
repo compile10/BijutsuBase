@@ -365,10 +365,9 @@ async def upload_url(
         async with httpx.AsyncClient(
             follow_redirects=True,
             # Large files may take a long time to download; use generous timeouts
-            # connect: 30s to establish connection
+            # connect: 60s to establish connection (increased for slow remote servers)
             # read: None (no timeout) to allow slow downloads to complete
-            # TODO: ADD A MORE ROBUST UPLOADER THAT CAN HANDLE LARGE FILES AND SLOW CONNECTIONS
-            timeout=httpx.Timeout(None, connect=30.0),
+            timeout=httpx.Timeout(None, connect=60.0),
             headers=danbooru_style_headers,
         ) as client:
             async with client.stream("GET", str(payload.url)) as resp:
