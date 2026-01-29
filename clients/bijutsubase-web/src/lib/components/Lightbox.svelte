@@ -289,7 +289,7 @@
 
 		<!-- Media Container -->
 		<div
-			class="relative flex h-full w-full items-center justify-center"
+			class="relative flex max-h-full max-w-full items-center justify-center"
 			transition:fly={{ y: 20, duration: 200 }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
@@ -318,8 +318,7 @@
 						src={fileDetails.original_url}
 						controls
 						autoplay
-						class="max-h-[90vh] max-w-[90vw] rounded-lg"
-						style="width: auto; height: auto;"
+						class="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
 					>
 						<track kind="captions" />
 					</video>
@@ -327,8 +326,7 @@
 					<img
 						src={fileDetails.original_url}
 						alt="Full size media"
-						class="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-						style="width: auto; height: auto;"
+						class="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
 					/>
 				{/if}
 			{/if}
