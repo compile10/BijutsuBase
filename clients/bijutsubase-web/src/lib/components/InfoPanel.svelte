@@ -261,6 +261,7 @@
 
 {#if open}
 	<div
+		data-info-panel
 		class="fixed right-0 top-0 z-30 flex h-screen w-[400px] md:w-[450px] lg:w-[500px] xl:w-[550px] 2xl:w-[600px] flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
 		transition:fly={{ x: 400, duration: 200 }}
 		onclick={(e) => e.stopPropagation()}
@@ -400,7 +401,7 @@
 					<button
 						type="button"
 						onclick={() => isEditingRating = true}
-						class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+						class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
 						aria-label="Edit rating"
 					>
 						<IconEdit class="h-4 w-4" />
@@ -484,7 +485,7 @@
 						<button
 							type="button"
 							onclick={() => isEditingAi = true}
-							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
 							aria-label="Edit AI generated status"
 						>
 							<IconEdit class="h-4 w-4" />

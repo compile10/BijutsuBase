@@ -23,6 +23,11 @@
 	// Timer for hiding controls. When a timer not active, this is null.
 	let hideTimer: number | null = null;
 
+	// Touch gesture tracking
+	let touchStartX = $state<number | null>(null);
+	let touchStartY = $state<number | null>(null);
+	let touchStartTime = $state<number | null>(null);
+
 	// Current file from the array
 	let currentFile = $derived(files[currentIndex]);
 	let activeSha = $derived(ephemeralSha ?? currentFile?.sha256_hash);
@@ -62,6 +67,18 @@
 			controlsVisible = false;
 			hideTimer = null;
 		}, 2000);
+	}
+
+	function toggleControls() {
+		if (controlsVisible) {
+			controlsVisible = false;
+			if (hideTimer !== null) {
+				clearTimeout(hideTimer);
+				hideTimer = null;
+			}
+		} else {
+			revealControls();
+		}
 	}
 
 	function handleClose() {
@@ -119,6 +136,72 @@
 		}
 	}
 
+	// Touch gesture constants
+	const SWIPE_THRESHOLD = 50; // pixels
+	const TAP_THRESHOLD = 10; // pixels
+	const TAP_MAX_DURATION = 300; // ms
+
+	function handleTouchStart(event: TouchEvent) {
+		const touch = event.touches[0];
+		touchStartX = touch.clientX;
+		touchStartY = touch.clientY;
+		touchStartTime = Date.now();
+	}
+
+	function handleTouchMove(event: TouchEvent) {
+		if (touchStartX === null || touchStartY === null) return;
+
+		const touch = event.touches[0];
+		const deltaX = Math.abs(touch.clientX - touchStartX);
+		const deltaY = Math.abs(touch.clientY - touchStartY);
+
+		// If horizontal movement is dominant, prevent vertical scroll
+		if (deltaX > deltaY && deltaX > 10) {
+			event.preventDefault();
+		}
+	}
+
+	function handleTouchEnd(event: TouchEvent) {
+		if (touchStartX === null || touchStartY === null) return;
+
+		// Don't handle touches on interactive elements (let them handle their own clicks)
+		const target = event.target as HTMLElement;
+		if (target.closest('button') || target.closest('video') || target.closest('[data-info-panel]')) {
+			touchStartX = null;
+			touchStartY = null;
+			touchStartTime = null;
+			return;
+		}
+
+		const touch = event.changedTouches[0];
+		const deltaX = touch.clientX - touchStartX;
+		const deltaY = touch.clientY - touchStartY;
+		const duration = Date.now() - (touchStartTime ?? 0);
+
+		const absX = Math.abs(deltaX);
+		const absY = Math.abs(deltaY);
+
+		if (absX > SWIPE_THRESHOLD && absX > absY) {
+			// Horizontal swipe
+			if (deltaX > 0) {
+				goPrev();
+			} else {
+				goNext();
+			}
+		} else if (absX < TAP_THRESHOLD && absY < TAP_THRESHOLD && duration < TAP_MAX_DURATION) {
+			// Tap - toggle controls
+			toggleControls();
+		}
+
+		// Prevent synthetic mouse events (mousemove would trigger revealControls)
+		event.preventDefault();
+
+		// Reset touch state
+		touchStartX = null;
+		touchStartY = null;
+		touchStartTime = null;
+	}
+
 	$effect(() => {
 		if (isOpen && typeof window !== 'undefined') {
 			// Reset controls visibility when lightbox opens
@@ -151,7 +234,9 @@
 		transition:fade={{ duration: 200 }}
 		onclick={handleBackdropClick}
 		onmousemove={revealControls}
-		ontouchstart={revealControls}
+		ontouchstart={handleTouchStart}
+		ontouchmove={handleTouchMove}
+		ontouchend={handleTouchEnd}
 		role="presentation"
 	>
 		<!-- Info and Close Buttons -->
@@ -208,7 +293,9 @@
 			transition:fly={{ y: 20, duration: 200 }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
-			ontouchstart={revealControls}
+			ontouchstart={handleTouchStart}
+			ontouchmove={handleTouchMove}
+			ontouchend={handleTouchEnd}
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
