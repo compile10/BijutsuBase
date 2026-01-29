@@ -121,6 +121,33 @@ export async function getCurrentUser(): Promise<User | null> {
 	return user;
 }
 
+export interface UserUpdateRequest {
+	username?: string;
+	avatar?: string | null;
+}
+
+/**
+ * Update the current user's profile
+ * @param data - Fields to update (username, avatar)
+ * @returns Updated user data
+ */
+export async function updateUser(data: UserUpdateRequest): Promise<User> {
+	const response = await fetch('/api/users/me', {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify(data)
+	});
+
+	if (!response.ok) {
+		throw new APIError(response, 'Failed to update user');
+	}
+
+	const user: User = await response.json();
+	setUser(user);
+	return user;
+}
+
 /**
  * Initialize authentication state
  * Checks setup status and validates current session via cookie

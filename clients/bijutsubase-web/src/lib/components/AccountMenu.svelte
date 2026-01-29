@@ -15,6 +15,13 @@
 	let isSettingsOpen = $state(false);
 	let menuRef = $state<HTMLDivElement | null>(null);
 
+	// Helper to construct avatar URL from sha256 hash
+	function getAvatarUrl(sha256: string): string {
+		const first2 = sha256.slice(0, 2);
+		const next2 = sha256.slice(2, 4);
+		return `/media/thumb/${first2}/${next2}/${sha256}.webp`;
+	}
+
 	function toggleMenu() {
 		isMenuOpen = !isMenuOpen;
 	}
@@ -59,7 +66,15 @@
 			aria-expanded={isMenuOpen}
 			aria-haspopup="true"
 		>
-			<IconAccount class="h-5 w-5" />
+			{#if authState.user.avatar}
+				<img
+					src={getAvatarUrl(authState.user.avatar)}
+					alt="Avatar"
+					class="h-5 w-5 rounded-full object-cover"
+				/>
+			{:else}
+				<IconAccount class="h-5 w-5" />
+			{/if}
 			<span class="hidden sm:inline max-w-[120px] truncate">{authState.user.username}</span>
 			<IconChevronDown class="h-4 w-4 transition-transform {isMenuOpen ? 'rotate-180' : ''}" />
 		</button>
@@ -72,15 +87,30 @@
 				<div class="rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10">
 					<!-- User info -->
 					<div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
-						<p class="text-sm font-medium text-gray-900 dark:text-white truncate">
-							{authState.user.username}
-						</p>
-						<p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-							{authState.user.email}
-						</p>
-						{#if authState.user.is_superuser}
-							<p class="text-xs text-purple-600 dark:text-purple-400">Administrator</p>
-						{/if}
+						<div class="flex items-center gap-3">
+							{#if authState.user.avatar}
+								<img
+									src={getAvatarUrl(authState.user.avatar)}
+									alt="Avatar"
+									class="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
+								/>
+							{:else}
+								<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+									<IconAccount class="h-6 w-6" />
+								</div>
+							{/if}
+							<div class="min-w-0 flex-1">
+								<p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+									{authState.user.username}
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+									{authState.user.email}
+								</p>
+								{#if authState.user.is_superuser}
+									<p class="text-xs text-purple-600 dark:text-purple-400">Administrator</p>
+								{/if}
+							</div>
+						</div>
 					</div>
 
 					<!-- Menu items -->

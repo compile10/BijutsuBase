@@ -20,5 +20,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     
     Additional fields:
     - username: unique display name for the user
+    - avatar: sha256 hash of the user's avatar image (references a file in the system)
     """
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    avatar: Mapped[str | None] = mapped_column(String(64), nullable=True)

@@ -1,11 +1,63 @@
 <script lang="ts">
 	import WindowModal from './WindowModal.svelte';
 	import { getSettingsContext, type MaxRating } from '$lib/settings.svelte';
+	import { getAuthContext } from '$lib/auth.svelte';
+	import { updateUser } from '$lib/api';
 	import IconClose from '~icons/mdi/close';
 
 	let { isOpen = $bindable(false) }: { isOpen?: boolean } = $props();
 
 	const settings = getSettingsContext();
+	const authState = getAuthContext();
+
+	// Avatar state
+	let avatarInput = $state(authState.user?.avatar ?? '');
+	let avatarError = $state('');
+	let avatarSaving = $state(false);
+
+	// Helper to construct avatar URL from sha256 hash
+	function getAvatarUrl(sha256: string): string {
+		const first2 = sha256.slice(0, 2);
+		const next2 = sha256.slice(2, 4);
+		return `/media/thumb/${first2}/${next2}/${sha256}.webp`;
+	}
+
+	// Check if the avatar input is a valid sha256 hash
+	function isValidSha256(hash: string): boolean {
+		return /^[a-fA-F0-9]{64}$/.test(hash);
+	}
+
+	async function handleAvatarSave() {
+		avatarError = '';
+		
+		// Validate input if not empty
+		if (avatarInput && !isValidSha256(avatarInput)) {
+			avatarError = 'Invalid SHA256 hash. Must be 64 hexadecimal characters.';
+			return;
+		}
+
+		avatarSaving = true;
+		try {
+			await updateUser({ avatar: avatarInput || null });
+		} catch (err) {
+			avatarError = err instanceof Error ? err.message : 'Failed to update avatar';
+		} finally {
+			avatarSaving = false;
+		}
+	}
+
+	async function handleAvatarClear() {
+		avatarInput = '';
+		avatarError = '';
+		avatarSaving = true;
+		try {
+			await updateUser({ avatar: null });
+		} catch (err) {
+			avatarError = err instanceof Error ? err.message : 'Failed to clear avatar';
+		} finally {
+			avatarSaving = false;
+		}
+	}
 
 	const ratingOptions: { value: MaxRating; label: string; description: string }[] = [
 		{
@@ -56,6 +108,71 @@
 
 	<!-- Content -->
 	<div class="overflow-y-auto px-6 py-6">
+		<!-- Account Section -->
+		{#if authState.isAuthenticated && authState.user}
+			<div class="mb-8">
+				<h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Account</h3>
+
+				<!-- Avatar Setting -->
+				<div class="space-y-3">
+					<div class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+						Avatar
+					</div>
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						Set your avatar by entering the SHA256 hash of an uploaded image.
+					</p>
+
+					<div class="flex items-start gap-4">
+						<!-- Avatar Preview -->
+						<div class="shrink-0">
+							{#if authState.user.avatar}
+								<img
+									src={getAvatarUrl(authState.user.avatar)}
+									alt="Current avatar"
+									class="h-16 w-16 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
+								/>
+							{:else}
+								<div class="flex h-16 w-16 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+									<span class="text-2xl">?</span>
+								</div>
+							{/if}
+						</div>
+
+						<!-- Avatar Input -->
+						<div class="flex-1 space-y-2">
+							<input
+								type="text"
+								bind:value={avatarInput}
+								placeholder="Enter SHA256 hash (64 hex characters)"
+								class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500 dark:focus:border-primary-400 dark:focus:ring-primary-400"
+							/>
+							{#if avatarError}
+								<p class="text-sm text-red-600 dark:text-red-400">{avatarError}</p>
+							{/if}
+							<div class="flex gap-2">
+								<button
+									onclick={handleAvatarSave}
+									disabled={avatarSaving || avatarInput === (authState.user.avatar ?? '')}
+									class="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600"
+								>
+									{avatarSaving ? 'Saving...' : 'Save'}
+								</button>
+								{#if authState.user.avatar}
+									<button
+										onclick={handleAvatarClear}
+										disabled={avatarSaving}
+										class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+									>
+										Clear
+									</button>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		<!-- General Section -->
 		<div class="mb-8">
 			<h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">General</h3>
