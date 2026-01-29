@@ -11,6 +11,8 @@ from database.config import get_db
 from models.file import File as FileModel
 from models.tag import Tag, TagCategory, FileTag
 from models.user import User
+from models.pool import Pool, PoolMember
+from models.family import FileFamily
 from api.serializers.file import FileResponse
 from sources.danbooru import DanbooruClient
 from api.serializers.tag import (
@@ -229,10 +231,18 @@ async def associate_tag(
         # File can't be deleted due to row lock, so this must be a duplicate
         await db.rollback()
     
-    # Reload file with tags (still within transaction, lock still held)
+    # Reload file with all relationships needed for FileResponse
     result = await db.execute(
         select(FileModel)
-        .options(selectinload(FileModel.tags))
+        .options(
+            selectinload(FileModel.tags),
+            selectinload(FileModel.pool_entries)
+            .selectinload(PoolMember.pool)
+            .selectinload(Pool.members)
+            .selectinload(PoolMember.file),
+            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
+            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
+        )
         .where(FileModel.sha256_hash == request.file_sha256)
     )
     file_model = result.scalar_one()
@@ -368,11 +378,19 @@ async def dissociate_tag(
     await db.delete(file_tag)
     await db.flush()
     
-    # Reload file with tags
+    # Reload file with all relationships needed for FileResponse
     result = await db.execute(
         select(FileModel)
-        .options(selectinload(FileModel.tags))
-        .where(FileModel.sha256_hash == request.file_sha256).with_for_update()  
+        .options(
+            selectinload(FileModel.tags),
+            selectinload(FileModel.pool_entries)
+            .selectinload(PoolMember.pool)
+            .selectinload(Pool.members)
+            .selectinload(PoolMember.file),
+            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
+            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
+        )
+        .where(FileModel.sha256_hash == request.file_sha256)
     )
     file_model = result.scalar_one()
     
