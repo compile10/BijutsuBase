@@ -49,10 +49,10 @@ const config = {
 				'form-action': ['self'],
 				
 				// Prevent page from being embedded in iframes (clickjacking protection)
-				'frame-ancestors': ['none'],
+				'frame-ancestors': ['none']
 				
-				// Block all mixed content
-				'upgrade-insecure-requests': true
+				// Note: 'upgrade-insecure-requests' is intentionally omitted to allow
+				// HTTP access on local networks. Enable it in production with HTTPS.
 			}
 		}
 	}
