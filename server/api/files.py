@@ -7,7 +7,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -69,6 +69,7 @@ async def search_files(
     raw_tag_names = [tag.strip() for tag in tags.split() if tag.strip()]
     pool_id: uuid.UUID | None = None
     tag_names: list[str] = []
+    excluded_tag_names: list[str] = []
     rating_from_tag: str | None = None
     
     for tag in raw_tag_names:
@@ -88,6 +89,9 @@ async def search_files(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid rating filter. Expected rating:<rating_value>."
                 )
+        elif tag.startswith("-") and len(tag) > 1:
+            # Negative tag - exclude files with this tag
+            excluded_tag_names.append(tag[1:])
         else:
             tag_names.append(tag)
     
@@ -175,6 +179,16 @@ async def search_files(
     if tag_names:
         query = query.group_by(FileModel.sha256_hash, sort_field)
         query = query.having(func.count(func.distinct(Tag.id)) == len(tag_names))
+    
+    # Apply exclusion filter for negative tags
+    if excluded_tag_names:
+        excluded_exists = (
+            exists()
+            .where(FileTag.file_sha256_hash == FileModel.sha256_hash)
+            .where(FileTag.tag_id == Tag.id)
+            .where(Tag.name.in_(excluded_tag_names))
+        )
+        query = query.where(~excluded_exists)
     
     # Apply cursor-based filtering
     if cursor_sort_value is not None and cursor_sha256 is not None:

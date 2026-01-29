@@ -42,6 +42,7 @@
 		if (mode === 'single') {
 			return {
 				word: textBeforeCursor, // In single mode, suggest based on everything typed so far
+				prefix: '',
 				startIndex: 0,
 				endIndex: value.length
 			};
@@ -50,8 +51,13 @@
 		const words = textBeforeCursor.split(/\s+/);
 		const currentWord = words[words.length - 1];
 		
+		// Check if current word starts with - (negative tag for exclusion)
+		const isNegative = currentWord.startsWith('-');
+		const wordForSearch = isNegative ? currentWord.slice(1) : currentWord;
+		
 		return {
-			word: currentWord,
+			word: wordForSearch, // Word without - prefix for API query
+			prefix: isNegative ? '-' : '', // Preserve prefix info for insertion
 			startIndex: textBeforeCursor.lastIndexOf(currentWord),
 			endIndex: cursorPosition
 		};
@@ -110,9 +116,12 @@
 			const beforeWord = value.slice(0, info.startIndex);
 			const afterCursor = value.slice(info.endIndex);
 			
+			// Preserve negative prefix when inserting tag
+			const prefix = info.prefix || '';
+			
 			// Add tag and a space if one doesn't already exist
 			const hasSpace = afterCursor.startsWith(' ');
-			value = `${beforeWord}${label}${hasSpace ? '' : ' '}${afterCursor}`;
+			value = `${beforeWord}${prefix}${label}${hasSpace ? '' : ' '}${afterCursor}`;
 			
 			if (onSelect) {
 				onSelect(item);
@@ -126,7 +135,7 @@
 			
 			// Need to wait for DOM update before moving the cursor
 			setTimeout(() => {
-				const newCursorPos = info.startIndex + label.length + 1;
+				const newCursorPos = info.startIndex + prefix.length + label.length + 1;
 				inputElement.setSelectionRange(newCursorPos, newCursorPos);
 			}, 0);
 		}
