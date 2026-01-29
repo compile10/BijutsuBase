@@ -76,6 +76,12 @@ export function createProcessingPoller(
 	}
 
 	function start(sha256: string) {
+		// If already polling for the same file, don't restart
+		// This prevents rapid polling loops when the $effect re-runs on file updates
+		if (currentSha256 === sha256 && interval !== null) {
+			return;
+		}
+		
 		stop(); // Clear any existing interval
 		currentSha256 = sha256;
 		interval = setInterval(poll, intervalMs);
