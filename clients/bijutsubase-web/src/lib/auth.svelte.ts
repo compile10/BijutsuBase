@@ -14,6 +14,7 @@ import { setContext, getContext } from 'svelte';
 export interface User {
 	id: string;
 	email: string;
+	username: string;
 	is_active: boolean;
 	is_superuser: boolean;
 	is_verified: boolean;

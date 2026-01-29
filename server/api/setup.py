@@ -1,7 +1,9 @@
 """Setup router for initial admin account creation."""
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi_users.exceptions import UserAlreadyExists
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
@@ -22,6 +24,7 @@ class AdminCreateRequest(BaseModel):
     """Request to create the initial admin account."""
     email: EmailStr
     password: str
+    username: str
 
 
 class AdminCreateResponse(BaseModel):
@@ -70,6 +73,7 @@ async def create_admin_account(
         user_create = UserCreate(
             email=request.email,
             password=request.password,
+            username=request.username,
             is_superuser=True,
             is_active=True,
             is_verified=True,  # Auto-verify the initial admin

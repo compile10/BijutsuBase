@@ -1,5 +1,7 @@
 """User model for BijutsuBase authentication."""
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from database.config import Base
 
@@ -15,5 +17,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     - is_active: whether the user is active
     - is_superuser: whether the user has admin privileges
     - is_verified: whether the user's email is verified
+    
+    Additional fields:
+    - username: unique display name for the user
     """
-    pass
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)

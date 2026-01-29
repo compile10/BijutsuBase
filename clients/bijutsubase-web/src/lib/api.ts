@@ -40,11 +40,11 @@ export async function checkSetupStatus(): Promise<SetupStatus> {
  * Create the initial admin account
  * Note: This endpoint is unauthenticated since it's only available when no users exist
  */
-export async function createAdminAccount(email: string, password: string): Promise<{ success: boolean; message: string }> {
+export async function createAdminAccount(email: string, password: string, username: string): Promise<{ success: boolean; message: string }> {
 	const response = await fetch('/api/setup/admin', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ email, password })
+		body: JSON.stringify({ email, password, username })
 	});
 	
 	if (!response.ok) {

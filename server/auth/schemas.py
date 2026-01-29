@@ -1,18 +1,19 @@
 """Pydantic schemas for user authentication."""
 import uuid
+from typing import Optional
 from fastapi_users import schemas
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
     """Schema for reading user data."""
-    pass
+    username: str
 
 
 class UserCreate(schemas.BaseUserCreate):
     """Schema for creating a new user."""
-    pass
+    username: str
 
 
 class UserUpdate(schemas.BaseUserUpdate):
     """Schema for updating user data."""
-    pass
+    username: Optional[str] = None

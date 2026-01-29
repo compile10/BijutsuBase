@@ -60,7 +60,7 @@
 			aria-haspopup="true"
 		>
 			<IconAccount class="h-5 w-5" />
-			<span class="hidden sm:inline max-w-[120px] truncate">{authState.user.email}</span>
+			<span class="hidden sm:inline max-w-[120px] truncate">{authState.user.username}</span>
 			<IconChevronDown class="h-4 w-4 transition-transform {isMenuOpen ? 'rotate-180' : ''}" />
 		</button>
 
@@ -73,6 +73,9 @@
 					<!-- User info -->
 					<div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
 						<p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+							{authState.user.username}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 truncate">
 							{authState.user.email}
 						</p>
 						{#if authState.user.is_superuser}

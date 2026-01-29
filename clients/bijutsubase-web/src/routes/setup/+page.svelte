@@ -6,6 +6,7 @@
 
 	const authState = getAuthContext();
 
+	let username = $state('');
 	let email = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
@@ -17,6 +18,21 @@
 		error = '';
 
 		// Validation
+		if (!username.trim()) {
+			error = 'Username is required';
+			return;
+		}
+
+		if (username.trim().length < 3) {
+			error = 'Username must be at least 3 characters';
+			return;
+		}
+
+		if (username.trim().length > 50) {
+			error = 'Username must be at most 50 characters';
+			return;
+		}
+
 		if (!email.trim()) {
 			error = 'Email is required';
 			return;
@@ -40,7 +56,7 @@
 		isLoading = true;
 
 		try {
-			await createAdminAccount(email.trim(), password);
+			await createAdminAccount(email.trim(), password, username.trim());
 			authState.needsSetup = false;
 			// Automatically log in with the newly created account
 			await login(email.trim(), password);
@@ -87,6 +103,21 @@
 						{error}
 					</div>
 				{/if}
+
+				<div>
+					<label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+						Username
+					</label>
+					<input
+						type="text"
+						id="username"
+						bind:value={username}
+						required
+						autocomplete="username"
+						class="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
+						placeholder="Choose a username"
+					/>
+				</div>
 
 				<div>
 					<label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
