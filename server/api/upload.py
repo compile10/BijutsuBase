@@ -10,7 +10,7 @@ import mimetypes
 import httpx
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -22,10 +22,11 @@ from api.serializers.file import FileResponse
 from utils.file_storage import generate_file_path, get_media_storage_dir
 from sources.danbooru.enrich_file import enrich_file_with_danbooru
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
-from models.file import File as FileModel
+from models.file import File as FileModel, ProcessingStatus
 from models.pool import PoolMember, Pool
 from models.user import User
 from auth.users import current_active_user
+from tasks.processing import process_file_background
 import logging
 
 
@@ -114,11 +115,16 @@ async def _persist_ingest(
     original_filename: str,
     mime_type: str,
     db: AsyncSession,
+    background_tasks: BackgroundTasks,
 ) -> FileResponse:
     """
     Finalize an ingest after a file has been streamed to a temp path.
     Handles duplicate check, file move, dimension extraction, DB save and enrichment.
+    
+    For videos, processing (thumbnail generation, enrichment) is done in background
+    to avoid timeouts on large files.
     """
+    is_video = mime_type.startswith("video/")
     # Duplicate check
     try:
         existing = await db.scalar(
@@ -186,7 +192,7 @@ async def _persist_ingest(
             detail=f"Failed to move file to final location: {str(e)}",
         )
 
-    # Extract dimensions
+    # Extract dimensions (skipped for videos - done in background)
     width = None
     height = None
     ai_generated = False
@@ -212,9 +218,8 @@ async def _persist_ingest(
                 logger.warning(f"Failed to compute pHash for {sha256_hash}: {str(e)}")
                 # Continue without pHash - it's optional
         
-        elif mime_type.startswith("video/"):
-            from utils.file_info import get_video_dimensions
-            width, height = get_video_dimensions(final_path)
+        # Videos: skip dimension extraction here - will be done in background task
+        # This avoids timeout issues with large video files
     except Exception as e:
         final_path.unlink(missing_ok=True)
         raise HTTPException(
@@ -223,6 +228,8 @@ async def _persist_ingest(
         )
 
     # Persist to DB and enrich
+    # For videos, set processing_status=PENDING so thumbnail generation
+    # is skipped in before_insert event (will be done in background)
     file_model = FileModel(
         sha256_hash=sha256_hash,
         md5_hash=md5_hash,
@@ -234,6 +241,7 @@ async def _persist_ingest(
         height=height,
         ai_generated=ai_generated,
         phash=phash,
+        processing_status=ProcessingStatus.PENDING if is_video else ProcessingStatus.COMPLETED,
     )
 
     try:
@@ -256,6 +264,40 @@ async def _persist_ingest(
             detail=f"Failed to save file to database: {str(e)}",
         )
 
+    # For videos, commit immediately and queue background processing
+    # This allows the upload to complete quickly without timing out
+    if is_video:
+        try:
+            await db.commit()
+            
+            # Queue background task for video processing
+            background_tasks.add_task(process_file_background, sha256_hash)
+            logger.info(f"Queued background processing for video {sha256_hash}")
+            
+            # Reload with minimal relationships to avoid lazy-load errors in serializer
+            # (FileResponse's model_validator accesses family_as_child/family_as_parent)
+            result = await db.execute(
+                select(FileModel)
+                .options(
+                    selectinload(FileModel.tags),
+                    selectinload(FileModel.pool_entries),
+                    selectinload(FileModel.family_as_child),
+                    selectinload(FileModel.family_as_parent),
+                )
+                .where(FileModel.sha256_hash == sha256_hash)
+            )
+            file_model = result.scalar_one()
+            
+            return FileResponse.model_validate(file_model)
+            
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to save file to database: {str(e)}",
+            )
+
+    # For images, continue with synchronous enrichment
     try:
         danbooru_success = await enrich_file_with_danbooru(file_model, db)
         if not danbooru_success:
@@ -339,6 +381,7 @@ class UrlUploadRequest(BaseModel):
 @router.post("/url", response_model=FileResponse, status_code=status.HTTP_200_OK)
 async def upload_url(
     payload: UrlUploadRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
@@ -418,12 +461,14 @@ async def upload_url(
         original_filename=original_filename,
         mime_type=mime_type,
         db=db,
+        background_tasks=background_tasks,
     )
 
 
 @router.put("/file", response_model=FileResponse, status_code=status.HTTP_200_OK)
 async def upload_file(
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
@@ -468,6 +513,7 @@ async def upload_file(
         original_filename=original_filename,
         mime_type=file_type,
         db=db,
+        background_tasks=background_tasks,
     )
 
 

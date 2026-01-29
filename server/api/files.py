@@ -189,16 +189,16 @@ async def search_files(
     # Build base query
     if tag_names:
         # Query files that have ALL of the specified tags
-        # We need to select both the hash and the sort field for cursor filtering
+        # We need to select hash, sort field, and processing_status for cursor filtering and thumbnails
         query = (
-            select(FileModel.sha256_hash, sort_field)
+            select(FileModel.sha256_hash, sort_field, FileModel.processing_status)
             .join(FileTag, FileModel.sha256_hash == FileTag.file_sha256_hash)
             .join(Tag, FileTag.tag_id == Tag.id)
             .where(Tag.name.in_(tag_names))
         )
     else:
         # If no tags provided, return all files
-        query = select(FileModel.sha256_hash, sort_field)
+        query = select(FileModel.sha256_hash, sort_field, FileModel.processing_status)
     
     # Add pool join if pool_id is specified
     if pool_id:
@@ -211,7 +211,7 @@ async def search_files(
     
     # Apply grouping if we have tag filters
     if tag_names:
-        query = query.group_by(FileModel.sha256_hash, sort_field)
+        query = query.group_by(FileModel.sha256_hash, sort_field, FileModel.processing_status)
         query = query.having(func.count(func.distinct(Tag.id)) == len(tag_names))
     
     # Apply exclusion filter for negative tags
@@ -285,8 +285,12 @@ async def search_files(
     items = rows[:limit]  # Take only the requested limit
     
     # Convert to FileThumb objects
+    # item tuple: (sha256_hash, sort_field, processing_status)
     file_thumbs = [
-        FileThumb.model_validate({'sha256_hash': item[0]})
+        FileThumb.model_validate({
+            'sha256_hash': item[0],
+            'processing_status': item[2].value if item[2] else 'completed'
+        })
         for item in items
     ]
     
@@ -395,6 +399,43 @@ async def get_file(
     user: User = Depends(current_active_user),
 ):
     """Fetch a file by its SHA-256 hash and return serialized details including tags."""
+    result = await db.execute(
+        select(FileModel)
+        .options(
+            selectinload(FileModel.tags),
+            selectinload(FileModel.pool_entries)
+            .selectinload(PoolMember.pool)
+            .selectinload(Pool.members)
+            .selectinload(PoolMember.file),
+            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
+            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
+        )
+        .where(FileModel.sha256_hash == sha256)
+    )
+    file_model = result.scalar_one_or_none()
+    if file_model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    return FileResponse.model_validate(file_model)
+
+
+@router.get("/{sha256}/status", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def get_file_status(
+    sha256: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """
+    Get the processing status of a file.
+    
+    This endpoint is used by clients to poll for the completion of background
+    processing tasks (thumbnail generation, enrichment) for video uploads.
+    
+    Returns the full FileResponse which includes:
+    - processing_status: pending, processing, completed, or failed
+    - processing_error: error message if processing failed
+    - thumbnail_url: available once processing is completed
+    """
     result = await db.execute(
         select(FileModel)
         .options(

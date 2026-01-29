@@ -8,6 +8,8 @@
 	import { longpress } from '$lib/actions/longpress';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconCircleOutline from '~icons/mdi/checkbox-blank-circle-outline';
+	import IconLoading from '~icons/mdi/loading';
+	import IconAlertCircle from '~icons/mdi/alert-circle-outline';
 
 	const settings = getSettingsContext();
 
@@ -281,11 +283,25 @@
 								? 'border-primary-500 ring-2 ring-primary-500 dark:border-primary-400 dark:ring-primary-400' 
 								: 'border-gray-200 hover:scale-105 dark:border-gray-700'}"
 						>
-							<img
-								src={thumb.thumbnail_url}
-								alt="Thumbnail"
-								class="h-full w-full object-cover {isSelectMode && isSelected ? 'opacity-75' : ''}"
-							/>
+							{#if thumb.thumbnail_url}
+								<img
+									src={thumb.thumbnail_url}
+									alt="Thumbnail"
+									class="h-full w-full object-cover {isSelectMode && isSelected ? 'opacity-75' : ''}"
+								/>
+							{:else if thumb.processing_status === 'failed'}
+								<!-- Processing failed -->
+								<div class="flex h-full w-full flex-col items-center justify-center text-red-400 dark:text-red-500">
+									<IconAlertCircle class="h-10 w-10" />
+									<span class="mt-1 text-xs">Failed</span>
+								</div>
+							{:else}
+								<!-- Processing in progress -->
+								<div class="flex h-full w-full flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+									<IconLoading class="h-10 w-10 animate-spin" />
+									<span class="mt-1 text-xs">Processing...</span>
+								</div>
+							{/if}
 							
 							{#if isSelectMode}
 								<div class="absolute right-2 top-2 z-10">
@@ -295,7 +311,7 @@
 										<IconCircleOutline class="h-6 w-6 text-white drop-shadow-md" />
 									{/if}
 								</div>
-							{:else}
+							{:else if thumb.thumbnail_url}
 								<div class="absolute inset-0 bg-black opacity-0 transition-opacity group-hover:opacity-10"></div>
 							{/if}
 						</button>

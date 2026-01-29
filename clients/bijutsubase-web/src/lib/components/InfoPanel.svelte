@@ -1,10 +1,13 @@
 <script lang="ts">
 	import type { FileResponse } from '$lib/api';
 	import { createFamily, deleteFamily, removeChildFromFamily, updateFileAiGenerated, updateFileRating } from '$lib/api';
-	import { processTagSource } from '$lib/utils';
+	import { processTagSource, createProcessingPoller } from '$lib/utils';
 	import { fly } from 'svelte/transition';
+	import { onDestroy } from 'svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconEdit from '~icons/mdi/pencil';
+	import IconLoading from '~icons/mdi/loading';
+	import IconAlertCircle from '~icons/mdi/alert-circle-outline';
 	import TagSection from './TagSection.svelte';
 
 	// TODO: Make sure this updates the search results if there are any changes
@@ -32,6 +35,24 @@
 	let isEditingFamily = $state(false);
 	let isUpdatingFamily = $state(false);
 	let familyError = $state<string | null>(null);
+
+	// Processing status polling
+	const poller = createProcessingPoller((result) => {
+		file = result.file;
+	});
+	
+	// Start/stop polling when file changes or processing status changes
+	$effect(() => {
+		if (file && (file.processing_status === 'pending' || file.processing_status === 'processing')) {
+			poller.start(file.sha256_hash);
+		} else {
+			poller.stop();
+		}
+	});
+	
+	onDestroy(() => {
+		poller.stop();
+	});
 
 	// Available rating options
 	const ratingOptions = ['safe', 'sensitive', 'questionable', 'explicit'] as const;
@@ -263,6 +284,37 @@
 
 		<!-- Scrollable Content -->
 		<div class="flex-1 overflow-y-auto px-4 py-4">
+			<!-- Processing Banner -->
+			{#if file.processing_status === 'pending' || file.processing_status === 'processing'}
+				<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+					<div class="flex items-center gap-3">
+						<IconLoading class="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+						<div>
+							<p class="font-medium text-blue-800 dark:text-blue-200">Processing Video</p>
+							<p class="text-sm text-blue-600 dark:text-blue-400">
+								Generating thumbnail and extracting metadata...
+							</p>
+						</div>
+					</div>
+				</div>
+			{:else if file.processing_status === 'failed'}
+				<div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+					<div class="flex items-center gap-3">
+						<IconAlertCircle class="h-5 w-5 text-red-600 dark:text-red-400" />
+						<div>
+							<p class="font-medium text-red-800 dark:text-red-200">Processing Failed</p>
+							{#if file.processing_error}
+								<p class="text-sm text-red-600 dark:text-red-400">{file.processing_error}</p>
+							{:else}
+								<p class="text-sm text-red-600 dark:text-red-400">
+									An error occurred while processing this video.
+								</p>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/if}
+
 			<!-- File Information Section -->
 			<section class="mb-6">
 				<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">

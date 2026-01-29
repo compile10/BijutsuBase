@@ -171,9 +171,12 @@ export async function initAuth(): Promise<void> {
 	}
 }
 
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 export interface FileThumb {
 	sha256_hash: string;
-	thumbnail_url: string;
+	thumbnail_url: string | null;
+	processing_status: ProcessingStatus;
 }
 
 export interface FileSearchResponse {
@@ -204,12 +207,14 @@ export interface FileResponse {
 	source: string | null;
 	ai_generated: boolean;
 	tag_source: string;
+	processing_status: ProcessingStatus;
+	processing_error: string | null;
 	tags: TagResponse[];
 	pools: PoolSimple[];
 	parent?: FileThumb | null;
 	children?: FileThumb[];
 	family_id?: string | null;
-	thumbnail_url: string;
+	thumbnail_url: string | null; // null when processing is not completed
 	original_url: string;
 }
 
@@ -386,6 +391,23 @@ export async function getFile(sha256: string): Promise<FileResponse> {
 	
 	if (!response.ok) {
 		throw new APIError(response, `Failed to fetch file: ${response.statusText}`);
+	}
+	
+	return response.json();
+}
+
+/**
+ * Get the processing status of a file (used for polling during background processing)
+ * @param sha256 - SHA256 hash of the file
+ * @returns File details including processing_status
+ */
+export async function getFileStatus(sha256: string): Promise<FileResponse> {
+	const response = await fetch(`/api/files/${sha256}/status`, {
+		credentials: 'include'
+	});
+	
+	if (!response.ok) {
+		throw new APIError(response, `Failed to fetch file status: ${response.statusText}`);
 	}
 	
 	return response.json();

@@ -18,16 +18,32 @@ class FileThumb(BaseModel):
     """Simplified file response model with only thumbnail URL and hash."""
     
     sha256_hash: str
+    processing_status: str = "completed"
     
     class Config:
         from_attributes = True
 
+    @field_validator('processing_status', mode='before')
+    @classmethod
+    def convert_processing_status(cls, v: Any) -> str:
+        """Convert enum to lowercase string value."""
+        if v is None:
+            return "completed"
+        if hasattr(v, 'value'):
+            return v.value  # Enum -> string value (lowercase)
+        return str(v).lower()
+
     @computed_field
     @property
-    def thumbnail_url(self) -> str:
+    def thumbnail_url(self) -> str | None:
         """
         Generate thumbnail URL using the file's hash.
+        
+        Returns None if processing is not completed (thumbnail not yet generated).
         """
+        if self.processing_status != "completed":
+            return None
+            
         from utils.file_storage import generate_file_url
         
         # Thumbnails are always WebP format
@@ -50,11 +66,23 @@ class FileResponse(BaseModel):
     source: str | None
     ai_generated: bool
     tag_source: str
+    processing_status: str  # pending, processing, completed, failed
+    processing_error: str | None = None  # Error message if processing failed
     tags: list["TagResponse"]
     pools: list["PoolSimple"] = Field(default=[], validation_alias="pool_entries")
     parent: Optional[FileThumb] = None  # Parent file thumbnail if this file is a child
     children: list[FileThumb] = Field(default_factory=list)  # Children file thumbnails if this file is a parent
     family_id: Optional[str] = None  # Family ID if this file is a parent of a family
+    
+    @field_validator('processing_status', mode='before')
+    @classmethod
+    def convert_processing_status(cls, v: Any) -> str:
+        """Convert enum to lowercase string value."""
+        if v is None:
+            return "completed"
+        if hasattr(v, 'value'):
+            return v.value  # Enum -> string value (lowercase)
+        return str(v).lower()
     
     @field_validator('tags')
     @classmethod
@@ -116,14 +144,20 @@ class FileResponse(BaseModel):
     
     @computed_field
     @property
-    def thumbnail_url(self) -> str:
+    def thumbnail_url(self) -> str | None:
         """
         Generate thumbnail URL using the file's hash and extension.
         
+        Returns None if processing is not completed (thumbnail not yet generated).
+        
         Returns:
-            URL path to the thumbnail (e.g., /media/thumb/9f/a3/9fa39b...webp)
+            URL path to the thumbnail (e.g., /media/thumb/9f/a3/9fa39b...webp) or None
         """
         from utils.file_storage import generate_file_url
+        
+        # Return None if file is still being processed (thumbnail not ready)
+        if self.processing_status != "completed":
+            return None
         
         # Thumbnails are always WebP format
         return generate_file_url(self.sha256_hash, "webp", thumb=True)

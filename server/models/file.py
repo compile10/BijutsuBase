@@ -33,6 +33,14 @@ class TagSource(str, enum.Enum):
     ONNX = "onnx"
 
 
+class ProcessingStatus(str, enum.Enum):
+    """Processing status enum for background task tracking."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class File(Base):
     """File model for file storage and metadata."""
     
@@ -106,6 +114,18 @@ class File(Base):
         index=True
     )
     
+    # Processing status for background task tracking
+    processing_status: Mapped[ProcessingStatus] = mapped_column(
+        SQLEnum(ProcessingStatus),
+        nullable=False,
+        default=ProcessingStatus.COMPLETED,
+        server_default=ProcessingStatus.COMPLETED.name
+    )
+    processing_error: Mapped[Optional[str]] = mapped_column(
+        String(2048),
+        nullable=True
+    )
+    
     # Family this file belongs to as a child
     parent_family_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid,
@@ -148,9 +168,16 @@ def _generate_thumbnail_before_insert(mapper, connection, target: File) -> None:
     """
     Generate and save thumbnail before inserting File record.
     
-    Only generates thumbnails for image and video files.
+    Only generates thumbnails for images (synchronously).
+    Videos with processing_status=PENDING are skipped here and processed
+    in the background task to avoid upload timeouts.
+    
     Raises exception if thumbnail generation fails.
     """
+    # Skip thumbnail generation for files pending background processing (videos)
+    if target.processing_status == ProcessingStatus.PENDING:
+        return
+    
     from utils.file_storage import generate_file_path
     from utils.thumbnail_gen import generate_thumbnail, generate_video_thumbnail
     
