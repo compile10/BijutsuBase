@@ -318,7 +318,7 @@
 						src={fileDetails.original_url}
 						controls
 						autoplay
-						class="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
+						class="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
 					>
 						<track kind="captions" />
 					</video>
@@ -326,7 +326,7 @@
 					<img
 						src={fileDetails.original_url}
 						alt="Full size media"
-						class="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
+						class="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
 					/>
 				{/if}
 			{/if}
