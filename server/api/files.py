@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func, update, exists
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from database.config import get_db
 from models.file import File as FileModel, Rating
@@ -216,31 +216,40 @@ async def search_files(
     
     # Apply exclusion filter for negative tags
     if excluded_tag_names:
+        # Use aliased tables to avoid conflict with the main query's Tag join
+        ExcludedTag = aliased(Tag)
+        ExcludedFileTag = aliased(FileTag)
         excluded_exists = (
             exists()
-            .where(FileTag.file_sha256_hash == FileModel.sha256_hash)
-            .where(FileTag.tag_id == Tag.id)
-            .where(Tag.name.in_(excluded_tag_names))
+            .where(ExcludedFileTag.file_sha256_hash == FileModel.sha256_hash)
+            .where(ExcludedFileTag.tag_id == ExcludedTag.id)
+            .where(ExcludedTag.name.in_(excluded_tag_names))
         )
         query = query.where(~excluded_exists)
     
     # Apply category inclusion filter (files must have at least one tag in each category)
     for cat in category_filters:
+        # Use aliased tables to avoid conflict with the main query's Tag join
+        CatTag = aliased(Tag)
+        CatFileTag = aliased(FileTag)
         cat_exists = (
             exists()
-            .where(FileTag.file_sha256_hash == FileModel.sha256_hash)
-            .where(FileTag.tag_id == Tag.id)
-            .where(Tag.category == cat)
+            .where(CatFileTag.file_sha256_hash == FileModel.sha256_hash)
+            .where(CatFileTag.tag_id == CatTag.id)
+            .where(CatTag.category == cat)
         )
         query = query.where(cat_exists)
     
     # Apply category exclusion filter (files must not have any tags in each category)
     for cat in excluded_categories:
+        # Use aliased tables to avoid conflict with the main query's Tag join
+        ExclCatTag = aliased(Tag)
+        ExclCatFileTag = aliased(FileTag)
         cat_exists = (
             exists()
-            .where(FileTag.file_sha256_hash == FileModel.sha256_hash)
-            .where(FileTag.tag_id == Tag.id)
-            .where(Tag.category == cat)
+            .where(ExclCatFileTag.file_sha256_hash == FileModel.sha256_hash)
+            .where(ExclCatFileTag.tag_id == ExclCatTag.id)
+            .where(ExclCatTag.category == cat)
         )
         query = query.where(~cat_exists)
     
