@@ -164,15 +164,7 @@
 	function handleTouchEnd(event: TouchEvent) {
 		if (touchStartX === null || touchStartY === null) return;
 
-		// Don't handle touches on interactive elements (let them handle their own clicks)
 		const target = event.target as HTMLElement;
-		if (target.closest('button') || target.closest('video') || target.closest('[data-info-panel]')) {
-			touchStartX = null;
-			touchStartY = null;
-			touchStartTime = null;
-			return;
-		}
-
 		const touch = event.changedTouches[0];
 		const deltaX = touch.clientX - touchStartX;
 		const deltaY = touch.clientY - touchStartY;
@@ -181,7 +173,35 @@
 		const absX = Math.abs(deltaX);
 		const absY = Math.abs(deltaY);
 
-		if (absX > SWIPE_THRESHOLD && absX > absY) {
+		const isHorizontalSwipe = absX > SWIPE_THRESHOLD && absX > absY;
+		const isOnVideo = target.closest('video') !== null;
+
+		// For videos: only handle horizontal swipes, let taps pass through for video controls
+		if (isOnVideo) {
+			if (isHorizontalSwipe) {
+				if (deltaX > 0) {
+					goPrev();
+				} else {
+					goNext();
+				}
+				event.preventDefault();
+			}
+			// Reset touch state and let non-swipe gestures pass through to video
+			touchStartX = null;
+			touchStartY = null;
+			touchStartTime = null;
+			return;
+		}
+
+		// Don't handle touches on other interactive elements (let them handle their own clicks)
+		if (target.closest('button') || target.closest('[data-info-panel]')) {
+			touchStartX = null;
+			touchStartY = null;
+			touchStartTime = null;
+			return;
+		}
+
+		if (isHorizontalSwipe) {
 			// Horizontal swipe
 			if (deltaX > 0) {
 				goPrev();
