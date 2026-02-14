@@ -226,7 +226,7 @@
 	onReorder={refresh}
 />
 
-<div class="flex flex-1 flex-col overflow-hidden">
+<div class="flex flex-1 flex-col overflow-hidden" inert={lightboxOpen}>
 	<!-- Loading State -->
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">
