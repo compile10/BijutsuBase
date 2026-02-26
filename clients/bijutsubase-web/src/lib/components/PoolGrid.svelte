@@ -52,8 +52,10 @@
 			itemsPerRow = 4; // tablet
 		} else if (width < 1280) {
 			itemsPerRow = 5; // laptop
-		} else {
+		} else if (width < 3840) {
 			itemsPerRow = 6; // desktop
+		} else {
+			itemsPerRow = 8; // 4k+
 		}
 	}
 
