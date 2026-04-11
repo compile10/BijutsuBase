@@ -65,7 +65,7 @@
 	</div>
 
 	<!-- Content -->
-	<div class="flex h-[60vh] flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+	<div class="flex h-[60dvh] flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
 		<PoolGrid 
 			{query} 
 			hideHeader 

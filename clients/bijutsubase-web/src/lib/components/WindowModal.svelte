@@ -52,7 +52,7 @@
 		role="presentation"
 	>
 		<div
-			class="relative flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800 {maxWidth}"
+			class="relative flex max-h-[90dvh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800 {maxWidth}"
 			transition:fly={{ y: 20, duration: 200 }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={() => {}}
