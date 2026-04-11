@@ -262,7 +262,7 @@
 {#if open}
 	<div
 		data-info-panel
-		class="fixed right-0 top-0 z-30 flex h-screen w-[400px] md:w-[450px] lg:w-[500px] xl:w-[550px] 2xl:w-[600px] flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
+		class="fixed right-0 top-0 z-30 flex h-dvh w-[400px] md:w-[450px] lg:w-[500px] xl:w-[550px] 2xl:w-[600px] flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
 		transition:fly={{ x: 400, duration: 200 }}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
