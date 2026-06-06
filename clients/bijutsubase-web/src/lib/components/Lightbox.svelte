@@ -323,7 +323,9 @@
 			{#if loading}
 				<!-- Loading State -->
 				<div class="text-center">
-					<div class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-600 border-t-white"></div>
+					<div
+						class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-600 border-t-white"
+					></div>
 					<p class="text-white">Loading...</p>
 				</div>
 			{:else if error}
@@ -354,7 +356,12 @@
 
 		<!-- Info Panel -->
 		{#if fileDetails}
-			<InfoPanel bind:open={infoOpen} bind:file={fileDetails} onNavigateToFile={openBySha} bind:isAddChildModalOpen />
+			<InfoPanel
+				bind:open={infoOpen}
+				bind:file={fileDetails}
+				onNavigateToFile={openBySha}
+				bind:isAddChildModalOpen
+			/>
 		{/if}
 	</div>
 {/if}
@@ -376,4 +383,3 @@
 		}}
 	/>
 {/if}
-

@@ -1,10 +1,10 @@
 /**
  * Authentication state management using Svelte 5 Runes with Context API
- * 
+ *
  * This module provides SSR-safe auth state by using Svelte's context API.
  * The auth state is created per-request and attached to the component tree,
  * preventing state leakage between users during server-side rendering.
- * 
+ *
  * Authentication is handled via HttpOnly cookies set by the server,
  * so no token storage is needed in the frontend.
  */

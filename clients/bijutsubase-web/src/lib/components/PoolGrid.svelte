@@ -95,7 +95,7 @@
 		fetching = true;
 		try {
 			const newPools = await getPools(skip, limit, query, settings.maxRating ?? undefined);
-			
+
 			if (newPools.length > 0) {
 				pools = [...pools, ...newPools];
 				skip += newPools.length;
@@ -114,13 +114,13 @@
 	// Handle scroll events for infinite scrolling
 	async function handleScroll() {
 		if (!vlistRef) return;
-		
+
 		const count = pools.length;
 		const endRowIndex = vlistRef.findEndIndex();
 		const lastVisibleItemIndex = (endRowIndex + 1) * itemsPerRow;
-		
+
 		// Trigger when we're 2 rows away from end
-		if (lastVisibleItemIndex >= count - (itemsPerRow * 2) && hasMore && !fetching) {
+		if (lastVisibleItemIndex >= count - itemsPerRow * 2 && hasMore && !fetching) {
 			await fetchMoreItems();
 		}
 	}
@@ -148,7 +148,9 @@
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">
 			<div class="text-center">
-				<div class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+				<div
+					class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"
+				></div>
 				<p class="text-gray-600 dark:text-gray-400">Loading pools...</p>
 			</div>
 		</div>
@@ -156,7 +158,9 @@
 
 	<!-- Error State -->
 	{#if error}
-		<div class="m-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+		<div
+			class="m-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
+		>
 			<p class="text-red-800 dark:text-red-400">Error: {error}</p>
 		</div>
 	{/if}
@@ -176,7 +180,12 @@
 
 	<!-- Results Grid -->
 	{#if !loading && !error && pools.length > 0}
-		<VList bind:this={vlistRef} data={rows} class="flex-1 min-h-0 {isModal ? 'p-4' : 'lg:px-16 lg:py-4 md:px-8 md:py-4 p-4'}" onscroll={handleScroll}>
+		<VList
+			bind:this={vlistRef}
+			data={rows}
+			class="flex-1 min-h-0 {isModal ? 'p-4' : 'lg:px-16 lg:py-4 md:px-8 md:py-4 p-4'}"
+			onscroll={handleScroll}
+		>
 			{#snippet children(row, rowIndex)}
 				<div
 					class="grid gap-4 pb-4"
@@ -205,7 +214,9 @@
 										class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 									/>
 								{:else}
-									<div class="flex h-full w-full items-center justify-center text-gray-300 dark:text-gray-600">
+									<div
+										class="flex h-full w-full items-center justify-center text-gray-300 dark:text-gray-600"
+									>
 										<IconFolder class="h-16 w-16" />
 									</div>
 								{/if}
@@ -213,25 +224,30 @@
 
 							<!-- Info -->
 							<div class="p-3">
-								<h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white" title={pool.name}>
+								<h3
+									class="truncate text-sm font-semibold text-gray-900 dark:text-white"
+									title={pool.name}
+								>
 									{pool.name}
 								</h3>
 								<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-									{pool.member_count} {pool.member_count === 1 ? 'item' : 'items'}
+									{pool.member_count}
+									{pool.member_count === 1 ? 'item' : 'items'}
 								</p>
 							</div>
 						</button>
 					{/each}
 				</div>
-				
+
 				<!-- Loading indicator at the end -->
 				{#if rowIndex === rows.length - 1 && fetching && hasMore}
 					<div class="flex justify-center py-8">
-						<div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+						<div
+							class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"
+						></div>
 					</div>
 				{/if}
 			{/snippet}
 		</VList>
 	{/if}
 </div>
-

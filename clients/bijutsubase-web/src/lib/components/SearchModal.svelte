@@ -33,7 +33,9 @@
 <WindowModal bind:isOpen title="Search" maxWidth="max-w-lg" onClose={handleClose}>
 	<div class="flex flex-col">
 		<!-- Header -->
-		<div class="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+		<div
+			class="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700"
+		>
 			<h2 class="text-lg font-semibold text-gray-900 dark:text-white">Search</h2>
 			<button
 				onclick={handleClose}
@@ -47,7 +49,10 @@
 		<!-- Content -->
 		<form onsubmit={handleSubmit} class="flex flex-col gap-4 p-4">
 			<div>
-				<label for="search-input" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+				<label
+					for="search-input"
+					class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Tags
 				</label>
 				<SearchInput
@@ -61,13 +66,13 @@
 			</div>
 
 			<div>
-				<label for="sort-option" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+				<label
+					for="sort-option"
+					class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Sort by
 				</label>
-				<SortDropdown
-					bind:value={sortOption}
-					class="w-full"
-				/>
+				<SortDropdown bind:value={sortOption} class="w-full" />
 			</div>
 
 			<button

@@ -1,12 +1,17 @@
 <script lang="ts">
-	import { getCommonTags, bulkAssociateTag, bulkDissociateTag, bulkUpdateFileMetadata } from '$lib/api';
+	import {
+		getCommonTags,
+		bulkAssociateTag,
+		bulkDissociateTag,
+		bulkUpdateFileMetadata
+	} from '$lib/api';
 	import type { TagResponse } from '$lib/api';
 	import WindowModal from './WindowModal.svelte';
 	import TagSection from '$lib/components/TagSection.svelte';
 	import IconPencil from '~icons/mdi/pencil';
 	import IconClose from '~icons/mdi/close';
 
-	let { 
+	let {
 		isOpen = $bindable(false),
 		selectedFiles,
 		onChange
@@ -55,7 +60,7 @@
 		commonTags = [];
 		selectedRating = 'no_change';
 		selectedAi = 'no_change';
-		
+
 		if (hasChanges) {
 			onChange({ removedTags });
 		}
@@ -83,8 +88,7 @@
 			await fetchCommonTags();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to fetch common tags';
-		}
-		finally {
+		} finally {
 			isUpdatingTags = false;
 		}
 	}
@@ -108,8 +112,7 @@
 			await fetchCommonTags();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to fetch common tags';
-		}
-		finally {
+		} finally {
 			isUpdatingTags = false;
 		}
 	}
@@ -120,7 +123,7 @@
 		// Filter out 'no_change' or undefined values
 		if (updates.rating === 'no_change') delete updates.rating;
 		if (updates.ai_generated === undefined) delete updates.ai_generated;
-		
+
 		if (Object.keys(updates).length === 0) return;
 
 		const payload = {
@@ -143,13 +146,16 @@
 
 <WindowModal bind:isOpen title="Edit Files" maxWidth="max-w-2xl" onClose={handleCloseModal}>
 	<!-- Header -->
-	<div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+	<div
+		class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700"
+	>
 		<div class="flex items-center gap-3">
 			<div class="rounded-full bg-primary-100 p-2 dark:bg-primary-900/30">
 				<IconPencil class="h-6 w-6 text-primary-600 dark:text-primary-400" />
 			</div>
 			<h3 class="text-xl font-bold text-gray-900 dark:text-white">
-				Edit {selectedFiles.size} {selectedFiles.size === 1 ? 'File' : 'Files'}
+				Edit {selectedFiles.size}
+				{selectedFiles.size === 1 ? 'File' : 'Files'}
 			</h3>
 		</div>
 		<button
@@ -164,7 +170,9 @@
 	<!-- Content -->
 	<div class="flex-1 overflow-y-auto p-6">
 		{#if error}
-			<div class="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+			<div
+				class="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
+			>
 				<p class="text-sm text-red-800 dark:text-red-400">{error}</p>
 			</div>
 		{/if}
@@ -172,13 +180,18 @@
 		<div class="grid gap-8 md:grid-cols-2">
 			<!-- Metadata Section -->
 			<div class="space-y-6">
-				<h4 class="border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900 dark:border-gray-700 dark:text-white">
+				<h4
+					class="border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900 dark:border-gray-700 dark:text-white"
+				>
 					Metadata
 				</h4>
-				
+
 				<div class="space-y-4">
 					<div>
-						<label for="bulk-rating" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+						<label
+							for="bulk-rating"
+							class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+						>
 							Rating
 						</label>
 						<select
@@ -201,7 +214,10 @@
 					</div>
 
 					<div>
-						<label for="bulk-ai" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+						<label
+							for="bulk-ai"
+							class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+						>
 							AI Generated
 						</label>
 						<select
@@ -225,13 +241,17 @@
 
 			<!-- Tags Section -->
 			<div class="space-y-6">
-				<h4 class="border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900 dark:border-gray-700 dark:text-white">
+				<h4
+					class="border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900 dark:border-gray-700 dark:text-white"
+				>
 					Common Tags
 				</h4>
-				
+
 				{#if isUpdatingTags}
 					<div class="flex items-center justify-center py-8">
-						<div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+						<div
+							class="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"
+						></div>
 					</div>
 				{:else}
 					<TagSection
@@ -240,13 +260,13 @@
 						onDeleteTag={handleBulkDeleteTag}
 						disabled={isUpdatingMetadata}
 					/>
-					
+
 					<p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-						Only tags present in ALL selected files are shown. Adding a tag adds it to all selected files. Removing a tag removes it from all selected files.
+						Only tags present in ALL selected files are shown. Adding a tag adds it to all selected
+						files. Removing a tag removes it from all selected files.
 					</p>
 				{/if}
 			</div>
 		</div>
 	</div>
-
 </WindowModal>

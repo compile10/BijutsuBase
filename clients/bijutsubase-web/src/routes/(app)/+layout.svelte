@@ -18,7 +18,7 @@
 	// Get tags and sort from URL params
 	let tags = $derived(page.url.searchParams.get('tags') || '');
 	let currentSort = $derived(page.url.searchParams.get('sort') || 'date_desc');
-	
+
 	let searchQuery = $state('');
 	let sortOption = $state('date_desc');
 
@@ -99,17 +99,14 @@
 						focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 
 						dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
 					/>
-					
+
 					<div class="shrink-0">
-						<SortDropdown
-							bind:value={sortOption}
-							onchange={handleSortChange}
-						/>
+						<SortDropdown bind:value={sortOption} onchange={handleSortChange} />
 					</div>
 
 					<button
 						type="submit"
-						class="shrink-0 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none 
+						class="shrink-0 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none
 						focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600 dark:focus:ring-primary-400 dark:focus:ring-offset-gray-900"
 						aria-label="Search"
 					>

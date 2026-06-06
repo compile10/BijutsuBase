@@ -1,7 +1,13 @@
 <script lang="ts">
 	import WindowModal from './WindowModal.svelte';
 	import IconClose from '~icons/mdi/close';
-	import { APIError, addFilesToPool, getFile, type FileResponse, type PoolResponse } from '$lib/api';
+	import {
+		APIError,
+		addFilesToPool,
+		getFile,
+		type FileResponse,
+		type PoolResponse
+	} from '$lib/api';
 
 	let {
 		isOpen = $bindable(false),
@@ -79,8 +85,7 @@
 			onFilesAdded?.(updatedPool);
 			handleClose();
 		} catch (err) {
-			actionError =
-				err instanceof Error ? err.message : 'Failed to add image to pool.';
+			actionError = err instanceof Error ? err.message : 'Failed to add image to pool.';
 		} finally {
 			isAdding = false;
 		}
@@ -139,15 +144,27 @@
 		</div>
 
 		{#if previewFile}
-			<div class="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+			<div
+				class="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
+			>
 				<div class="flex flex-col gap-4 md:flex-row">
-					<div class="shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800">
-						<img src={previewFile.thumbnail_url} alt="Preview thumbnail" class="h-40 w-40 object-cover" />
+					<div
+						class="shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800"
+					>
+						<img
+							src={previewFile.thumbnail_url}
+							alt="Preview thumbnail"
+							class="h-40 w-40 object-cover"
+						/>
 					</div>
 					<div class="flex flex-1 flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
 						<div>
-							<p class="font-semibold text-gray-900 dark:text-white wrap-break-word">{previewFile.original_filename}</p>
-							<p class="font-mono text-xs text-gray-500 dark:text-gray-400 break-all">{previewFile.sha256_hash}</p>
+							<p class="font-semibold text-gray-900 dark:text-white wrap-break-word">
+								{previewFile.original_filename}
+							</p>
+							<p class="font-mono text-xs text-gray-500 dark:text-gray-400 break-all">
+								{previewFile.sha256_hash}
+							</p>
 						</div>
 						<div class="grid grid-cols-2 gap-2 text-xs">
 							<div>
@@ -156,7 +173,9 @@
 							</div>
 							<div>
 								<p class="text-gray-500 dark:text-gray-400">Size</p>
-								<p class="text-gray-900 dark:text-white">{(previewFile.file_size / 1024 / 1024).toFixed(2)} MB</p>
+								<p class="text-gray-900 dark:text-white">
+									{(previewFile.file_size / 1024 / 1024).toFixed(2)} MB
+								</p>
 							</div>
 							<div>
 								<p class="text-gray-500 dark:text-gray-400">Rating</p>
@@ -175,7 +194,9 @@
 				</div>
 
 				{#if actionError}
-					<div class="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+					<div
+						class="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+					>
 						{actionError}
 					</div>
 				{/if}
@@ -194,5 +215,3 @@
 		{/if}
 	</form>
 </WindowModal>
-
-

@@ -20,11 +20,11 @@ export type ProcessingStatusCallback = (result: PollingResult) => void;
 
 /**
  * Creates a polling controller for file processing status.
- * 
+ *
  * @param onUpdate - Callback called on each poll with the updated file and status
  * @param intervalMs - Polling interval in milliseconds (default: 2000)
  * @returns Object with start and stop functions
- * 
+ *
  * @example
  * ```ts
  * const poller = createProcessingPoller((result) => {
@@ -33,10 +33,10 @@ export type ProcessingStatusCallback = (result: PollingResult) => void;
  *     error = result.error;
  *   }
  * });
- * 
+ *
  * // Start polling for a file
  * poller.start(file.sha256_hash);
- * 
+ *
  * // Stop polling (e.g., on component destroy)
  * poller.stop();
  * ```
@@ -50,15 +50,15 @@ export function createProcessingPoller(
 
 	async function poll() {
 		if (!currentSha256) return;
-		
+
 		try {
 			const file = await getFileStatus(currentSha256);
 			const status = file.processing_status;
-			
+
 			onUpdate({
 				status,
 				file,
-				error: status === 'failed' ? (file.processing_error || 'Processing failed') : undefined
+				error: status === 'failed' ? file.processing_error || 'Processing failed' : undefined
 			});
 
 			// Stop polling when processing is complete or failed
@@ -81,7 +81,7 @@ export function createProcessingPoller(
 		if (currentSha256 === sha256 && interval !== null) {
 			return;
 		}
-		
+
 		stop(); // Clear any existing interval
 		currentSha256 = sha256;
 		interval = setInterval(poll, intervalMs);
@@ -122,9 +122,12 @@ export function processTagSource(tagSource: string): string {
  * @param wait - The time to wait in milliseconds before calling the function
  * @returns A debounced version of the function
  */
-export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: any[]) => void>(
+	func: T,
+	wait: number
+): (...args: Parameters<T>) => void {
 	let timeout: ReturnType<typeof setTimeout>;
-	return function(...args: Parameters<T>) {
+	return function (...args: Parameters<T>) {
 		clearTimeout(timeout);
 		timeout = setTimeout(() => func(...args), wait);
 	};

@@ -35,12 +35,12 @@
 
 <WindowModal bind:isOpen title="Select Pool" maxWidth="max-w-4xl" onClose={handleClose}>
 	<!-- Header -->
-	<div class="flex shrink-0 items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+	<div
+		class="flex shrink-0 items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700"
+	>
 		<div class="flex flex-1 items-center gap-4">
-			<h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-				Add to Pool
-			</h2>
-			
+			<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Add to Pool</h2>
+
 			<div class="relative flex-1 max-w-sm">
 				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 					<IconSearch class="h-5 w-5 text-gray-400" />
@@ -66,12 +66,6 @@
 
 	<!-- Content -->
 	<div class="flex h-[60svh] flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
-		<PoolGrid 
-			{query} 
-			hideHeader 
-			isModal 
-			onSelect={handleSelect}
-		/>
+		<PoolGrid {query} hideHeader isModal onSelect={handleSelect} />
 	</div>
 </WindowModal>
-

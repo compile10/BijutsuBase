@@ -147,14 +147,18 @@
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">
 			<div class="text-center">
-				<div class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+				<div
+					class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"
+				></div>
 				<p class="text-gray-600 dark:text-gray-400">{loadingText}</p>
 			</div>
 		</div>
 	{/if}
 
 	{#if error}
-		<div class="m-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+		<div
+			class="m-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
+		>
 			<p class="text-red-800 dark:text-red-400">Error: {error}</p>
 		</div>
 	{/if}
@@ -179,7 +183,10 @@
 			onscroll={handleScroll}
 		>
 			{#snippet children(row, rowIndex)}
-				<div class="grid gap-4 pb-4" style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));">
+				<div
+					class="grid gap-4 pb-4"
+					style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
+				>
 					{#each row as item}
 						{@const title = getTitle(item)}
 						{@const img = getImageUrl(item)}
@@ -196,7 +203,9 @@
 										class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 									/>
 								{:else}
-									<div class="flex h-full w-full items-center justify-center text-gray-300 dark:text-gray-600">
+									<div
+										class="flex h-full w-full items-center justify-center text-gray-300 dark:text-gray-600"
+									>
 										<IconImageOffOutline class="h-16 w-16" />
 									</div>
 								{/if}
@@ -204,7 +213,7 @@
 
 							<!-- Info -->
 							<div class="p-3">
-								<h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white" title={title}>
+								<h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white" {title}>
 									{title}
 								</h3>
 								{#if getSubtitle}
@@ -220,11 +229,12 @@
 
 				{#if rowIndex === rows.length - 1 && fetching && hasMore}
 					<div class="flex justify-center py-8">
-						<div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+						<div
+							class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"
+						></div>
 					</div>
 				{/if}
 			{/snippet}
 		</VList>
 	{/if}
 </div>
-

@@ -7,7 +7,11 @@
 	import ArrowDown from '~icons/mdi/arrow-down';
 	import Check from '~icons/mdi/check';
 
-	let { value = $bindable(), onchange, class: className = '' } = $props<{
+	let {
+		value = $bindable(),
+		onchange,
+		class: className = ''
+	} = $props<{
 		value: string;
 		onchange?: () => void;
 		class?: string;
@@ -36,15 +40,13 @@
 		{
 			title: 'Random',
 			icon: ShuffleIcon,
-			options: [
-				{ label: 'Random', value: 'random', icon: ShuffleIcon }
-			]
+			options: [{ label: 'Random', value: 'random', icon: ShuffleIcon }]
 		}
 	];
 
 	function select(optionValue: string) {
 		if (value === optionValue) return;
-		
+
 		value = optionValue;
 		isOpen = false;
 		onchange?.();
@@ -76,9 +78,9 @@
 <div class="relative h-full" bind:this={container}>
 	<button
 		onclick={(e) => {
-            e.stopPropagation(); 
-            isOpen = !isOpen;
-        }}
+			e.stopPropagation();
+			isOpen = !isOpen;
+		}}
 		class="h-full flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:focus:border-primary-400 dark:focus:ring-primary-400 {className}"
 		type="button"
 	>
@@ -109,7 +111,9 @@
 				{/if}
 
 				<!-- Group Header -->
-				<div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+				<div
+					class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+				>
 					<div class="flex items-center gap-2">
 						<group.icon />
 						<span>{group.title}</span>
@@ -138,4 +142,3 @@
 		</div>
 	{/if}
 </div>
-

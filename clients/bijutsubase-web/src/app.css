@@ -5,8 +5,10 @@
 @import '@fontsource/space-mono/700.css';
 
 @theme {
-	--font-family-sans: 'Space Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-	
+	--font-family-sans:
+		'Space Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+		monospace;
+
 	/* Primary brand colors - one shade darker green */
 	--color-primary-50: var(--color-green-50);
 	--color-primary-100: var(--color-green-100);
@@ -20,11 +22,12 @@
 	--color-primary-900: var(--color-green-950);
 }
 
-html, body {
+html,
+body {
 	/* Prevent macOS rubber-band overscroll and scroll chaining */
 	overscroll-behavior: none;
 	/* Apply dark mode background to html and body */
-	@apply bg-white dark:bg-zinc-950 text-gray-900 dark:text-gray-100;
+	@apply bg-white text-gray-900 dark:bg-zinc-950 dark:text-gray-100;
 }
 
 body {
@@ -41,6 +44,6 @@ body {
 		background: transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-zinc-600 rounded-full hover:bg-zinc-500;
+		@apply rounded-full bg-zinc-600 hover:bg-zinc-500;
 	}
 }

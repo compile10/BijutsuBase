@@ -38,10 +38,12 @@
 				<IconAlert class="h-8 w-8 text-amber-600 dark:text-amber-400" />
 			</div>
 			<h3 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-				Remove {count} {count === 1 ? 'File' : 'Files'} from Pool?
+				Remove {count}
+				{count === 1 ? 'File' : 'Files'} from Pool?
 			</h3>
 			<p class="text-gray-500 dark:text-gray-400">
-				Are you sure you want to remove the selected files from this pool? Originals remain, but they'll no longer be in this pool.
+				Are you sure you want to remove the selected files from this pool? Originals remain, but
+				they'll no longer be in this pool.
 			</p>
 		</div>
 
@@ -63,4 +65,3 @@
 		</div>
 	</div>
 </WindowModal>
-

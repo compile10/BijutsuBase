@@ -14,10 +14,10 @@
 		'Art is not what you see, but what you make others see.',
 		'To practice any art, no matter how well or badly, is a way to make your soul grow.',
 		'Time is passing so quickly. Right now, I feel like complaining to Einstein. Whether time is slow or fast depends on perception. Relativity theory is so romantic. And so sad.',
-		'Things that don\'t change go extinct.',
-		'I dreamt I was a butterfly. I couldn\'t tell I was dreaming. But when I woke, I was I and not a butterfly. Was I dreaming that I was the butterfly, or was the butterfly dreaming that it was me?',
-		'If people refuse to accept you, I\'ll just accept you even more.',
-		'The fake is of far greater value. In its deliberate attempt to be real, it\'s more real than the real thing.',
+		"Things that don't change go extinct.",
+		"I dreamt I was a butterfly. I couldn't tell I was dreaming. But when I woke, I was I and not a butterfly. Was I dreaming that I was the butterfly, or was the butterfly dreaming that it was me?",
+		"If people refuse to accept you, I'll just accept you even more.",
+		"The fake is of far greater value. In its deliberate attempt to be real, it's more real than the real thing."
 	];
 
 	let currentQuote = $state('');

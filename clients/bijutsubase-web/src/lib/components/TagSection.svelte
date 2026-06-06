@@ -10,18 +10,18 @@
 	import IconInformation from '~icons/mdi/information-outline';
 	import IconPlus from '~icons/mdi/plus';
 
-	let { 
+	let {
 		file = $bindable<FileResponse | undefined>(undefined),
 		tags: providedTags = undefined,
 		onAddTag = undefined,
 		onDeleteTag = undefined,
 		disabled = false
-	} = $props<{ 
-		file?: FileResponse,
-		tags?: TagResponse[],
-		onAddTag?: (name: string, category: string) => Promise<void>,
-		onDeleteTag?: (name: string) => Promise<void>,
-		disabled?: boolean
+	} = $props<{
+		file?: FileResponse;
+		tags?: TagResponse[];
+		onAddTag?: (name: string, category: string) => Promise<void>;
+		onDeleteTag?: (name: string) => Promise<void>;
+		disabled?: boolean;
 	}>();
 
 	// Tag editing state
@@ -123,7 +123,7 @@
 				});
 				file = updatedFile;
 			}
-			
+
 			newTagName = '';
 			isEditingTags = false;
 		} catch (err) {
@@ -158,7 +158,9 @@
 
 <section class="mb-6">
 	<div class="mb-3 flex items-center justify-between">
-		<h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Tags</h4>
+		<h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+			Tags
+		</h4>
 		<button
 			onclick={() => (isEditingTags = !isEditingTags)}
 			disabled={tagBusy || disabled}
@@ -172,20 +174,27 @@
 
 	<!-- Tag Error Message -->
 	{#if tagError}
-		<div class="mb-3 rounded-lg border border-red-300 bg-red-50 p-2 dark:border-red-800 dark:bg-red-900/20">
+		<div
+			class="mb-3 rounded-lg border border-red-300 bg-red-50 p-2 dark:border-red-800 dark:bg-red-900/20"
+		>
 			<p class="text-xs text-red-800 dark:text-red-400">{tagError}</p>
 		</div>
 	{/if}
 
 	<!-- Add Tag Form -->
 	{#if isEditingTags}
-		<div class="mb-3 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+		<div
+			class="mb-3 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50"
+		>
 			<div class="space-y-2">
 				<div>
-					<label for="tag-name" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+					<label
+						for="tag-name"
+						class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300"
+					>
 						Tag Name
 					</label>
-					
+
 					<SearchInput
 						bind:value={newTagName}
 						mode="single"
@@ -202,7 +211,10 @@
 					/>
 				</div>
 				<div>
-					<label for="tag-category" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+					<label
+						for="tag-category"
+						class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300"
+					>
 						Category
 					</label>
 					<select
@@ -247,22 +259,30 @@
 		<div class="space-y-3">
 			{#each availableCategories as category (category)}
 				{@const Icon = getCategoryIcon(category)}
-				<div class="rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 p-3">
+				<div
+					class="rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 p-3"
+				>
 					<!-- Category Header -->
 					<div class="mb-2 flex items-center gap-2">
 						<Icon class="h-4 w-4 text-gray-600 dark:text-gray-400" />
-						<span class="text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
+						<span
+							class="text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300"
+						>
 							{capitalize(category)}
 						</span>
 						<span class="text-xs text-gray-500 dark:text-gray-500">
 							({tagsByCategory[category].length})
 						</span>
 					</div>
-					
+
 					<!-- Tags for this Category -->
 					<div class="flex flex-wrap gap-2">
 						{#each tagsByCategory[category] as tag (tag.name)}
-							<div class="group relative inline-flex items-center rounded-full border-l-4 bg-gray-200 dark:bg-gray-700 px-2.5 py-1 text-xs text-gray-800 dark:text-gray-200 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 {getCategoryColorClasses(category)}">
+							<div
+								class="group relative inline-flex items-center rounded-full border-l-4 bg-gray-200 dark:bg-gray-700 px-2.5 py-1 text-xs text-gray-800 dark:text-gray-200 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 {getCategoryColorClasses(
+									category
+								)}"
+							>
 								<button
 									onclick={() => handleTagClick(tag.name)}
 									class="hover:text-gray-900 dark:hover:text-white focus:outline-none"

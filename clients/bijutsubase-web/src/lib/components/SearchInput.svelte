@@ -15,16 +15,16 @@
 		onSubmit?: (e: Event) => void;
 	}
 
-	let { 
-		value = $bindable(), 
-		placeholder = 'Search...', 
-		inputClass = '', 
+	let {
+		value = $bindable(),
+		placeholder = 'Search...',
+		inputClass = '',
 		class: className = '',
 		mode = 'search',
 		fetchSuggestions = async (q) => await getRecommendedTags(q, 10),
 		getLabel = (item) => String(item),
 		onSelect,
-		onSubmit 
+		onSubmit
 	}: Props = $props();
 
 	let suggestions = $state<any[]>([]);
@@ -35,10 +35,10 @@
 	// Get the word currently being typed (cursor position matters)
 	function getCurrentWordInfo() {
 		if (!inputElement) return null;
-		
+
 		const cursorPosition = inputElement.selectionStart || 0;
 		const textBeforeCursor = value.slice(0, cursorPosition);
-		
+
 		if (mode === 'single') {
 			return {
 				word: textBeforeCursor, // In single mode, suggest based on everything typed so far
@@ -51,18 +51,22 @@
 		const words = textBeforeCursor.split(/\s+/);
 		const currentWord = words[words.length - 1];
 		const lowerWord = currentWord.toLowerCase();
-		
+
 		// Skip suggestions for special search syntax (tag:, -tag:, pool:, -pool:, rating:)
-		if (lowerWord.startsWith('tag:') || lowerWord.startsWith('-tag:') ||
-		    lowerWord.startsWith('pool:') || lowerWord.startsWith('-pool:') ||
-		    lowerWord.startsWith('rating:')) {
+		if (
+			lowerWord.startsWith('tag:') ||
+			lowerWord.startsWith('-tag:') ||
+			lowerWord.startsWith('pool:') ||
+			lowerWord.startsWith('-pool:') ||
+			lowerWord.startsWith('rating:')
+		) {
 			return null;
 		}
-		
+
 		// Check if current word starts with - (negative tag for exclusion)
 		const isNegative = currentWord.startsWith('-');
 		const wordForSearch = isNegative ? currentWord.slice(1) : currentWord;
-		
+
 		return {
 			word: wordForSearch, // Word without - prefix for API query
 			prefix: isNegative ? '-' : '', // Preserve prefix info for insertion
@@ -112,7 +116,7 @@
 			if (onSelect) {
 				onSelect(item);
 			}
-			
+
 			suggestions = [];
 			showSuggestions = false;
 			inputElement.focus();
@@ -123,24 +127,24 @@
 		if (info) {
 			const beforeWord = value.slice(0, info.startIndex);
 			const afterCursor = value.slice(info.endIndex);
-			
+
 			// Preserve negative prefix when inserting tag
 			const prefix = info.prefix || '';
-			
+
 			// Add tag and a space if one doesn't already exist
 			const hasSpace = afterCursor.startsWith(' ');
 			value = `${beforeWord}${prefix}${label}${hasSpace ? '' : ' '}${afterCursor}`;
-			
+
 			if (onSelect) {
 				onSelect(item);
 			}
 
 			suggestions = [];
 			showSuggestions = false;
-			
+
 			// Restore focus
 			inputElement.focus();
-			
+
 			// Need to wait for DOM update before moving the cursor
 			setTimeout(() => {
 				const newCursorPos = info.startIndex + prefix.length + label.length + 1;
@@ -199,7 +203,7 @@
 	<input
 		bind:this={inputElement}
 		type="text"
-		bind:value={value}
+		bind:value
 		oninput={handleInput}
 		onkeydown={handleKeydown}
 		onblur={handleBlur}

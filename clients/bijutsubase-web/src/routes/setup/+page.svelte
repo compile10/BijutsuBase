@@ -94,7 +94,9 @@
 		</div>
 
 		<!-- Setup Form -->
-		<div class="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10">
+		<div
+			class="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+		>
 			<form onsubmit={handleSubmit} class="space-y-6">
 				{#if error}
 					<div
@@ -150,7 +152,10 @@
 				</div>
 
 				<div>
-					<label for="confirmPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+					<label
+						for="confirmPassword"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-200"
+					>
 						Confirm Password
 					</label>
 					<input

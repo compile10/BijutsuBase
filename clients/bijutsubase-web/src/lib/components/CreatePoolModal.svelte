@@ -3,10 +3,7 @@
 	import WindowModal from './WindowModal.svelte';
 	import IconClose from '~icons/mdi/close';
 
-	let { 
-		isOpen = $bindable(false),
-		onPoolCreated
-	} = $props<{
+	let { isOpen = $bindable(false), onPoolCreated } = $props<{
 		isOpen?: boolean;
 		onPoolCreated?: (pool: PoolResponse) => void;
 	}>();
@@ -42,7 +39,7 @@
 				description: description || undefined,
 				category
 			});
-			
+
 			onPoolCreated?.(newPool);
 			handleClose();
 		} catch (err) {
@@ -55,10 +52,10 @@
 
 <WindowModal bind:isOpen title="Create Pool" maxWidth="max-w-lg" onClose={handleClose}>
 	<!-- Header -->
-	<div class="flex shrink-0 items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
-		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-			Create Pool
-		</h2>
+	<div
+		class="flex shrink-0 items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700"
+	>
+		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Create Pool</h2>
 		<button
 			onclick={handleClose}
 			class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
@@ -72,7 +69,10 @@
 	<div class="p-6">
 		<form id="create-pool-form" onsubmit={handleSubmit} class="space-y-4">
 			<div>
-				<label for="pool-name" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+				<label
+					for="pool-name"
+					class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Name <span class="text-red-500">*</span>
 				</label>
 				<input
@@ -86,7 +86,10 @@
 			</div>
 
 			<div>
-				<label for="pool-category" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+				<label
+					for="pool-category"
+					class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Category
 				</label>
 				<select
@@ -100,7 +103,10 @@
 			</div>
 
 			<div>
-				<label for="pool-description" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+				<label
+					for="pool-description"
+					class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Description
 				</label>
 				<textarea
@@ -113,7 +119,9 @@
 			</div>
 
 			{#if error}
-				<div class="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+				<div
+					class="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"
+				>
 					{error}
 				</div>
 			{/if}
@@ -139,4 +147,3 @@
 		</button>
 	</div>
 </WindowModal>
-

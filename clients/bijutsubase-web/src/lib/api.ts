@@ -1,11 +1,18 @@
 /**
  * API client for BijutsuBase backend
- * 
+ *
  * All API calls use credentials: 'include' to send cookies automatically.
  * Authentication is handled via HttpOnly cookies set by the server.
  */
 
-import { clearUser, setUser, setLoading, setNeedsSetup, type User, type SetupStatus } from './auth.svelte';
+import {
+	clearUser,
+	setUser,
+	setLoading,
+	setNeedsSetup,
+	type User,
+	type SetupStatus
+} from './auth.svelte';
 
 export class APIError extends Error {
 	status: number;
@@ -28,11 +35,11 @@ export type { User, SetupStatus };
  */
 export async function checkSetupStatus(): Promise<SetupStatus> {
 	const response = await fetch('/api/setup/status');
-	
+
 	if (!response.ok) {
 		throw new APIError(response, 'Failed to check setup status');
 	}
-	
+
 	return response.json();
 }
 
@@ -40,18 +47,22 @@ export async function checkSetupStatus(): Promise<SetupStatus> {
  * Create the initial admin account
  * Note: This endpoint is unauthenticated since it's only available when no users exist
  */
-export async function createAdminAccount(email: string, password: string, username: string): Promise<{ success: boolean; message: string }> {
+export async function createAdminAccount(
+	email: string,
+	password: string,
+	username: string
+): Promise<{ success: boolean; message: string }> {
 	const response = await fetch('/api/setup/admin', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ email, password, username })
 	});
-	
+
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({ detail: 'Failed to create admin account' }));
 		throw new APIError(response, error.detail || 'Failed to create admin account');
 	}
-	
+
 	return response.json();
 }
 
@@ -64,19 +75,19 @@ export async function login(email: string, password: string): Promise<void> {
 	const formData = new URLSearchParams();
 	formData.append('username', email);
 	formData.append('password', password);
-	
+
 	const response = await fetch('/api/auth/cookie/login', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		credentials: 'include',
 		body: formData
 	});
-	
+
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({ detail: 'Login failed' }));
 		throw new APIError(response, error.detail || 'Login failed');
 	}
-	
+
 	// Cookie is set by the server via Set-Cookie header
 	// Fetch user info after login
 	await getCurrentUser();
@@ -95,7 +106,7 @@ export async function logout(): Promise<void> {
 	} catch {
 		// Ignore errors during logout
 	}
-	
+
 	clearUser();
 }
 
@@ -107,7 +118,7 @@ export async function getCurrentUser(): Promise<User | null> {
 	const response = await fetch('/api/users/me', {
 		credentials: 'include'
 	});
-	
+
 	if (!response.ok) {
 		if (response.status === 401) {
 			clearUser();
@@ -115,7 +126,7 @@ export async function getCurrentUser(): Promise<User | null> {
 		}
 		throw new APIError(response, 'Failed to get current user');
 	}
-	
+
 	const user: User = await response.json();
 	setUser(user);
 	return user;
@@ -154,12 +165,12 @@ export async function updateUser(data: UserUpdateRequest): Promise<User> {
  */
 export async function initAuth(): Promise<void> {
 	setLoading(true);
-	
+
 	try {
 		// Check if setup is needed
 		const status = await checkSetupStatus();
 		setNeedsSetup(status.needs_setup);
-		
+
 		if (!status.needs_setup) {
 			// Try to get current user (validates session cookie)
 			await getCurrentUser();
@@ -317,9 +328,12 @@ export interface TagBrowseItem {
  * @returns Array of recommended tag names
  */
 export async function getRecommendedTags(query: string, limit: number = 20): Promise<string[]> {
-	const response = await fetch(`/api/tags/recommend?query=${encodeURIComponent(query)}&limit=${limit}`, {
-		credentials: 'include'
-	});
+	const response = await fetch(
+		`/api/tags/recommend?query=${encodeURIComponent(query)}&limit=${limit}`,
+		{
+			credentials: 'include'
+		}
+	);
 
 	if (!response.ok) {
 		throw new Error(`Failed to get recommendations: ${response.statusText}`);
@@ -334,10 +348,16 @@ export async function getRecommendedTags(query: string, limit: number = 20): Pro
  * @param limit - Maximum number of tags to return
  * @returns Array of Danbooru tag recommendations with mapped categories
  */
-export async function getDanbooruRecommendedTags(query: string, limit: number = 20): Promise<TagResponse[]> {
-	const response = await fetch(`/api/tags/danbooru-recs?query=${encodeURIComponent(query)}&limit=${limit}`, {
-		credentials: 'include'
-	});
+export async function getDanbooruRecommendedTags(
+	query: string,
+	limit: number = 20
+): Promise<TagResponse[]> {
+	const response = await fetch(
+		`/api/tags/danbooru-recs?query=${encodeURIComponent(query)}&limit=${limit}`,
+		{
+			credentials: 'include'
+		}
+	);
 
 	if (!response.ok) {
 		throw new Error(`Failed to get Danbooru recommendations: ${response.statusText}`);
@@ -356,7 +376,14 @@ export async function getDanbooruRecommendedTags(query: string, limit: number = 
  * @param maxRating - Optional maximum rating filter (safe, sensitive, questionable, explicit)
  * @returns FileSearchResponse with items, next_cursor, and has_more flag
  */
-export async function searchFiles(tags: string, sort: string = 'date_desc', cursor?: string, limit: number = 100, seed?: string, maxRating?: string): Promise<FileSearchResponse> {
+export async function searchFiles(
+	tags: string,
+	sort: string = 'date_desc',
+	cursor?: string,
+	limit: number = 100,
+	seed?: string,
+	maxRating?: string
+): Promise<FileSearchResponse> {
 	let url = `/api/files/search?tags=${encodeURIComponent(tags)}&sort=${encodeURIComponent(sort)}&limit=${limit}`;
 	if (cursor) {
 		url += `&cursor=${encodeURIComponent(cursor)}`;
@@ -367,15 +394,15 @@ export async function searchFiles(tags: string, sort: string = 'date_desc', curs
 	if (maxRating) {
 		url += `&max_rating=${encodeURIComponent(maxRating)}`;
 	}
-	
+
 	const response = await fetch(url, {
 		credentials: 'include'
 	});
-	
+
 	if (!response.ok) {
 		throw new Error(`Search failed: ${response.statusText}`);
 	}
-	
+
 	return response.json();
 }
 
@@ -388,11 +415,11 @@ export async function getFile(sha256: string): Promise<FileResponse> {
 	const response = await fetch(`/api/files/${sha256}`, {
 		credentials: 'include'
 	});
-	
+
 	if (!response.ok) {
 		throw new APIError(response, `Failed to fetch file: ${response.statusText}`);
 	}
-	
+
 	return response.json();
 }
 
@@ -405,11 +432,11 @@ export async function getFileStatus(sha256: string): Promise<FileResponse> {
 	const response = await fetch(`/api/files/${sha256}/status`, {
 		credentials: 'include'
 	});
-	
+
 	if (!response.ok) {
 		throw new APIError(response, `Failed to fetch file status: ${response.statusText}`);
 	}
-	
+
 	return response.json();
 }
 
@@ -423,11 +450,11 @@ export async function deleteFile(sha256: string): Promise<{ ok: boolean }> {
 		method: 'DELETE',
 		credentials: 'include'
 	});
-	
+
 	if (!response.ok) {
 		throw new Error(`Failed to delete file: ${response.statusText}`);
 	}
-	
+
 	return response.json();
 }
 
@@ -439,17 +466,17 @@ export async function deleteFile(sha256: string): Promise<{ ok: boolean }> {
 export async function uploadFile(file: File): Promise<FileResponse> {
 	const formData = new FormData();
 	formData.append('file', file);
-	
+
 	const response = await fetch('/api/upload/file', {
 		method: 'PUT',
 		credentials: 'include',
 		body: formData
 	});
-	
+
 	if (!response.ok) {
 		throw new Error(`Upload failed: ${response.statusText}`);
 	}
-	
+
 	return response.json();
 }
 
@@ -540,7 +567,10 @@ export async function updateFileRating(sha256: string, rating: string): Promise<
  * @param aiGenerated - New ai_generated status
  * @returns Updated file details with new status
  */
-export async function updateFileAiGenerated(sha256: string, aiGenerated: boolean): Promise<FileResponse> {
+export async function updateFileAiGenerated(
+	sha256: string,
+	aiGenerated: boolean
+): Promise<FileResponse> {
 	const response = await fetch(`/api/files/ai_generated/${sha256}`, {
 		method: 'PATCH',
 		headers: { 'Content-Type': 'application/json' },
@@ -634,7 +664,12 @@ export async function bulkDissociateTag(request: BulkTagDissociateRequest): Prom
  * @param maxRating - Optional maximum rating filter (safe, sensitive, questionable, explicit)
  * @returns Array of pools
  */
-export async function getPools(skip: number = 0, limit: number = 50, query?: string, maxRating?: string): Promise<PoolSimple[]> {
+export async function getPools(
+	skip: number = 0,
+	limit: number = 50,
+	query?: string,
+	maxRating?: string
+): Promise<PoolSimple[]> {
 	let url = `/api/pools/?skip=${skip}&limit=${limit}`;
 	if (query) {
 		url += `&query=${encodeURIComponent(query)}`;
@@ -661,7 +696,12 @@ export async function getPools(skip: number = 0, limit: number = 50, query?: str
  * @param maxRating - Optional maximum rating filter (safe, sensitive, questionable, explicit)
  * @returns Array of tags with example thumbnails
  */
-export async function getTagsByCategory(category: TagCategory, skip: number = 0, limit: number = 50, maxRating?: string): Promise<TagBrowseItem[]> {
+export async function getTagsByCategory(
+	category: TagCategory,
+	skip: number = 0,
+	limit: number = 50,
+	maxRating?: string
+): Promise<TagBrowseItem[]> {
 	let url = `/api/tags/browse?category=${encodeURIComponent(category)}&skip=${skip}&limit=${limit}`;
 	if (maxRating) {
 		url += `&max_rating=${encodeURIComponent(maxRating)}`;
@@ -778,7 +818,10 @@ export async function createFamily(parentSha256: string): Promise<FileFamilyResp
 /**
  * Add a child file to a family
  */
-export async function addChildToFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
+export async function addChildToFamily(
+	familyId: string,
+	childSha256: string
+): Promise<FileFamilyResponse> {
 	const response = await fetch(`/api/families/${familyId}/children`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -800,7 +843,10 @@ export async function addChildToFamily(familyId: string, childSha256: string): P
 /**
  * Remove a child file from a family
  */
-export async function removeChildFromFamily(familyId: string, childSha256: string): Promise<FileFamilyResponse> {
+export async function removeChildFromFamily(
+	familyId: string,
+	childSha256: string
+): Promise<FileFamilyResponse> {
 	const response = await fetch(`/api/families/${familyId}/children/${childSha256}`, {
 		method: 'DELETE',
 		credentials: 'include'
@@ -838,7 +884,11 @@ export async function deleteFamily(familyId: string): Promise<void> {
  * @param fileHashes - Array of SHA-256 hashes to reorder
  * @param afterOrder - Position after which to insert the files (0-indexed)
  */
-export async function reorderPoolFiles(poolId: string, fileHashes: string[], afterOrder: number): Promise<PoolResponse> {
+export async function reorderPoolFiles(
+	poolId: string,
+	fileHashes: string[],
+	afterOrder: number
+): Promise<PoolResponse> {
 	const response = await fetch(`/api/pools/${poolId}/reorder`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },

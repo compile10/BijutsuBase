@@ -37,7 +37,6 @@
 			position = 1; // Reset on close
 		}
 	}
-
 </script>
 
 <WindowModal bind:isOpen title="Reorder Pool Members" maxWidth="max-w-md" onClose={handleClose}>
@@ -47,7 +46,8 @@
 				<IconSwapVertical class="h-8 w-8 text-primary-600 dark:text-primary-400" />
 			</div>
 			<h3 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-				Reorder {count} {count === 1 ? 'File' : 'Files'}
+				Reorder {count}
+				{count === 1 ? 'File' : 'Files'}
 			</h3>
 			<p class="text-gray-500 dark:text-gray-400">
 				Enter the position where you want to move the selected files.
@@ -55,7 +55,10 @@
 		</div>
 
 		<div class="mb-6">
-			<label for="position-input" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+			<label
+				for="position-input"
+				class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+			>
 				Position
 			</label>
 			<input
@@ -90,4 +93,3 @@
 		</div>
 	</div>
 </WindowModal>
-

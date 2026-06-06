@@ -84,7 +84,9 @@
 				class="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right"
 				transition:scale={{ duration: 150, start: 0.95 }}
 			>
-				<div class="rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10">
+				<div
+					class="rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+				>
 					<!-- User info -->
 					<div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
 						<div class="flex items-center gap-3">
@@ -95,7 +97,9 @@
 									class="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
 								/>
 							{:else}
-								<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+								<div
+									class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+								>
 									<IconAccount class="h-6 w-6" />
 								</div>
 							{/if}

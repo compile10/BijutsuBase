@@ -8,7 +8,7 @@ export default defineConfig({
 		tailwindcss(),
 		sveltekit(),
 		Icons({
-			compiler: 'svelte',
+			compiler: 'svelte'
 		})
 	]
 });

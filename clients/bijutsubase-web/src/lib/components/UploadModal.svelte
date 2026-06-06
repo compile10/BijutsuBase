@@ -35,7 +35,7 @@
 
 	async function handleUploadComplete(result: FileResponse) {
 		uploaded = result;
-		
+
 		// Check if processing is still pending/in-progress
 		if (result.processing_status !== 'completed' && result.processing_status !== 'failed') {
 			isProcessing = true;
@@ -116,10 +116,10 @@
 
 <WindowModal bind:isOpen title="Upload" maxWidth="max-w-2xl" onClose={handleClose}>
 	<!-- Header -->
-	<div class="flex shrink-0 items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
-		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-			Upload
-		</h2>
+	<div
+		class="flex shrink-0 items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700"
+	>
+		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Upload</h2>
 		<button
 			onclick={handleClose}
 			class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
@@ -153,11 +153,29 @@
 							/>
 						{:else if isProcessing}
 							<!-- Placeholder while processing -->
-							<div class="mx-auto flex h-48 w-48 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+							<div
+								class="mx-auto flex h-48 w-48 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800"
+							>
 								<div class="text-center">
-									<svg class="mx-auto h-12 w-12 animate-spin text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									<svg
+										class="mx-auto h-12 w-12 animate-spin text-primary-500"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
 									</svg>
 									<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 										Generating thumbnail...
@@ -166,7 +184,9 @@
 							</div>
 						{:else}
 							<!-- No thumbnail available -->
-							<div class="mx-auto flex h-48 w-48 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+							<div
+								class="mx-auto flex h-48 w-48 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800"
+							>
 								<span class="text-gray-400">No thumbnail</span>
 							</div>
 						{/if}
@@ -175,15 +195,19 @@
 
 				{#if isProcessing}
 					<!-- Processing status indicator -->
-					<div class="rounded-lg border border-blue-300 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+					<div
+						class="rounded-lg border border-blue-300 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+					>
 						<p class="text-sm text-blue-800 dark:text-blue-400">
-							Your video is being processed. This may take a few minutes for large files.
-							The thumbnail and tags will appear when processing is complete.
+							Your video is being processed. This may take a few minutes for large files. The
+							thumbnail and tags will appear when processing is complete.
 						</p>
 					</div>
 				{/if}
 
-				<div class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+				<div
+					class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
+				>
 					<div>
 						<span class="text-sm font-medium text-gray-600 dark:text-gray-400">SHA256 Hash</span>
 						<p class="mt-1 font-mono text-sm text-gray-900 dark:text-white">
@@ -216,7 +240,9 @@
 						<div>
 							<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Status</span>
 							<p class="mt-1 text-sm text-gray-900 dark:text-white">
-								{uploaded.processing_status === 'pending' ? 'Waiting to process...' : 'Processing...'}
+								{uploaded.processing_status === 'pending'
+									? 'Waiting to process...'
+									: 'Processing...'}
 							</p>
 						</div>
 					{/if}
@@ -224,7 +250,9 @@
 
 				<!-- Tags Section (only show when processing is complete) -->
 				{#if !isProcessing && uploaded.processing_status === 'completed'}
-					<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+					<div
+						class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
+					>
 						<TagSection bind:file={uploaded} />
 					</div>
 				{/if}
@@ -245,13 +273,19 @@
 				<div class="flex items-center gap-2">
 					<button
 						onclick={() => (mode = 'url')}
-						class="rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 {mode === 'url' ? 'bg-primary-600 text-white dark:bg-primary-500' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+						class="rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 {mode ===
+						'url'
+							? 'bg-primary-600 text-white dark:bg-primary-500'
+							: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
 					>
 						URL
 					</button>
 					<button
 						onclick={() => (mode = 'file')}
-						class="rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 {mode === 'file' ? 'bg-primary-600 text-white dark:bg-primary-500' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+						class="rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 {mode ===
+						'file'
+							? 'bg-primary-600 text-white dark:bg-primary-500'
+							: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
 					>
 						File
 					</button>
@@ -292,26 +326,24 @@
 							class="hidden"
 							id="file-input"
 						/>
-						<label
-							for="file-input"
-							class="cursor-pointer text-gray-600 dark:text-gray-400"
-						>
+						<label for="file-input" class="cursor-pointer text-gray-600 dark:text-gray-400">
 							<p class="mb-2 text-sm">
 								Drag and drop a file here, or
 								<span class="font-semibold text-primary-600 dark:text-primary-400">
 									click to browse
 								</span>
 							</p>
-							<p class="text-xs text-gray-500 dark:text-gray-500">
-								Supports images and videos
-							</p>
+							<p class="text-xs text-gray-500 dark:text-gray-500">Supports images and videos</p>
 						</label>
 					</div>
 
 					{#if selectedFile}
-						<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+						<div
+							class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
+						>
 							<p class="text-sm text-gray-900 dark:text-white">
-								<strong>Selected:</strong> {selectedFile.name}
+								<strong>Selected:</strong>
+								{selectedFile.name}
 							</p>
 							<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
 								{(selectedFile.size / 1024 / 1024).toFixed(2)} MB

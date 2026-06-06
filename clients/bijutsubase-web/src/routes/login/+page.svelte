@@ -65,7 +65,9 @@
 		</div>
 
 		<!-- Login Form -->
-		<div class="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10">
+		<div
+			class="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+		>
 			<form onsubmit={handleSubmit} class="space-y-6">
 				{#if error}
 					<div

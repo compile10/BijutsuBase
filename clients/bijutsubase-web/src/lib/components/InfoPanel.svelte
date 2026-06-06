@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { FileResponse } from '$lib/api';
-	import { createFamily, deleteFamily, removeChildFromFamily, updateFileAiGenerated, updateFileRating } from '$lib/api';
+	import {
+		createFamily,
+		deleteFamily,
+		removeChildFromFamily,
+		updateFileAiGenerated,
+		updateFileRating
+	} from '$lib/api';
 	import { processTagSource, createProcessingPoller } from '$lib/utils';
 	import { fly } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
@@ -19,7 +25,12 @@
 		file = $bindable<FileResponse>(),
 		onNavigateToFile = (() => {}) as NavigateToFile,
 		isAddChildModalOpen = $bindable(false)
-	} = $props<{ open: boolean; file: FileResponse; onNavigateToFile?: NavigateToFile; isAddChildModalOpen?: boolean }>();
+	} = $props<{
+		open: boolean;
+		file: FileResponse;
+		onNavigateToFile?: NavigateToFile;
+		isAddChildModalOpen?: boolean;
+	}>();
 
 	// Rating state management
 	let isUpdatingRating = $state(false);
@@ -40,7 +51,7 @@
 	const poller = createProcessingPoller((result) => {
 		file = result.file;
 	});
-	
+
 	// Start/stop polling when file changes or processing status changes
 	$effect(() => {
 		if (file && (file.processing_status === 'pending' || file.processing_status === 'processing')) {
@@ -49,7 +60,7 @@
 			poller.stop();
 		}
 	});
-	
+
 	onDestroy(() => {
 		poller.stop();
 	});
@@ -133,7 +144,7 @@
 	function getRatingButtonClasses(rating: string): string {
 		const isActive = file.rating === rating;
 		const baseClasses = 'px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all';
-		
+
 		if (isActive) {
 			switch (rating) {
 				case 'safe':
@@ -148,7 +159,7 @@
 					return `${baseClasses} bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300`;
 			}
 		}
-		
+
 		return `${baseClasses} bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700`;
 	}
 
@@ -236,7 +247,10 @@
 		const fid = familyId();
 		if (!fid || isUpdatingFamily) return;
 
-		const confirmed = typeof window === 'undefined' ? false : window.confirm('Delete this family? Children will be unlinked.');
+		const confirmed =
+			typeof window === 'undefined'
+				? false
+				: window.confirm('Delete this family? Children will be unlinked.');
 		if (!confirmed) return;
 
 		isUpdatingFamily = true;
@@ -272,7 +286,9 @@
 		tabindex="-1"
 	>
 		<!-- Header -->
-		<header class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+		<header
+			class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-3"
+		>
 			<h3 class="text-lg font-semibold">File Info</h3>
 			<button
 				onclick={() => (open = false)}
@@ -287,7 +303,9 @@
 		<div class="flex-1 overflow-y-auto px-4 py-4">
 			<!-- Processing Banner -->
 			{#if file.processing_status === 'pending' || file.processing_status === 'processing'}
-				<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+				<div
+					class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+				>
 					<div class="flex items-center gap-3">
 						<IconLoading class="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
 						<div>
@@ -299,7 +317,9 @@
 					</div>
 				</div>
 			{:else if file.processing_status === 'failed'}
-				<div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+				<div
+					class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
+				>
 					<div class="flex items-center gap-3">
 						<IconAlertCircle class="h-5 w-5 text-red-600 dark:text-red-400" />
 						<div>
@@ -318,7 +338,9 @@
 
 			<!-- File Information Section -->
 			<section class="mb-6">
-				<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+				<h4
+					class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+				>
 					File Information
 				</h4>
 				<div class="space-y-2 text-sm">
@@ -340,10 +362,12 @@
 							{/if}
 						</span>
 					</div>
-				<div class="flex justify-between">
-					<span class="text-gray-600 dark:text-gray-400">Format:</span>
-					<span class="uppercase">{file.file_ext.toLowerCase() === 'jpg' ? 'jpeg' : file.file_ext}</span>
-				</div>
+					<div class="flex justify-between">
+						<span class="text-gray-600 dark:text-gray-400">Format:</span>
+						<span class="uppercase"
+							>{file.file_ext.toLowerCase() === 'jpg' ? 'jpeg' : file.file_ext}</span
+						>
+					</div>
 					<div class="flex justify-between gap-2">
 						<span class="shrink-0 text-gray-600 dark:text-gray-400">Original Name:</span>
 						<span class="truncate text-right" title={file.original_filename}>
@@ -357,13 +381,17 @@
 				</div>
 			</section>
 
-		<!-- Rating Section -->
-		<section class="mb-6">
-			<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Rating</h4>
-			
-			{#if isEditingRating}
-				<!-- Edit mode: show all rating options -->
-				<div class="flex items-center gap-2">
+			<!-- Rating Section -->
+			<section class="mb-6">
+				<h4
+					class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+				>
+					Rating
+				</h4>
+
+				{#if isEditingRating}
+					<!-- Edit mode: show all rating options -->
+					<div class="flex items-center gap-2">
 						<div class="flex flex-wrap gap-2">
 							{#each ratingOptions as rating (rating)}
 								<button
@@ -379,49 +407,51 @@
 								</button>
 							{/each}
 						</div>
-					<button
-						type="button"
-						onclick={() => {
-							isEditingRating = false;
-							ratingError = null;
-						}}
-						class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-colors"
-						aria-label="Cancel editing rating"
-						disabled={isUpdatingRating}
-					>
-						<IconClose class="h-4 w-4" />
-					</button>
-				</div>
-			{:else}
-				<!-- View mode: show current rating with edit button -->
-				<div class="group flex items-center gap-2">
-					<span class={getRatingButtonClasses(file.rating)}>
-						{file.rating}
-					</span>
-					<button
-						type="button"
-						onclick={() => isEditingRating = true}
-						class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
-						aria-label="Edit rating"
-					>
-						<IconEdit class="h-4 w-4" />
-					</button>
-				</div>
-			{/if}
-			
-			{#if ratingError}
-				<p class="mt-2 text-xs text-red-600 dark:text-red-400">
-					{ratingError}
-				</p>
-			{/if}
-		</section>
+						<button
+							type="button"
+							onclick={() => {
+								isEditingRating = false;
+								ratingError = null;
+							}}
+							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-colors"
+							aria-label="Cancel editing rating"
+							disabled={isUpdatingRating}
+						>
+							<IconClose class="h-4 w-4" />
+						</button>
+					</div>
+				{:else}
+					<!-- View mode: show current rating with edit button -->
+					<div class="group flex items-center gap-2">
+						<span class={getRatingButtonClasses(file.rating)}>
+							{file.rating}
+						</span>
+						<button
+							type="button"
+							onclick={() => (isEditingRating = true)}
+							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
+							aria-label="Edit rating"
+						>
+							<IconEdit class="h-4 w-4" />
+						</button>
+					</div>
+				{/if}
+
+				{#if ratingError}
+					<p class="mt-2 text-xs text-red-600 dark:text-red-400">
+						{ratingError}
+					</p>
+				{/if}
+			</section>
 
 			<!-- AI Generation Section -->
 			<section class="mb-6">
-				<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+				<h4
+					class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+				>
 					AI Generation
 				</h4>
-				
+
 				{#if isEditingAi}
 					<!-- Edit mode: show Yes/No options -->
 					<div class="flex items-center gap-2">
@@ -429,7 +459,9 @@
 							<!-- Yes Button -->
 							<button
 								type="button"
-								class="px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all {file.ai_generated ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}"
+								class="px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all {file.ai_generated
+									? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+									: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}"
 								disabled={isUpdatingAi}
 								onclick={() => handleAiGeneratedChange(true)}
 								aria-label="Set AI generated to Yes"
@@ -438,11 +470,13 @@
 							>
 								Yes
 							</button>
-							
+
 							<!-- No Button -->
 							<button
 								type="button"
-								class="px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all {!file.ai_generated ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}"
+								class="px-3 py-1 text-xs font-semibold uppercase rounded-full transition-all {!file.ai_generated
+									? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+									: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}"
 								disabled={isUpdatingAi}
 								onclick={() => handleAiGeneratedChange(false)}
 								aria-label="Set AI generated to No"
@@ -452,7 +486,7 @@
 								No
 							</button>
 						</div>
-						
+
 						<button
 							type="button"
 							onclick={() => {
@@ -484,7 +518,7 @@
 						</span>
 						<button
 							type="button"
-							onclick={() => isEditingAi = true}
+							onclick={() => (isEditingAi = true)}
 							class="rounded-lg p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
 							aria-label="Edit AI generated status"
 						>
@@ -492,7 +526,7 @@
 						</button>
 					</div>
 				{/if}
-				
+
 				{#if aiError}
 					<p class="mt-2 text-xs text-red-600 dark:text-red-400">
 						{aiError}
@@ -503,7 +537,9 @@
 			<!-- Pools Section -->
 			{#if file.pools && file.pools.length > 0}
 				<section class="mb-6">
-					<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+					<h4
+						class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+					>
 						Pools
 					</h4>
 					<div class="flex gap-3 overflow-x-auto scrollbar-thin">
@@ -526,11 +562,13 @@
 										</div>
 									{/if}
 									<!-- Member count badge -->
-									<div class="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/50 text-[10px] font-medium text-white backdrop-blur-sm">
+									<div
+										class="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/50 text-[10px] font-medium text-white backdrop-blur-sm"
+									>
 										{pool.member_count} items
 									</div>
 								</div>
-								
+
 								<div class="p-2.5">
 									<span
 										class="block truncate text-xs font-semibold text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
@@ -548,7 +586,9 @@
 			<!-- Start Family Action (when no family exists) -->
 			{#if !hasFamily()}
 				<section class="mb-6">
-					<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+					<h4
+						class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+					>
 						Actions
 					</h4>
 
@@ -572,7 +612,9 @@
 			{#if hasFamily()}
 				<section class="mb-6">
 					<div class="mb-3 flex items-center justify-between">
-						<h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+						<h4
+							class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+						>
 							Family
 						</h4>
 
@@ -599,7 +641,9 @@
 						{#if file.parent}
 							<div>
 								<div class="mb-2 flex items-center justify-between">
-									<div class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+									<div
+										class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+									>
 										Parent
 									</div>
 								</div>
@@ -625,7 +669,9 @@
 						{#if file.children && file.children.length > 0}
 							<div>
 								<div class="mb-2 flex items-center">
-									<div class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+									<div
+										class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+									>
 										Children
 									</div>
 								</div>
@@ -653,7 +699,9 @@
 												onclick={() => onNavigateToFile(child.sha256_hash)}
 												aria-label="Open child file"
 											>
-												<div class="aspect-square w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+												<div
+													class="aspect-square w-full overflow-hidden bg-gray-200 dark:bg-gray-700"
+												>
 													<img
 														src={child.thumbnail_url}
 														alt="Child thumbnail"
@@ -705,11 +753,13 @@
 			{/if}
 
 			<!-- Tags Section -->
-			<TagSection bind:file={file} />
+			<TagSection bind:file />
 
 			<!-- Hash Information Section -->
 			<section class="mb-4">
-				<h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+				<h4
+					class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+				>
 					Hash Information
 				</h4>
 				<div class="space-y-3 text-sm">
@@ -733,6 +783,4 @@
 			</section>
 		</div>
 	</div>
-
 {/if}
-

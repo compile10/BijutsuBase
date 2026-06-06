@@ -22,10 +22,12 @@
 
 <div class="flex flex-1 flex-col overflow-hidden">
 	<!-- Header -->
-	<div class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
+	<div
+		class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900"
+	>
 		<div class="flex items-center gap-5 flex-1">
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Pools</h1>
-			
+
 			<div class="flex-1 max-w-xs relative">
 				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 					<IconSearch class="h-5 w-5 text-gray-400" />

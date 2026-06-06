@@ -22,12 +22,14 @@
 </svelte:head>
 
 <div class="flex flex-1 flex-col overflow-hidden">
-	<div class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
+	<div
+		class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900"
+	>
 		<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Characters</h1>
 	</div>
 
 	<VirtualCardGrid
-		loadPage={loadPage}
+		{loadPage}
 		getTitle={(c) => humanizeTag((c as TagBrowseItem).name)}
 		getImageUrl={(c) => (c as TagBrowseItem).thumbnail_url}
 		onItemClick={(c) => onCharacterClick(c as TagBrowseItem)}
@@ -35,4 +37,3 @@
 		emptyTitle="No characters found"
 	/>
 </div>
-

@@ -6,9 +6,4 @@
 	<title>Latest Images - BijutsuBase</title>
 </svelte:head>
 
-<SearchGrid
-	tags=""
-	sort="date_desc"
-	allowEmptySearch={true}
-	hideHeader={true}
-/>
+<SearchGrid tags="" sort="date_desc" allowEmptySearch={true} hideHeader={true} />

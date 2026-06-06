@@ -1,6 +1,6 @@
 /**
  * Settings context for BijutsuBase
- * 
+ *
  * Uses Svelte's context API to provide SSR-safe global settings.
  * Settings are persisted to localStorage on the client side.
  */
@@ -45,10 +45,7 @@ export function createSettingsContext(): SettingsContext {
 			// Persist to localStorage on client only
 			if (typeof window !== 'undefined') {
 				try {
-					localStorage.setItem(
-						'bijutsubase-settings',
-						JSON.stringify({ maxRating: value })
-					);
+					localStorage.setItem('bijutsubase-settings', JSON.stringify({ maxRating: value }));
 				} catch (error) {
 					console.error('Failed to save settings to localStorage:', error);
 				}

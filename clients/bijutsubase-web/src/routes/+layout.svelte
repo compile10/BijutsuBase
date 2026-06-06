@@ -21,7 +21,7 @@
 	const publicPaths = ['/login', '/setup'];
 
 	function isPublicPath(pathname: string): boolean {
-		return publicPaths.some(path => pathname.startsWith(path));
+		return publicPaths.some((path) => pathname.startsWith(path));
 	}
 
 	// Initialize auth on mount
@@ -38,7 +38,12 @@
 
 	// Redirect to login page if not authenticated (unless on a public page)
 	$effect(() => {
-		if (!authState.isLoading && !authState.needsSetup && !authState.isAuthenticated && !isPublicPath(page.url.pathname)) {
+		if (
+			!authState.isLoading &&
+			!authState.needsSetup &&
+			!authState.isAuthenticated &&
+			!isPublicPath(page.url.pathname)
+		) {
 			goto('/login');
 		}
 	});
@@ -58,7 +63,9 @@
 	<!-- Loading State -->
 	{#if authState.isLoading}
 		<div class="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-			<div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
+			<div
+				class="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"
+			></div>
 		</div>
 	{:else}
 		{@render children()}

@@ -65,7 +65,8 @@
 				{#if pool}
 					<div class="mt-3 flex flex-wrap items-center gap-4">
 						<p class="text-xs text-gray-500 dark:text-gray-400">
-							{pool.member_count} {pool.member_count === 1 ? 'item' : 'items'}
+							{pool.member_count}
+							{pool.member_count === 1 ? 'item' : 'items'}
 						</p>
 
 						<button
@@ -83,12 +84,16 @@
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">
 			<div class="text-center">
-				<div class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"></div>
+				<div
+					class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary-600 dark:border-gray-600 dark:border-t-primary-400"
+				></div>
 				<p class="text-gray-600 dark:text-gray-400">Loading pool...</p>
 			</div>
 		</div>
 	{:else if error}
-		<div class="m-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+		<div
+			class="m-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
+		>
 			<p class="text-red-800 dark:text-red-400">Error: {error}</p>
 			<button
 				class="mt-3 rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600"
@@ -105,7 +110,7 @@
 				sort="pool_order"
 				allowEmptySearch={true}
 				hideHeader={true}
-				poolId={poolId}
+				{poolId}
 			/>
 		</div>
 	{/if}
@@ -113,10 +118,9 @@
 
 <AddToPoolByHashModal
 	bind:isOpen={addByHashOpen}
-	poolId={poolId}
+	{poolId}
 	onFilesAdded={(updatedPool) => {
 		pool = updatedPool;
 		grid?.refresh();
 	}}
 />
-

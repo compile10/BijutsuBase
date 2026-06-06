@@ -51,13 +51,11 @@
 
 <div class="flex min-h-screen items-center justify-center px-4 pb-4">
 	<div class="w-full max-w-2xl">
-		<h1 class="mb-8 text-center text-4xl font-bold text-gray-900 dark:text-white">
-			BijutsuBase
-		</h1>
+		<h1 class="mb-8 text-center text-4xl font-bold text-gray-900 dark:text-white">BijutsuBase</h1>
 		<p class="mb-8 text-center text-lg text-gray-600 dark:text-gray-400">
 			Search your anime fanart collection
 		</p>
-		
+
 		<form onsubmit={handleSearch} class="flex gap-2">
 			<SearchInput
 				bind:value={searchQuery}
@@ -65,12 +63,9 @@
 				class="flex-1 min-w-0"
 				inputClass="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
 			/>
-			
+
 			<div class="shrink-0">
-				<SortDropdown
-					bind:value={sortOption}
-					class="py-3! h-full"
-				/>
+				<SortDropdown bind:value={sortOption} class="py-3! h-full" />
 			</div>
 
 			<button

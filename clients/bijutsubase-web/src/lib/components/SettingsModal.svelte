@@ -29,7 +29,7 @@
 
 	async function handleAvatarSave() {
 		avatarError = '';
-		
+
 		// Validate input if not empty
 		if (avatarInput && !isValidSha256(avatarInput)) {
 			avatarError = 'Invalid SHA256 hash. Must be 64 hexadecimal characters.';
@@ -115,9 +115,7 @@
 
 				<!-- Avatar Setting -->
 				<div class="space-y-3">
-					<div class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-						Avatar
-					</div>
+					<div class="block text-sm font-medium text-gray-700 dark:text-gray-300">Avatar</div>
 					<p class="text-sm text-gray-600 dark:text-gray-400">
 						Set your avatar by entering the SHA256 hash of an uploaded image.
 					</p>
@@ -132,7 +130,9 @@
 									class="h-16 w-16 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
 								/>
 							{:else}
-								<div class="flex h-16 w-16 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+								<div
+									class="flex h-16 w-16 items-center justify-center rounded-full bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+								>
 									<span class="text-2xl">?</span>
 								</div>
 							{/if}
@@ -183,8 +183,8 @@
 					Content Rating Filter
 				</div>
 				<p class="text-sm text-gray-600 dark:text-gray-400">
-					Control the maximum rating level of content shown. This affects all
-					results across the application.
+					Control the maximum rating level of content shown. This affects all results across the
+					application.
 				</p>
 
 				<div class="space-y-2">
@@ -203,9 +203,7 @@
 									: 'border-gray-300 dark:border-gray-600'}"
 							>
 								{#if settings.maxRating === option.value}
-									<div
-										class="h-2.5 w-2.5 rounded-full bg-primary-500 dark:bg-primary-400"
-									></div>
+									<div class="h-2.5 w-2.5 rounded-full bg-primary-500 dark:bg-primary-400"></div>
 								{/if}
 							</div>
 							<div class="flex-1">
