@@ -8,6 +8,7 @@
 	import type { TagResponse } from '$lib/api';
 	import WindowModal from './WindowModal.svelte';
 	import TagSection from '$lib/components/TagSection.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import IconPencil from '~icons/mdi/pencil';
 	import IconClose from '~icons/mdi/close';
 
@@ -26,7 +27,7 @@
 	let isUpdatingMetadata = $state(false);
 	let hasChanges = $state(false);
 	let error = $state<string | null>(null);
-	let removedTags = $state(new Set<string>());
+	let removedTags = new SvelteSet<string>();
 
 	// Metadata selection state
 	let selectedRating = $state('no_change');
@@ -65,7 +66,7 @@
 			onChange({ removedTags });
 		}
 		hasChanges = false;
-		removedTags = new Set();
+		removedTags = new SvelteSet();
 	}
 
 	async function handleBulkAddTag(name: string, category: string) {

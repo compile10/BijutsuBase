@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import SearchGrid from '$lib/components/SearchGrid.svelte';
 	import AddToPoolByHashModal from '$lib/components/AddToPoolByHashModal.svelte';
@@ -45,7 +46,7 @@
 	<div class="border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
 		<div class="mx-auto flex w-full max-w-5xl flex-col gap-4">
 			<div class="flex items-center gap-3 text-sm text-primary-600 dark:text-primary-400">
-				<a href="/pools" class="flex items-center gap-1 hover:underline">
+				<a href={resolve('/pools')} class="flex items-center gap-1 hover:underline">
 					<IconChevronLeft class="h-5 w-5" />
 					<span>Back to Pools</span>
 				</a>

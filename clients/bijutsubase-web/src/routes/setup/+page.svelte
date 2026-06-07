@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { createAdminAccount, login } from '$lib/api';
 	import { getAuthContext } from '$lib/auth.svelte';
 	import IconKey from '~icons/mdi/key';
@@ -60,7 +61,7 @@
 			authState.needsSetup = false;
 			// Automatically log in with the newly created account
 			await login(email.trim(), password);
-			goto('/');
+			goto(resolve('/'));
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create admin account';
 		} finally {
@@ -71,7 +72,7 @@
 	// Redirect if setup is not needed
 	$effect(() => {
 		if (!authState.isLoading && !authState.needsSetup) {
-			goto('/');
+			goto(resolve('/'));
 		}
 	});
 </script>

@@ -122,12 +122,12 @@ export function processTagSource(tagSource: string): string {
  * @param wait - The time to wait in milliseconds before calling the function
  * @returns A debounced version of the function
  */
-export function debounce<T extends (...args: any[]) => void>(
-	func: T,
+export function debounce<Args extends unknown[]>(
+	func: (...args: Args) => void,
 	wait: number
-): (...args: Parameters<T>) => void {
+): (...args: Args) => void {
 	let timeout: ReturnType<typeof setTimeout>;
-	return function (...args: Parameters<T>) {
+	return function (...args: Args) {
 		clearTimeout(timeout);
 		timeout = setTimeout(() => func(...args), wait);
 	};

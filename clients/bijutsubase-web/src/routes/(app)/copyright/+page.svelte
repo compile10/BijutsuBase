@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import VirtualCardGrid from '$lib/components/VirtualCardGrid.svelte';
 	import { getTagsByCategory, type TagBrowseItem } from '$lib/api';
 	import { getSettingsContext } from '$lib/settings.svelte';
@@ -13,7 +14,7 @@
 	});
 
 	function onCopyrightClick(copyright: TagBrowseItem) {
-		goto(`/search?tags=${encodeURIComponent(copyright.name)}`);
+		goto(resolve(`/search?tags=${encodeURIComponent(copyright.name)}`));
 	}
 </script>
 

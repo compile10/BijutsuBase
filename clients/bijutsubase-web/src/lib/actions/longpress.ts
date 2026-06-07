@@ -25,7 +25,7 @@ export function longpress(
 		clearTimeout(timer);
 	};
 
-	const handleTouchstart = (e: TouchEvent) => {
+	const handleTouchstart = () => {
 		touchActive = true;
 		timer = setTimeout(() => {
 			callback();

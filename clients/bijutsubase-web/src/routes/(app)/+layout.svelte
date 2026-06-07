@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import SearchModal from '$lib/components/SearchModal.svelte';
@@ -31,22 +32,23 @@
 		event.preventDefault();
 		const query = searchQuery.trim();
 		if (query) {
-			let url = `/search?tags=${encodeURIComponent(query)}&sort=${sortOption}`;
-			if (sortOption === 'random') {
-				url += `&seed=${getClientSeed()}`;
-			}
-			goto(url);
+			goto(
+				resolve(
+					`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}${sortOption === 'random' ? `&seed=${getClientSeed()}` : ''}`
+				)
+			);
 		}
 	}
 
 	// Handle sort change
 	function handleSortChange() {
-		if (searchQuery.trim()) {
-			let url = `/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`;
-			if (sortOption === 'random') {
-				url += `&seed=${getClientSeed()}`;
-			}
-			goto(url);
+		const query = searchQuery.trim();
+		if (query) {
+			goto(
+				resolve(
+					`/search?tags=${encodeURIComponent(query)}&sort=${sortOption}${sortOption === 'random' ? `&seed=${getClientSeed()}` : ''}`
+				)
+			);
 		}
 	}
 
@@ -73,7 +75,7 @@
 					</button>
 
 					<a
-						href="/"
+						href={resolve('/')}
 						class="text-lg font-bold text-gray-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
 					>
 						BijutsuBase

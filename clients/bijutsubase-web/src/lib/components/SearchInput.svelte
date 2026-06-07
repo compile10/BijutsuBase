@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { getRecommendedTags } from '$lib/api';
+	import { getRecommendedTags, type TagResponse } from '$lib/api';
 	import { debounce } from '$lib/utils';
 	import { fade } from 'svelte/transition';
+
+	type Suggestion = string | TagResponse;
 
 	interface Props {
 		value: string;
@@ -9,9 +11,9 @@
 		inputClass?: string;
 		class?: string; // For the wrapper
 		mode?: 'search' | 'single';
-		fetchSuggestions?: (query: string) => Promise<any[]>;
-		getLabel?: (item: any) => string;
-		onSelect?: (item: any) => void;
+		fetchSuggestions?: (query: string) => Promise<Suggestion[]>;
+		getLabel?: (item: Suggestion) => string;
+		onSelect?: (item: Suggestion) => void;
 		onSubmit?: (e: Event) => void;
 	}
 
@@ -27,7 +29,7 @@
 		onSubmit
 	}: Props = $props();
 
-	let suggestions = $state<any[]>([]);
+	let suggestions = $state<Suggestion[]>([]);
 	let showSuggestions = $state(false);
 	let inputElement: HTMLInputElement;
 	let suggestionIndex = $state(-1);
@@ -106,7 +108,7 @@
 		}
 	}
 
-	function selectSuggestion(item: any) {
+	function selectSuggestion(item: Suggestion) {
 		if (!inputElement) return;
 
 		const label = getLabel(item);
@@ -164,7 +166,13 @@
 	});
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (!showSuggestions) return;
+		if (!showSuggestions) {
+			if (event.key === 'Enter' && onSubmit) {
+				event.preventDefault();
+				onSubmit(event);
+			}
+			return;
+		}
 
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
@@ -184,8 +192,11 @@
 			if (suggestionIndex >= 0 && suggestions[suggestionIndex]) {
 				event.preventDefault();
 				selectSuggestion(suggestions[suggestionIndex]);
+			} else if (onSubmit) {
+				event.preventDefault();
+				onSubmit(event);
 			}
-			// If no suggestion selected, let the form submit (default behavior) propagate
+			// If no suggestion selected and no handler exists, let the form submit
 		} else if (event.key === 'Escape') {
 			showSuggestions = false;
 		}
@@ -218,7 +229,7 @@
 			transition:fade={{ duration: 100 }}
 			class="absolute left-0 right-0 top-full z-50 mt-1 max-h-96 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
 		>
-			{#each suggestions as item, index}
+			{#each suggestions as item, index (item)}
 				<button
 					type="button"
 					class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700

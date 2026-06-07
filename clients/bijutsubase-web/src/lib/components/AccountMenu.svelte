@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { scale } from 'svelte/transition';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { getAuthContext } from '$lib/auth.svelte';
 	import { logout } from '$lib/api';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
@@ -38,7 +39,7 @@
 	async function handleLogout() {
 		await logout();
 		closeMenu();
-		goto('/login');
+		goto(resolve('/login'));
 	}
 
 	function handleClickOutside(event: MouseEvent) {
@@ -140,7 +141,7 @@
 	{:else}
 		<!-- Not authenticated: Show login link -->
 		<a
-			href="/login"
+			href={resolve('/login')}
 			class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
 		>
 			<IconLogin class="h-4 w-4" />

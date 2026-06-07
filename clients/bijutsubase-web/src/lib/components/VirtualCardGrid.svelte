@@ -70,7 +70,7 @@
 		await fetchInitialResults();
 	}
 
-	async function fetchInitialResults() {
+	async function fetchInitialResults(loader = loadPage) {
 		loading = true;
 		error = null;
 		items = [];
@@ -78,7 +78,7 @@
 		hasMore = true;
 
 		try {
-			const newItems = await loadPage(0, limit);
+			const newItems = await loader(0, limit);
 			items = newItems;
 			if (newItems.length < limit) {
 				hasMore = false;
@@ -115,7 +115,9 @@
 		if (!vlistRef) return;
 
 		const count = items.length;
-		const endRowIndex = vlistRef.findEndIndex();
+		const endRowIndex = vlistRef.findItemIndex(
+			vlistRef.getScrollOffset() + vlistRef.getViewportSize()
+		);
 		const lastVisibleItemIndex = (endRowIndex + 1) * itemsPerRow;
 
 		// Trigger when we're 2 rows away from end
@@ -137,9 +139,7 @@
 	});
 
 	$effect(() => {
-		// refetch when loader changes
-		loadPage;
-		fetchInitialResults();
+		fetchInitialResults(loadPage);
 	});
 </script>
 
@@ -187,7 +187,7 @@
 					class="grid gap-4 pb-4"
 					style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
 				>
-					{#each row as item}
+					{#each row as item (item)}
 						{@const title = getTitle(item)}
 						{@const img = getImageUrl(item)}
 						<button

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { login } from '$lib/api';
 	import { getAuthContext } from '$lib/auth.svelte';
 	import IconEmail from '~icons/mdi/email';
@@ -31,7 +32,7 @@
 
 		try {
 			await login(email.trim(), password);
-			goto('/');
+			goto(resolve('/'));
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login failed';
 		} finally {
@@ -42,7 +43,7 @@
 	// Redirect if already authenticated
 	$effect(() => {
 		if (!authState.isLoading && authState.isAuthenticated) {
-			goto('/');
+			goto(resolve('/'));
 		}
 	});
 </script>

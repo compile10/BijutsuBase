@@ -360,7 +360,7 @@
 				bind:open={infoOpen}
 				bind:file={fileDetails}
 				onNavigateToFile={openBySha}
-				bind:isAddChildModalOpen
+				onOpenAddChildModal={() => (isAddChildModalOpen = true)}
 			/>
 		{/if}
 	</div>

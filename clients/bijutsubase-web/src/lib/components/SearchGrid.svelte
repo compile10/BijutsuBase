@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import { VList } from 'virtua/svelte';
 	import type { VListHandle } from 'virtua/svelte';
 	import { type FileThumb, searchFiles } from '$lib/api';
@@ -43,7 +44,7 @@
 
 	// Selection Mode State
 	let isSelectMode = $state(false);
-	let selectedFiles = $state(new Set<string>());
+	let selectedFiles = new SvelteSet<string>();
 
 	// Group thumbnails into rows for VList
 	let rows = $derived.by(() => {
@@ -142,7 +143,9 @@
 		if (!vlistRef) return;
 
 		const count = files.length;
-		const endRowIndex = vlistRef.findEndIndex();
+		const endRowIndex = vlistRef.findItemIndex(
+			vlistRef.getScrollOffset() + vlistRef.getViewportSize()
+		);
 		const lastVisibleItemIndex = (endRowIndex + 1) * itemsPerRow;
 
 		// Trigger when we're 2 rows away from end
@@ -161,19 +164,18 @@
 	function handleLongPress(file: FileThumb) {
 		if (!isSelectMode) {
 			isSelectMode = true;
-			selectedFiles = new Set([file.sha256_hash]);
+			selectedFiles.clear();
+			selectedFiles.add(file.sha256_hash);
 		}
 	}
 
 	function toggleSelection(file: FileThumb, index: number) {
 		if (isSelectMode) {
-			const newSet = new Set(selectedFiles);
-			if (newSet.has(file.sha256_hash)) {
-				newSet.delete(file.sha256_hash);
+			if (selectedFiles.has(file.sha256_hash)) {
+				selectedFiles.delete(file.sha256_hash);
 			} else {
-				newSet.add(file.sha256_hash);
+				selectedFiles.add(file.sha256_hash);
 			}
-			selectedFiles = newSet;
 
 			if (selectedFiles.size === 0) {
 				isSelectMode = false;
@@ -197,7 +199,7 @@
 		}
 
 		// Always clear selection and exit select mode
-		selectedFiles = new Set();
+		selectedFiles.clear();
 		isSelectMode = false;
 	}
 
@@ -221,7 +223,7 @@
 
 <SelectionManager
 	bind:isSelectMode
-	bind:selectedFiles
+	{selectedFiles}
 	onBulkEdit={handleBulkEdit}
 	onFilesDeleted={handleFilesDeleted}
 	{poolId}
@@ -284,7 +286,7 @@
 					class="grid gap-2 pb-2"
 					style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
 				>
-					{#each row as thumb, colIndex}
+					{#each row as thumb, colIndex (thumb.sha256_hash)}
 						{@const index = rowIndex * itemsPerRow + colIndex}
 						{@const isSelected = selectedFiles.has(thumb.sha256_hash)}
 						<button

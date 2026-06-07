@@ -21,7 +21,7 @@
 
 	let {
 		isSelectMode = $bindable(),
-		selectedFiles = $bindable(),
+		selectedFiles,
 		onBulkEdit,
 		onFilesDeleted,
 		onReorder,
@@ -43,7 +43,7 @@
 
 	function exitSelectMode() {
 		isSelectMode = false;
-		selectedFiles = new Set();
+		selectedFiles.clear();
 	}
 
 	async function handleDeleteConfirm() {

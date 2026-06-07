@@ -105,7 +105,7 @@
 		<div
 			class="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-lg border border-gray-200 bg-white py-2 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
 		>
-			{#each optionGroups as group, groupIndex}
+			{#each optionGroups as group, groupIndex (group.title)}
 				{#if groupIndex > 0}
 					<div class="my-1 border-t border-gray-200 dark:border-gray-700"></div>
 				{/if}
@@ -121,7 +121,7 @@
 				</div>
 
 				<!-- Group Options -->
-				{#each group.options as option}
+				{#each group.options as option (option.value)}
 					<button
 						onclick={() => select(option.value)}
 						class="flex w-full items-center justify-between px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 {value ===

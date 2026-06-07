@@ -37,6 +37,10 @@
 	// Category order for tabs
 	const categoryOrder = ['character', 'artist', 'copyright', 'general', 'meta'];
 
+	function isTagResponse(item: string | TagResponse): item is TagResponse {
+		return typeof item !== 'string';
+	}
+
 	// Group tags by category
 	let tagsByCategory = $derived.by(() => {
 		const groups: Record<string, TagResponse[]> = {};
@@ -201,11 +205,12 @@
 						placeholder="Enter tag name..."
 						inputClass="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
 						fetchSuggestions={getDanbooruRecommendedTags}
-						getLabel={(item) => (item as TagResponse).name}
+						getLabel={(item) => (isTagResponse(item) ? item.name : item)}
 						onSelect={(item) => {
-							const tag = item as TagResponse;
-							newTagName = tag.name;
-							newTagCategory = tag.category;
+							if (!isTagResponse(item)) return;
+
+							newTagName = item.name;
+							newTagCategory = item.category;
 						}}
 						onSubmit={() => handleAddTag()}
 					/>

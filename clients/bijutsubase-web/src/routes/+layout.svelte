@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import favicon from '$lib/assets/favicon.svg';
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
@@ -32,7 +33,7 @@
 	// Redirect to setup page if needed (but not if already on setup page)
 	$effect(() => {
 		if (!authState.isLoading && authState.needsSetup && !page.url.pathname.startsWith('/setup')) {
-			goto('/setup');
+			goto(resolve('/setup'));
 		}
 	});
 
@@ -44,7 +45,7 @@
 			!authState.isAuthenticated &&
 			!isPublicPath(page.url.pathname)
 		) {
-			goto('/login');
+			goto(resolve('/login'));
 		}
 	});
 </script>

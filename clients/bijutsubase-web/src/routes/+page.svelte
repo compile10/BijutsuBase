@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import AccountMenu from '$lib/components/AccountMenu.svelte';
@@ -17,7 +18,7 @@
 	function handleSearch(event: Event) {
 		event.preventDefault();
 		if (searchQuery.trim()) {
-			goto(`/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`);
+			goto(resolve(`/search?tags=${encodeURIComponent(searchQuery.trim())}&sort=${sortOption}`));
 		}
 	}
 </script>

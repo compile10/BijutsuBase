@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { fade, fly } from 'svelte/transition';
 	import IconClose from '~icons/mdi/close';
-	import IconSearch from '~icons/mdi/magnify';
 	import IconClock from '~icons/mdi/clock-outline';
 	import IconFolderMultiple from '~icons/mdi/folder-multiple-outline';
 	import IconAccountMultipleOutline from '~icons/mdi/account-multiple-outline';
@@ -72,7 +72,7 @@
 				<ul class="space-y-2">
 					<li>
 						<a
-							href="/latest"
+							href={resolve('/latest')}
 							class="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
 							onclick={close}
 						>
@@ -82,7 +82,7 @@
 					</li>
 					<li>
 						<a
-							href="/pools"
+							href={resolve('/pools')}
 							class="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
 							onclick={close}
 						>
@@ -92,7 +92,7 @@
 					</li>
 					<li>
 						<a
-							href="/characters"
+							href={resolve('/characters')}
 							class="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
 							onclick={close}
 						>
@@ -102,7 +102,7 @@
 					</li>
 					<li>
 						<a
-							href="/copyright"
+							href={resolve('/copyright')}
 							class="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
 							onclick={close}
 						>

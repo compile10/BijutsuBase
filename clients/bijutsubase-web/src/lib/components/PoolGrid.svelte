@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { VList } from 'virtua/svelte';
 	import type { VListHandle } from 'virtua/svelte';
 	import { getPools, type PoolSimple } from '$lib/api';
@@ -68,7 +68,7 @@
 		skip += 1;
 	}
 
-	async function fetchInitialResults() {
+	async function fetchInitialResults(searchQuery = query, maxRating = settings.maxRating) {
 		loading = true;
 		error = null;
 		pools = [];
@@ -76,7 +76,7 @@
 		hasMore = true;
 
 		try {
-			const newPools = await getPools(0, limit, query, settings.maxRating ?? undefined);
+			const newPools = await getPools(0, limit, searchQuery, maxRating ?? undefined);
 			pools = newPools;
 			if (newPools.length < limit) {
 				hasMore = false;
@@ -116,7 +116,9 @@
 		if (!vlistRef) return;
 
 		const count = pools.length;
-		const endRowIndex = vlistRef.findEndIndex();
+		const endRowIndex = vlistRef.findItemIndex(
+			vlistRef.getScrollOffset() + vlistRef.getViewportSize()
+		);
 		const lastVisibleItemIndex = (endRowIndex + 1) * itemsPerRow;
 
 		// Trigger when we're 2 rows away from end
@@ -136,10 +138,7 @@
 
 	// Refetch when query or maxRating changes
 	$effect(() => {
-		// We need to access query and maxRating to trigger the effect
-		const q = query;
-		const rating = settings.maxRating;
-		fetchInitialResults();
+		fetchInitialResults(query, settings.maxRating);
 	});
 </script>
 
@@ -191,7 +190,7 @@
 					class="grid gap-4 pb-4"
 					style="grid-template-columns: repeat({itemsPerRow}, minmax(0, 1fr));"
 				>
-					{#each row as pool}
+					{#each row as pool (pool.id)}
 						<button
 							onclick={() => {
 								if (onSelect) {
@@ -199,7 +198,7 @@
 								} else {
 									// Default behavior: navigate to pool page
 									if (typeof window !== 'undefined') {
-										window.location.href = `/pools/${pool.id}`;
+										window.location.href = resolve(`/pools/${pool.id}`);
 									}
 								}
 							}}

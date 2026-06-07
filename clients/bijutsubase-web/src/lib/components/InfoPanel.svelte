@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { FileResponse } from '$lib/api';
 	import {
 		createFamily,
@@ -24,12 +25,12 @@
 		open = $bindable(false),
 		file = $bindable<FileResponse>(),
 		onNavigateToFile = (() => {}) as NavigateToFile,
-		isAddChildModalOpen = $bindable(false)
+		onOpenAddChildModal = () => {}
 	} = $props<{
 		open: boolean;
 		file: FileResponse;
 		onNavigateToFile?: NavigateToFile;
-		isAddChildModalOpen?: boolean;
+		onOpenAddChildModal?: () => void;
 	}>();
 
 	// Rating state management
@@ -545,7 +546,7 @@
 					<div class="flex gap-3 overflow-x-auto scrollbar-thin">
 						{#each file.pools as pool (pool.id)}
 							<a
-								href={`/pools/${pool.id}`}
+								href={resolve(`/pools/${pool.id}`)}
 								class="group relative flex w-32 shrink-0 flex-col overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50"
 								onclick={() => (open = false)}
 							>
@@ -732,7 +733,7 @@
 							<div class="flex justify-start gap-2 pt-2">
 								<button
 									type="button"
-									onclick={() => (isAddChildModalOpen = true)}
+									onclick={onOpenAddChildModal}
 									disabled={isUpdatingFamily}
 									class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 								>
