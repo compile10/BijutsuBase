@@ -26,6 +26,9 @@ html,
 body {
 	/* Prevent macOS rubber-band overscroll and scroll chaining */
 	overscroll-behavior: none;
+	/* Turn off scrolling for the outer page */
+	overflow: hidden;
+	height: 100%;
 	/* Apply dark mode background to html and body */
 	@apply bg-white text-gray-900 dark:bg-zinc-950 dark:text-gray-100;
 }
