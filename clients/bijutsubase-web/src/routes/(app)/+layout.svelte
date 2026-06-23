@@ -143,9 +143,3 @@
 	bind:sortOption
 	onSearch={handleSearch}
 />
-
-<style>
-	:global(body) {
-		overflow: hidden;
-	}
-</style>
