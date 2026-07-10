@@ -1,5 +1,5 @@
-# Use the official UV image with Python 3.12 and Debian Bookworm Slim
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+# Use the official UV image with Python 3.14 and Debian Bookworm Slim
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
 
 # Set the working directory
 WORKDIR /app
