@@ -54,6 +54,65 @@ async def enrich_file_with_danbooru(
     return True
 
 
+async def refetch_file_from_danbooru(
+    file: File,
+    db: AsyncSession,
+) -> bool:
+    """Re-fetch Danbooru metadata for a stored file, replacing its existing tags.
+
+    Unlike `enrich_file_with_danbooru`, existing tag associations are cleared before
+    the Danbooru tags are applied. Removal only happens once a matching post is found,
+    so a lookup miss leaves the file's current metadata untouched.
+
+    Args:
+        file: The File model instance to refresh
+        db: AsyncSession for database operations
+
+    Returns:
+        True if Danbooru metadata was applied, False if the post was not found
+
+    Raises:
+        ValueError: If multiple posts are found for the same MD5 hash
+    """
+    danbooru_client = DanbooruClient()
+    posts = await danbooru_client.get_post(file.md5_hash)
+
+    if not posts:
+        return False
+
+    if len(posts) > 1:
+        raise ValueError("Multiple posts found for the same MD5 hash")
+
+    await remove_tags_from_file(file, db)
+
+    set_rating_from_danbooru(file, posts)
+    set_source_from_danbooru(file, posts)
+    await add_tags_from_danbooru(file, db, posts)
+    file.tag_source = TagSource.DANBOORU
+
+    return True
+
+
+async def remove_tags_from_file(file: File, db: AsyncSession) -> None:
+    """Delete every tag association for a file.
+
+    Associations are deleted through the ORM so the `FileTag` delete events keep
+    tag counts accurate and prune orphaned tags.
+
+    Args:
+        file: The File model instance to strip tags from
+        db: AsyncSession for database operations
+    """
+    result = await db.execute(
+        select(FileTag).where(FileTag.file_sha256_hash == file.sha256_hash)
+    )
+
+    for association in result.scalars().all():
+        await db.delete(association)
+
+    await db.flush()
+
+
 def _map_danbooru_rating(danbooru_rating: str | None) -> Rating:
     """Map Danbooru rating string to Rating enum.
     

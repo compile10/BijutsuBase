@@ -586,6 +586,25 @@ export async function updateFileAiGenerated(
 }
 
 /**
+ * Re-run Danbooru enrichment for a file, replacing its tags when a post is found.
+ * Throws an APIError with status 404 when the file has no matching Danbooru post.
+ * @param sha256 - SHA256 hash of the file
+ * @returns Updated file details with the refreshed tags and metadata
+ */
+export async function refetchDanbooruMetadata(sha256: string): Promise<FileResponse> {
+	const response = await fetch(`/api/files/${sha256}/refetch-danbooru`, {
+		method: 'POST',
+		credentials: 'include'
+	});
+
+	if (!response.ok) {
+		throw new APIError(response, `Failed to refetch Danbooru metadata: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+ 
+/**
  * Get tags common to all specified files
  * @param hashes - List of file SHA256 hashes
  * @returns Array of common tags

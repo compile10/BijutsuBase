@@ -23,6 +23,7 @@ from utils.rating import get_allowed_ratings
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
 from api.serializers.tag import TagResponse
 from auth.users import current_active_user
+from sources.danbooru.enrich_file import refetch_file_from_danbooru
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -579,6 +580,62 @@ async def update_file_ai_generated(
         )
 
     return FileResponse.model_validate(file_model)
+
+
+@router.post("/{sha256}/refetch-danbooru", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def refetch_danbooru_metadata(
+    sha256: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Re-run Danbooru enrichment for a file, replacing its tags when a post is found.
+
+    Used to upgrade files whose tags came from the ONNX model. If the file has no
+    matching Danbooru post, a 404 is returned and the existing metadata is kept.
+    """
+    result = await db.execute(select(FileModel).where(FileModel.sha256_hash == sha256))
+    file_model = result.scalar_one_or_none()
+    if file_model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    try:
+        found = await refetch_file_from_danbooru(file_model, db)
+        if not found:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Danbooru post found for this file"
+            )
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to refetch Danbooru metadata for file {sha256}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to refetch Danbooru metadata: {str(e)}"
+        )
+
+    # Tag counts are maintained by connection-level events, so drop cached state
+    # before re-reading the file with all relationships for the response
+    db.expire_all()
+
+    result = await db.execute(
+        select(FileModel)
+        .options(
+            selectinload(FileModel.tags),
+            selectinload(FileModel.pool_entries)
+            .selectinload(PoolMember.pool)
+            .selectinload(Pool.members)
+            .selectinload(PoolMember.file),
+            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
+            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
+        )
+        .where(FileModel.sha256_hash == sha256)
+    )
+
+    return FileResponse.model_validate(result.scalar_one())
 
 
 @router.delete("/{sha256}", status_code=status.HTTP_200_OK)

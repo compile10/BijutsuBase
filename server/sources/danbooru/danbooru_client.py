@@ -100,6 +100,10 @@ class DanbooruClient:
                     return []
 
                 return result
+        # TODO: Transport failures are indistinguishable from a genuine miss here, so
+        # /api/files/{sha256}/refetch-danbooru answers 404 either way and the UI always
+        # claims the image was not found. Offer an opt-in raising variant for refetch so
+        # it can report "Danbooru seems to be down, try later" while uploads stay forgiving.
         except httpx.HTTPStatusError as e:
             # Handle other HTTP errors gracefully (e.g., 500, 503, etc.)
             logger.warning(
