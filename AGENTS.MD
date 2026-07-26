@@ -237,7 +237,7 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 
 - `GET /api/health` — API readiness and DB connectivity.
 - `PUT /api/upload/file` — Upload image/video from multipart form data; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru and ONNX model.
-- `POST /api/upload/url` — Upload image/video from URL; downloads to temp file; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru and ONNX model.
+- `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru post URL; resolves Danbooru posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru and the ONNX model.
 - `GET /api/files/search?tags=<space+separated+tags>` — Search files containing ALL tags; returns thumbnails.
 - `GET /api/files/{sha256}` — Fetch file details including tags and computed URLs.
 - `DELETE /api/files/{sha256}` — Delete file and associations; disk cleanup occurs.

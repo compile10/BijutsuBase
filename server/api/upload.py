@@ -2,33 +2,47 @@
 from __future__ import annotations
 
 import hashlib
-import magic
-import tempfile
-from pathlib import Path
-from typing import Optional, AsyncIterator
+import logging
 import mimetypes
-import httpx
+import tempfile
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import Optional
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks
+import httpx
+import magic
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from database.config import get_db
 from api.serializers.file import FileResponse
-from utils.file_storage import generate_file_path, get_media_storage_dir
-from sources.danbooru.enrich_file import enrich_file_with_danbooru
-from sources.onnxmodel.enrich_file import enrich_file_with_onnx
-from models.file import File as FileModel, ProcessingStatus
-from models.pool import PoolMember, Pool
-from models.user import User
 from auth.users import current_active_user
+from database.config import get_db
+from models.file import File as FileModel
+from models.file import ProcessingStatus
+from models.pool import Pool, PoolMember
+from models.user import User
+from sources.danbooru.enrich_file import enrich_file_with_danbooru
+from sources.danbooru.url_resolver import (
+    DanbooruApiError,
+    DanbooruPostUnavailableError,
+    resolve_danbooru_post_url,
+)
+from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from tasks.processing import process_file_background
-import logging
-
+from utils.file_storage import generate_file_path, get_media_storage_dir
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 logger = logging.getLogger(__name__)
@@ -83,7 +97,7 @@ async def _stream_to_temp_and_hash(
         temp_path.unlink(missing_ok=True)
         logger.exception("Error writing to temp file during stream")
         raise HTTPException(
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to write to temp file: {str(e)}",
         )
     finally:
@@ -120,7 +134,7 @@ async def _persist_ingest(
     """
     Finalize an ingest after a file has been streamed to a temp path.
     Handles duplicate check, file move, dimension extraction, DB save and enrichment.
-    
+
     For videos, processing (thumbnail generation, enrichment) is done in background
     to avoid timeouts on large files.
     """
@@ -143,7 +157,7 @@ async def _persist_ingest(
         temp_path.unlink(missing_ok=True)
         logger.exception("Database error while checking for duplicate file")
         raise HTTPException(
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to check for existing file: {str(e)}",
         )
 
@@ -201,15 +215,15 @@ async def _persist_ingest(
         if mime_type.startswith("image/"):
             from utils.file_info import get_image_dimensions, is_ai_generated_image
             from utils.phash import compute_phash
-            
+
             width, height = get_image_dimensions(final_path)
-            
+
             # Detect AI-generated via EXIF UserComment
             try:
                 ai_generated = is_ai_generated_image(final_path)
             except Exception:
                 ai_generated = False
-            
+
             # Compute perceptual hash for visual similarity detection
             try:
                 phash = compute_phash(final_path)
@@ -217,7 +231,7 @@ async def _persist_ingest(
             except Exception as e:
                 logger.warning(f"Failed to compute pHash for {sha256_hash}: {str(e)}")
                 # Continue without pHash - it's optional
-        
+
         # Videos: skip dimension extraction here - will be done in background task
         # This avoids timeout issues with large video files
     except Exception as e:
@@ -269,11 +283,11 @@ async def _persist_ingest(
     if is_video:
         try:
             await db.commit()
-            
+
             # Queue background task for video processing
             background_tasks.add_task(process_file_background, sha256_hash)
             logger.info(f"Queued background processing for video {sha256_hash}")
-            
+
             # Reload with minimal relationships to avoid lazy-load errors in serializer
             # (FileResponse's model_validator accesses family_as_child/family_as_parent)
             result = await db.execute(
@@ -287,9 +301,9 @@ async def _persist_ingest(
                 .where(FileModel.sha256_hash == sha256_hash)
             )
             file_model = result.scalar_one()
-            
+
             return FileResponse.model_validate(file_model)
-            
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(
@@ -305,10 +319,10 @@ async def _persist_ingest(
                 await enrich_file_with_onnx(file_model, db)
             except Exception as e:
                 logger.warning("All tagging failed for %s: %s", file_model.sha256_hash, str(e))
-        
+
         # Flush to write tags to database
         await db.flush()
-        
+
         # Now commit everything together
         await db.commit()
 
@@ -327,24 +341,24 @@ async def _persist_ingest(
             .where(FileModel.sha256_hash == sha256_hash)
         )
         file_model = result.scalar_one()
-        
+
         # Check for visually similar files and create/extend families
         if phash is not None:
             try:
                 from utils.phash import find_similar_files
                 from utils.similarity_family import handle_similar_files
-                
+
                 logger.debug(f"Searching for visually similar files to {sha256_hash}")
                 similar_files = await find_similar_files(
                     phash=phash,
                     db=db,
                     exclude_hash=sha256_hash
                 )
-                
+
                 if similar_files:
                     logger.info(f"Found {len(similar_files)} visually similar files for {sha256_hash}")
                     await handle_similar_files(file_model, similar_files, db)
-                    
+
                     # Reload file with updated family relationships
                     from models.family import FileFamily
                     result = await db.execute(
@@ -386,16 +400,17 @@ async def upload_url(
     user: User = Depends(current_active_user),
 ):
     """
-    Upload a file by URL. Downloads to a temp file, validates type, hashes content,
-    then reuses the ingest finalization flow.
+    Upload a file by URL. Danbooru post page URLs are resolved to their original
+    media file before the normal download and ingest flow.
     """
     chunk_size = 8192
+    source_url = str(payload.url)
 
     # Derive original filename
     original_filename = "download"
     try:
         # Provide the same identifying info style as our Danbooru API client
-        parsed_for_headers = urlparse(str(payload.url))
+        parsed_for_headers = urlparse(source_url)
         origin = f"{parsed_for_headers.scheme}://{parsed_for_headers.netloc}" if parsed_for_headers.scheme and parsed_for_headers.netloc else ""
         danbooru_style_headers = {
             "User-Agent": "BijutsuBase/0.1.0",
@@ -413,8 +428,10 @@ async def upload_url(
             timeout=httpx.Timeout(None, connect=60.0),
             headers=danbooru_style_headers,
         ) as client:
-            async with client.stream("GET", str(payload.url)) as resp:
-                if resp.status_code >= 400 and resp.status_code < 500:
+            download_url = await resolve_danbooru_post_url(source_url, client)
+
+            async with client.stream("GET", download_url) as resp:
+                if 400 <= resp.status_code < 500:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Failed to fetch URL: {resp.status_code}",
@@ -433,8 +450,8 @@ async def upload_url(
                     if fname:
                         original_filename = fname
                 else:
-                    # Fallback to URL path basename
-                    parsed = urlparse(str(payload.url))
+                    # Fallback to the final URL after post resolution and redirects
+                    parsed = urlparse(str(resp.url))
                     path_name = Path(parsed.path).name
                     if path_name:
                         original_filename = path_name
@@ -445,12 +462,22 @@ async def upload_url(
                 )
     except HTTPException:
         raise
-    except Exception as e:
+    except DanbooruPostUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
+    except DanbooruApiError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
+    except Exception as error:
         logger.exception("Error downloading URL")
         raise HTTPException(
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to download URL: {str(e)}",
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to download URL: {str(error)}",
+        ) from error
 
     # Finalize ingest
     return await _persist_ingest(
@@ -474,7 +501,7 @@ async def upload_file(
 ):
     """
     Upload a file (image or video) to BijutsuBase.
-    
+
     Validates file type, calculates hashes, extracts metadata,
     and stores the file in the database and on disk.
     """
@@ -485,7 +512,7 @@ async def upload_file(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must have a filename"
         )
-    
+
     # Read and stream to temp using shared helper
     chunk_size = 8192
 
@@ -503,7 +530,7 @@ async def upload_file(
             await file.close()
         except Exception:
             pass
-    
+
     # Finalize ingest and return response
     return await _persist_ingest(
         temp_path=temp_path,
@@ -515,5 +542,3 @@ async def upload_file(
         db=db,
         background_tasks=background_tasks,
     )
-
-

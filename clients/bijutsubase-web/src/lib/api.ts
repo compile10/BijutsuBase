@@ -482,7 +482,7 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 
 /**
  * Upload by URL
- * @param url - Direct URL to an image or video
+ * @param url - Direct media URL or Danbooru post URL
  * @returns Uploaded file details
  */
 export async function uploadByUrl(url: string): Promise<FileResponse> {
