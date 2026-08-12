@@ -250,7 +250,7 @@
 {#if isOpen}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
+		class="fixed inset-0 z-50 flex h-dvh w-dvw items-center justify-center bg-black/95 p-4"
 		transition:fade={{ duration: 200 }}
 		onclick={handleBackdropClick}
 		onmousemove={revealControls}
