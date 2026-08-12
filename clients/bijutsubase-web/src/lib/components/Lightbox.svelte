@@ -250,7 +250,7 @@
 {#if isOpen}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex h-dvh w-dvw items-center justify-center bg-black/95 p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
 		transition:fade={{ duration: 200 }}
 		onclick={handleBackdropClick}
 		onmousemove={revealControls}
@@ -309,7 +309,7 @@
 
 		<!-- Media Container -->
 		<div
-			class="relative flex max-h-full max-w-full items-center justify-center"
+			class="pointer-events-none relative flex h-full w-full items-center justify-center"
 			transition:fly={{ y: 20, duration: 200 }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
@@ -340,7 +340,7 @@
 						src={fileDetails.original_url}
 						controls
 						autoplay
-						class="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
+						class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain"
 					>
 						<track kind="captions" />
 					</video>
@@ -348,7 +348,7 @@
 					<img
 						src={fileDetails.original_url}
 						alt="Full size media"
-						class="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] rounded-lg object-contain"
+						class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain"
 					/>
 				{/if}
 			{/if}
