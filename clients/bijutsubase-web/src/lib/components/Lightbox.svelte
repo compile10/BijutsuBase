@@ -231,12 +231,21 @@
 			const originalOverflow = document.body.style.overflow;
 			document.body.style.overflow = 'hidden';
 
+			// Covers the band the backdrop's overscan cannot: on hardware the visible
+			// window can be taller than the layout viewport, and that band is outside
+			// the paintable area entirely, so it only ever shows the canvas
+			// background propagated from the root. Darken the root so it matches.
+			const root = document.documentElement;
+			const originalBackground = root.style.backgroundColor;
+			root.style.backgroundColor = '#000';
+
 			// Add keyboard listeners
 			window.addEventListener('keydown', handleKeydown);
 
 			return () => {
 				window.removeEventListener('keydown', handleKeydown);
 				document.body.style.overflow = originalOverflow;
+				root.style.backgroundColor = originalBackground;
 				// Clear timer on cleanup
 				if (hideTimer !== null) {
 					clearTimeout(hideTimer);
@@ -249,9 +258,16 @@
 
 {#if isOpen}
 	<!-- Backdrop -->
+	<!--
+		-inset-2 overscans the layout viewport by 8px on every side. `inset-0` fills
+		the viewport by definition, but at a fractional device scale the box rounds
+		down and leaves a sub-pixel band of page content uncovered at an edge. A
+		box-shadow spread paints into that band but does not close it; only growing
+		the box itself does. p-6 and the control offsets are p-4/-4 plus that 8px, so
+		the padded area and the controls land exactly where inset-0 put them.
+	-->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
-		style="box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.95)"
+		class="fixed -inset-2 z-50 flex items-center justify-center bg-black/95 p-6"
 		transition:fade={{ duration: 200 }}
 		onclick={handleBackdropClick}
 		onmousemove={revealControls}
@@ -262,7 +278,7 @@
 	>
 		<!-- Info and Close Buttons -->
 		{#if controlsVisible}
-			<div class="absolute right-4 top-4 z-10 flex gap-2">
+			<div class="absolute right-6 top-6 z-10 flex gap-2">
 				<button
 					in:fly={{ y: -16, x: 16, duration: 200 }}
 					out:fade={{ duration: 200 }}
@@ -289,7 +305,7 @@
 			<button
 				transition:fade={{ duration: 200 }}
 				onclick={goPrev}
-				class="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+				class="absolute left-6 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
 				aria-label="Previous image"
 			>
 				<IconChevronLeft class="h-10 w-10" />
@@ -301,7 +317,7 @@
 			<button
 				transition:fade={{ duration: 200 }}
 				onclick={goNext}
-				class="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+				class="absolute right-6 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
 				aria-label="Next image"
 			>
 				<IconChevronRight class="h-10 w-10" />
