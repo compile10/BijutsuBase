@@ -251,6 +251,7 @@
 	<!-- Backdrop -->
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
+		style="box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.95)"
 		transition:fade={{ duration: 200 }}
 		onclick={handleBackdropClick}
 		onmousemove={revealControls}
