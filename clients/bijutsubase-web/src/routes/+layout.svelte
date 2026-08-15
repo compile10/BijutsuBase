@@ -54,21 +54,19 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="min-h-screen">
-	<!-- Sidebar -->
-	<Sidebar bind:isOpen={appState.isSidebarOpen} />
+<!-- Sidebar -->
+<Sidebar bind:isOpen={appState.isSidebarOpen} />
 
-	<!-- Upload Modal -->
-	<UploadModal bind:isOpen={appState.isUploadModalOpen} />
+<!-- Upload Modal -->
+<UploadModal bind:isOpen={appState.isUploadModalOpen} />
 
-	<!-- Loading State -->
-	{#if authState.isLoading}
-		<div class="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-			<div
-				class="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"
-			></div>
-		</div>
-	{:else}
-		{@render children()}
-	{/if}
-</div>
+<!-- Loading State -->
+{#if authState.isLoading}
+	<div class="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+		<div
+			class="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"
+		></div>
+	</div>
+{:else}
+	{@render children()}
+{/if}

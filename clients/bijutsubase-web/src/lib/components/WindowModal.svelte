@@ -45,23 +45,28 @@
 </script>
 
 {#if isOpen}
+	<!-- data-window-modal lets an overlay underneath detect that a modal is stacked on it. -->
 	<div
-		class="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+		data-window-modal
+		class="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm"
 		transition:fade={{ duration: 200 }}
 		onclick={handleClose}
 		role="presentation"
 	>
-		<div
-			class="relative flex max-h-[90svh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800 {maxWidth}"
-			transition:fly={{ y: 20, duration: 200 }}
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={() => {}}
-			role="dialog"
-			aria-modal="true"
-			aria-label={title}
-			tabindex="-1"
-		>
-			{@render children()}
+		<!-- The dimming covers the screen; the panel is confined to the safe rectangle. -->
+		<div class="absolute inset-safe flex items-center justify-center p-4">
+			<div
+				class="relative flex max-h-[90svh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800 {maxWidth}"
+				transition:fly={{ y: 20, duration: 200 }}
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={() => {}}
+				role="dialog"
+				aria-modal="true"
+				aria-label={title}
+				tabindex="-1"
+			>
+				{@render children()}
+			</div>
 		</div>
 	</div>
 {/if}

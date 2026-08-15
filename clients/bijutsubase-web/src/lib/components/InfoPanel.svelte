@@ -307,12 +307,9 @@
 {#if open}
 	<div
 		data-info-panel
-		class="fixed right-0 top-0 z-30 flex h-dvh w-[400px] md:w-[450px] lg:w-[500px] xl:w-[550px] 2xl:w-[600px] flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
+		class="pad-safe-t pad-safe-b absolute inset-y-0 right-0 z-30 flex w-100 md:w-112.5 lg:w-125 xl:w-137.5 2xl:w-150 flex-col bg-white pr-[env(safe-area-inset-right)] dark:bg-gray-900 text-gray-900 dark:text-white shadow-2xl"
 		transition:fly={{ x: 400, duration: 200 }}
-		onclick={(e) => e.stopPropagation()}
-		onkeydown={(e) => e.stopPropagation()}
-		role="dialog"
-		aria-modal="true"
+		role="region"
 		aria-label="File information panel"
 		tabindex="-1"
 	>

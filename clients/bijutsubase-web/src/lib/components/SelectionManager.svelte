@@ -112,10 +112,10 @@
 
 {#if isSelectMode}
 	<div
-		class="fixed bottom-0 left-0 right-0 z-20 border-t border-primary-200 bg-primary-50 px-4 py-3 shadow-lg dark:border-primary-800 dark:bg-primary-900/90 backdrop-blur-sm"
+		class="pad-safe-b pad-safe-x fixed bottom-0 left-0 right-0 z-20 border-t border-primary-200 bg-primary-50 shadow-lg dark:border-primary-800 dark:bg-primary-900/90 backdrop-blur-sm"
 		transition:fade={{ duration: 200 }}
 	>
-		<div class="mx-auto flex max-w-7xl items-center justify-between">
+		<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 			<div class="flex items-center gap-4">
 				<button
 					onclick={exitSelectMode}

@@ -2,7 +2,9 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- viewport-fit=cover extends the layout viewport under the notch, home indicator and iOS tab bar, so full-screen
+			 overlays reach the screen edge. Chrome that must stay clear of those regions uses env(safe-area-inset-*). -->
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

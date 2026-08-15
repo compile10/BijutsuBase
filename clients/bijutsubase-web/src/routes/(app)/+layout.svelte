@@ -61,7 +61,9 @@
 
 <div class="flex h-svh flex-col">
 	<!-- Top Bar -->
-	<div class="shrink-0 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900">
+	<div
+		class="pad-safe-t pad-safe-x shrink-0 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900"
+	>
 		<div class="px-4 py-3 sm:px-6 lg:px-8">
 			<div class="flex items-center justify-between gap-4">
 				<!-- Left Side: Menu & Logo -->

@@ -23,6 +23,10 @@
 	// Timer for hiding controls. When a timer not active, this is null.
 	let hideTimer: number | null = null;
 
+	let dialogEl = $state<HTMLDialogElement | null>(null);
+	let closing = $state(false);
+	const EXIT_DURATION = 200;
+
 	// Touch gesture tracking
 	let touchStartX = $state<number | null>(null);
 	let touchStartY = $state<number | null>(null);
@@ -119,13 +123,32 @@
 		ephemeralSha = sha256;
 	}
 
+	// WindowModal renders a plain div rather than a nested <dialog>, so a modal stacked on
+	// the lightbox does not take the keyboard from it. Detect any of them by marker.
+	function modalIsStacked() {
+		return document.querySelector('[data-window-modal]') !== null;
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			handleClose();
-		} else if (event.key === 'ArrowRight') {
+		if (modalIsStacked()) return;
+
+		// This listener is on window, so it also fires while typing in the info panel.
+		const target = event.target as HTMLElement | null;
+		if (target?.closest('input, textarea, select, [contenteditable]')) return;
+
+		if (event.key === 'ArrowRight') {
 			goNext();
 		} else if (event.key === 'ArrowLeft') {
 			goPrev();
+		}
+	}
+
+	function handleCancel(event: Event) {
+		// Default cancel drops the dialog from the top layer at once, skipping the fade.
+		// A stacked modal handles its own Escape, so the lightbox stays open behind it.
+		event.preventDefault();
+		if (!modalIsStacked()) {
+			handleClose();
 		}
 	}
 
@@ -222,30 +245,40 @@
 		touchStartTime = null;
 	}
 
+	// Keep the dialog in sync with isOpen, delaying close() so the fade can finish.
+	$effect(() => {
+		const el = dialogEl;
+		if (!el) return;
+
+		if (isOpen) {
+			// Reopening mid-fade cancels the pending close.
+			closing = false;
+			if (!el.open) el.showModal();
+			return;
+		}
+
+		if (!el.open) return;
+
+		// Safari and Firefox cannot transition `overlay`, so close() would drop the dialog
+		// out of the top layer before the fade renders.
+		closing = true;
+		const timer = window.setTimeout(() => {
+			closing = false;
+			el.close();
+		}, EXIT_DURATION);
+
+		return () => window.clearTimeout(timer);
+	});
+
 	$effect(() => {
 		if (isOpen && typeof window !== 'undefined') {
 			// Reset controls visibility when lightbox opens
 			controlsVisible = false;
 
-			// Prevent body scroll when lightbox is open
-			const originalOverflow = document.body.style.overflow;
-			document.body.style.overflow = 'hidden';
-
-			// Covers the band the backdrop's overscan cannot: on hardware the visible
-			// window can be taller than the layout viewport, and that band is outside
-			// the paintable area entirely, so it only ever shows the canvas
-			// background propagated from the root. Darken the root so it matches.
-			const root = document.documentElement;
-			const originalBackground = root.style.backgroundColor;
-			root.style.backgroundColor = '#000';
-
-			// Add keyboard listeners
 			window.addEventListener('keydown', handleKeydown);
 
 			return () => {
 				window.removeEventListener('keydown', handleKeydown);
-				document.body.style.overflow = originalOverflow;
-				root.style.backgroundColor = originalBackground;
 				// Clear timer on cleanup
 				if (hideTimer !== null) {
 					clearTimeout(hideTimer);
@@ -256,122 +289,116 @@
 	});
 </script>
 
-{#if isOpen}
-	<!-- Backdrop -->
-	<!--
-		-inset-2 overscans the layout viewport by 8px on every side. `inset-0` fills
-		the viewport by definition, but at a fractional device scale the box rounds
-		down and leaves a sub-pixel band of page content uncovered at an edge. A
-		box-shadow spread paints into that band but does not close it; only growing
-		the box itself does. p-6 and the control offsets are p-4/-4 plus that 8px, so
-		the padded area and the controls land exactly where inset-0 put them.
-	-->
-	<div
-		class="fixed -inset-2 z-50 flex items-center justify-center bg-black/95 p-6"
-		transition:fade={{ duration: 200 }}
-		onclick={handleBackdropClick}
-		onmousemove={revealControls}
-		ontouchstart={handleTouchStart}
-		ontouchmove={handleTouchMove}
-		ontouchend={handleTouchEnd}
-		role="presentation"
-	>
-		<!-- Info and Close Buttons -->
-		{#if controlsVisible}
-			<div class="absolute right-6 top-6 z-10 flex gap-2">
-				<button
-					in:fly={{ y: -16, x: 16, duration: 200 }}
-					out:fade={{ duration: 200 }}
-					onclick={() => (infoOpen = !infoOpen)}
-					class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
-					aria-label="Toggle info panel"
-				>
-					<IconInformation class="h-8 w-8" />
-				</button>
-				<button
-					in:fly={{ y: -16, x: 16, duration: 200 }}
-					out:fade={{ duration: 200 }}
-					onclick={handleClose}
-					class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
-					aria-label="Close lightbox"
-				>
-					<IconClose class="h-8 w-8" />
-				</button>
-			</div>
-		{/if}
-
-		<!-- Previous Button -->
-		{#if canGoPrev && controlsVisible}
-			<button
-				transition:fade={{ duration: 200 }}
-				onclick={goPrev}
-				class="absolute left-6 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
-				aria-label="Previous image"
-			>
-				<IconChevronLeft class="h-10 w-10" />
-			</button>
-		{/if}
-
-		<!-- Next Button -->
-		{#if canGoNext && controlsVisible}
-			<button
-				transition:fade={{ duration: 200 }}
-				onclick={goNext}
-				class="absolute right-6 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
-				aria-label="Next image"
-			>
-				<IconChevronRight class="h-10 w-10" />
-			</button>
-		{/if}
-
-		<!-- Media Container -->
+<!-- The overlay is the UA's ::backdrop, which covers the viewport with no author geometry to round short of it. -->
+<dialog
+	bind:this={dialogEl}
+	data-lightbox
+	class="fixed inset-0 hidden h-full max-h-none w-full max-w-none overflow-hidden bg-transparent open:block"
+	class:closing
+	onclose={handleClose}
+	oncancel={handleCancel}
+	onclick={handleBackdropClick}
+	onmousemove={revealControls}
+	ontouchstart={handleTouchStart}
+	ontouchmove={handleTouchMove}
+	ontouchend={handleTouchEnd}
+>
+	{#if isOpen}
+		<!-- Everything sits in the safe rectangle; the backdrop behind it still covers the screen. -->
 		<div
-			class="pointer-events-none relative flex h-full w-full items-center justify-center"
-			transition:fly={{ y: 20, duration: 200 }}
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => e.stopPropagation()}
-			ontouchstart={handleTouchStart}
-			ontouchmove={handleTouchMove}
-			ontouchend={handleTouchEnd}
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
+			class="absolute inset-safe flex items-center justify-center p-4"
+			onclick={handleBackdropClick}
+			role="presentation"
 		>
-			{#if loading}
-				<!-- Loading State -->
-				<div class="text-center">
-					<div
-						class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-600 border-t-white"
-					></div>
-					<p class="text-white">Loading...</p>
-				</div>
-			{:else if error}
-				<!-- Error State -->
-				<div class="rounded-lg bg-red-900/50 p-6 text-center">
-					<p class="text-lg text-red-200">Error: {error}</p>
-				</div>
-			{:else if fileDetails}
-				<!-- Media Display -->
-				{#if isVideo}
-					<video
-						src={fileDetails.original_url}
-						controls
-						autoplay
-						class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain"
+			<!-- Info and Close Buttons -->
+			{#if controlsVisible}
+				<div class="absolute right-4 top-4 z-10 flex gap-2">
+					<button
+						in:fly={{ y: -16, x: 16, duration: 200 }}
+						out:fade={{ duration: 200 }}
+						onclick={() => (infoOpen = !infoOpen)}
+						class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+						aria-label="Toggle info panel"
 					>
-						<track kind="captions" />
-					</video>
-				{:else}
-					<img
-						src={fileDetails.original_url}
-						alt="Full size media"
-						class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain"
-					/>
-				{/if}
+						<IconInformation class="h-8 w-8" />
+					</button>
+					<button
+						in:fly={{ y: -16, x: 16, duration: 200 }}
+						out:fade={{ duration: 200 }}
+						onclick={handleClose}
+						class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+						aria-label="Close lightbox"
+					>
+						<IconClose class="h-8 w-8" />
+					</button>
+				</div>
 			{/if}
+
+			<!-- Previous Button -->
+			{#if canGoPrev && controlsVisible}
+				<button
+					transition:fade={{ duration: 200 }}
+					onclick={goPrev}
+					class="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+					aria-label="Previous image"
+				>
+					<IconChevronLeft class="h-10 w-10" />
+				</button>
+			{/if}
+
+			<!-- Next Button -->
+			{#if canGoNext && controlsVisible}
+				<button
+					transition:fade={{ duration: 200 }}
+					onclick={goNext}
+					class="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+					aria-label="Next image"
+				>
+					<IconChevronRight class="h-10 w-10" />
+				</button>
+			{/if}
+
+			<!-- Media Container -->
+			<div
+				class="pointer-events-none relative flex h-full w-full items-center justify-center"
+				transition:fly={{ y: 20, duration: 200 }}
+			>
+				{#if loading}
+					<!-- Loading State -->
+					<div class="text-center">
+						<div
+							class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-600 border-t-white"
+						></div>
+						<p class="text-white">Loading...</p>
+					</div>
+				{:else if error}
+					<!-- Error State -->
+					<div class="rounded-lg bg-red-900/50 p-6 text-center">
+						<p class="text-lg text-red-200">Error: {error}</p>
+					</div>
+				{:else if fileDetails}
+					<!-- Media Display -->
+					{#if isVideo}
+						<video
+							src={fileDetails.original_url}
+							controls
+							autoplay
+							class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain"
+						>
+							<track kind="captions" />
+						</video>
+					{:else}
+						<img
+							src={fileDetails.original_url}
+							alt="Full size media"
+							class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain"
+						/>
+					{/if}
+				{/if}
+			</div>
 		</div>
 
-		<!-- Info Panel -->
+		<!-- Full-bleed surfaces sit outside the safe box and inset their own contents instead. -->
 		{#if fileDetails}
 			<InfoPanel
 				bind:open={infoOpen}
@@ -380,23 +407,56 @@
 				onOpenAddChildModal={() => (isAddChildModalOpen = true)}
 			/>
 		{/if}
-	</div>
-{/if}
 
-<!-- Add Child Modal - rendered outside the Lightbox stacking context -->
-{#if fileDetails?.family_id && isAddChildModalOpen}
-	<AddChildByHashModal
-		bind:isOpen={isAddChildModalOpen}
-		familyId={fileDetails.family_id}
-		onChildAdded={(family) => {
-			// We already have the updated family payload; patch the bound file state instead of refetching.
-			if (fileDetails && fileDetails.sha256_hash === family.parent_sha256_hash) {
-				fileDetails = {
-					...fileDetails,
-					family_id: family.id,
-					children: family.children
-				};
+		<!-- Must be inside the dialog: the top layer paints above the document, so anything outside it is hidden and inert. -->
+		{#if fileDetails?.family_id && isAddChildModalOpen}
+			<AddChildByHashModal
+				bind:isOpen={isAddChildModalOpen}
+				familyId={fileDetails.family_id}
+				onChildAdded={(family) => {
+					// We already have the updated family payload; patch the bound file state instead of refetching.
+					if (fileDetails && fileDetails.sha256_hash === family.parent_sha256_hash) {
+						fileDetails = {
+							...fileDetails,
+							family_id: family.id,
+							children: family.children
+						};
+					}
+				}}
+			/>
+		{/if}
+	{/if}
+</dialog>
+
+<style>
+	:global {
+		/* Literal color: iOS Safari dr ops custom properties in ::backdrop, rendering it transparent. */
+		dialog[data-lightbox]::backdrop {
+			background-color: rgb(0 0 0 / 0.95);
+		}
+
+		dialog[data-lightbox],
+		dialog[data-lightbox]::backdrop {
+			opacity: 0;
+			transition: opacity 200ms;
+		}
+
+		dialog[data-lightbox][open],
+		dialog[data-lightbox][open]::backdrop {
+			opacity: 1;
+		}
+
+		dialog[data-lightbox][open].closing,
+		dialog[data-lightbox][open].closing::backdrop {
+			opacity: 0;
+		}
+
+		/* Without this the entry transition never runs, since the dialog starts at display: none. */
+		@starting-style {
+			dialog[data-lightbox][open],
+			dialog[data-lightbox][open]::backdrop {
+				opacity: 0; 
 			}
-		}}
-	/>
-{/if}
+		}
+	}
+</style>

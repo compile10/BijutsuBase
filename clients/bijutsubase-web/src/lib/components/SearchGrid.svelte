@@ -230,7 +230,7 @@
 	onReorder={refresh}
 />
 
-<div class="flex flex-1 flex-col overflow-hidden" inert={lightboxOpen}>
+<div class="flex flex-1 flex-col overflow-hidden">
 	<!-- Loading State -->
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">
@@ -266,7 +266,7 @@
 		<VList
 			bind:this={vlistRef}
 			data={rows}
-			class="flex-1 min-h-0 lg:px-16 md:px-8 px-4"
+			class="flex-1 min-h-0 lg:px-16 md:px-8 px-4 pad-safe-b"
 			onscroll={handleScroll}
 		>
 			{#snippet children(row, rowIndex)}

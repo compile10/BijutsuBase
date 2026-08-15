@@ -49,7 +49,7 @@
 
 	<!-- Sidebar -->
 	<aside
-		class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg dark:bg-gray-900"
+		class="pad-safe-t pad-safe-b fixed inset-y-0 left-0 z-50 w-64 bg-white pl-[env(safe-area-inset-left)] shadow-lg dark:bg-gray-900"
 		transition:fly={{ x: -200, duration: 300 }}
 	>
 		<div class="flex h-full flex-col">
