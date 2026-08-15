@@ -76,7 +76,7 @@
 			{:else}
 				<IconAccount class="h-5 w-5" />
 			{/if}
-			<span class="hidden sm:inline max-w-[120px] truncate">{authState.user.username}</span>
+			<span class="hidden sm:inline max-w-30 truncate">{authState.user.username}</span>
 			<IconChevronDown class="h-4 w-4 transition-transform {isMenuOpen ? 'rotate-180' : ''}" />
 		</button>
 

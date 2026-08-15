@@ -112,10 +112,12 @@
 
 {#if isSelectMode}
 	<div
-		class="pad-safe-x fixed inset-x-0 -bottom-2 z-20 border-t border-primary-200 bg-primary-50 pb-[calc(env(safe-area-inset-bottom)+8px)] shadow-lg backdrop-blur-sm dark:border-primary-800 dark:bg-primary-900/90"
+		class="select-action-bar z-20 border-t border-primary-200 bg-primary-50 shadow-lg backdrop-blur-sm dark:border-primary-800 dark:bg-primary-900/90"
 		transition:fade={{ duration: 200 }}
 	>
-		<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+		<div
+			class="mx-auto flex max-w-7xl items-center justify-between gap-3 overflow-x-auto px-4 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
+		>
 			<div class="flex items-center gap-4">
 				<button
 					onclick={exitSelectMode}
@@ -200,3 +202,32 @@
 		onConfirm={handleReorderConfirm}
 	/>
 {/if}
+
+<style>
+	/* Docked full-width bar, or a floating pill on iOS/iPadOS (not macOS Safari). */
+	.select-action-bar {
+		position: fixed;
+		inset-inline: 0;
+		bottom: 0;
+		padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+		padding-bottom: env(safe-area-inset-bottom);
+
+		@supports (-webkit-touch-callout: none) {
+			@media (any-pointer: coarse) {
+				inset-inline: 1rem;
+				bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+				padding: 0.375rem 0.75rem;
+				border-radius: 9999px;
+				border-top-width: 0;
+				border-width: 1px;
+				box-shadow:
+					0 10px 15px -3px rgb(0 0 0 / 0.12),
+					0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+				& > :first-child {
+					padding: 0.125rem 0.25rem;
+				}
+			}
+		}
+	}
+</style>
