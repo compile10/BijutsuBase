@@ -28,7 +28,8 @@ body {
 	overscroll-behavior: none;
 	/* Turn off scrolling for the outer page */
 	overflow: hidden;
-	height: 100%;
+	/* Match the visual viewport so the app shell can fill it as iOS chrome moves. */
+	height: 100dvh;
 	/* Apply dark mode background to html and body */
 	@apply bg-white text-gray-900 dark:bg-zinc-950 dark:text-gray-100;
 }

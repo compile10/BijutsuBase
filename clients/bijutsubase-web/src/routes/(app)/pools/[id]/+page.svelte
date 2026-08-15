@@ -42,7 +42,7 @@
 	<title>{pool ? `${pool.name} - BijutsuBase` : 'Pool - BijutsuBase'}</title>
 </svelte:head>
 
-<div class="flex flex-1 flex-col overflow-hidden">
+<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 	<div class="border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-zinc-900">
 		<div class="mx-auto flex w-full max-w-5xl flex-col gap-4">
 			<div class="flex items-center gap-3 text-sm text-primary-600 dark:text-primary-400">
@@ -104,7 +104,7 @@
 			</button>
 		</div>
 	{:else if pool}
-		<div class="flex flex-1 flex-col">
+		<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 			<SearchGrid
 				bind:this={grid}
 				tags={`pool:${poolId}`}

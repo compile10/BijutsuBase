@@ -230,7 +230,7 @@
 	onReorder={refresh}
 />
 
-<div class="flex flex-1 flex-col overflow-hidden">
+<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 	<!-- Loading State -->
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">

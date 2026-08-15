@@ -59,7 +59,7 @@
 	});
 </script>
 
-<div class="flex h-svh flex-col">
+<div class="flex h-dvh flex-col">
 	<!-- Top Bar -->
 	<div
 		class="pad-safe-t pad-safe-x shrink-0 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-zinc-900"
