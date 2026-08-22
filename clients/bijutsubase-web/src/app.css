@@ -4,6 +4,13 @@
 @import '@fontsource/space-mono/400.css';
 @import '@fontsource/space-mono/700.css';
 
+/* Hover only while a mouse or stylus is the active pointer (see pointer-hover.ts). */
+@custom-variant hover {
+	&:where(html[data-pointer-hover] *):hover {
+		@slot;
+	}
+}
+
 @theme {
 	--font-family-sans:
 		'Space Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',

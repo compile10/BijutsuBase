@@ -10,6 +10,7 @@
 	import { createAuthContext } from '$lib/auth.svelte';
 	import { createSettingsContext } from '$lib/settings.svelte';
 	import { initAuth } from '$lib/api';
+	import { initPointerHover } from '$lib/pointer-hover';
 
 	let { children } = $props();
 	const appState = getAppState();
@@ -25,8 +26,8 @@
 		return publicPaths.some((path) => pathname.startsWith(path));
 	}
 
-	// Initialize auth on mount
 	$effect(() => {
+		initPointerHover();
 		initAuth();
 	});
 
