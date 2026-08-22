@@ -4,6 +4,7 @@
 	import IconClose from '~icons/mdi/close';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import IconChevronRight from '~icons/mdi/chevron-right';
+	import IconDownload from '~icons/mdi/download';
 	import IconInformation from '~icons/mdi/information-outline';
 	import InfoPanel from './InfoPanel.svelte';
 	import AddChildByHashModal from './AddChildByHashModal.svelte';
@@ -310,9 +311,21 @@
 			onclick={handleBackdropClick}
 			role="presentation"
 		>
-			<!-- Info and Close Buttons -->
+			<!-- Download, Info, and Close Buttons -->
 			{#if controlsVisible}
 				<div class="absolute right-4 top-4 z-10 flex gap-2">
+					<a
+						in:fly={{ y: -16, x: 16, duration: 200 }}
+						out:fade={{ duration: 200 }}
+						href={fileDetails?.original_url}
+						download={fileDetails?.original_filename}
+						aria-disabled={!fileDetails}
+						tabindex={fileDetails ? undefined : -1}
+						class="rounded-lg bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white aria-disabled:pointer-events-none aria-disabled:opacity-50"
+						aria-label="Download original file"
+					>
+						<IconDownload class="h-8 w-8" />
+					</a>
 					<button
 						in:fly={{ y: -16, x: 16, duration: 200 }}
 						out:fade={{ duration: 200 }}

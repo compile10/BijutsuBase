@@ -97,6 +97,7 @@ docker compose down
   - API proxied at `/api` (e.g., `/api/health`)
   - Media proxied at `/media`
   - Web app (SvelteKit SSR) serves all other routes
+- **First boot**: The API may download the ONNX tagging model and tag list from Hugging Face before it becomes ready. This can take several seconds or longer depending on the connection, and Nginx may return `502 Bad Gateway` during initialization. Follow `docker compose logs -f api` and wait for `Application startup complete`; subsequent boots reuse the `ml_models` volume.
 
 ### Database and migrations (Alembic)
 
@@ -258,4 +259,3 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 ---
 
 If something in this document drifts from the code, prefer the code and update this file accordingly.
-
