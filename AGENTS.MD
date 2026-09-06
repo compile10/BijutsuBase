@@ -18,6 +18,7 @@ This document orients AI agents and contributors to work effectively in the Biju
   - Automatic Danbooru metadata enrichment on upload (rating/source/tags) via `sources/danbooru/*` with in-process caching.
   - Thumbnail generation (images and animated WebP for videos) on `before_insert`; disk cleanup on `after_delete`.
   - File search by tags (`/api/files/search`) returning thumbnail URLs.
+  - Automatic image-family creation uses crop-aware pHash candidate retrieval followed by OpenCV SIFT/RANSAC verification; existing families are parent-gated and never auto-merged.
   - Tag management (associate/dissociate) and recommendations (local + Danbooru).
   - Media serving under `/media/original/...` and `/media/thumb/...` (proxied by Nginx).
   - SvelteKit web client with upload modal and tag-based search UI.
@@ -110,10 +111,12 @@ uv run alembic upgrade head
 ```
 
 - Alembic uses the sync URL derived from `DATABASE_URL` via `get_sync_database_url()`.
+- Perceptual hashes use PostgreSQL `BIT(64)` and 64-character bit strings in Python. The conversion migration preserves existing signed `BIGINT` hash patterns; apply migrations before starting the updated application.
+- To rebuild an existing library, stop the API/media writers, back up the DB, apply Alembic migrations, and run `uv run python v2_autofamily_migration.py --dry-run` from `server/`, then repeat with `--apply`. It resets all hashes and all families (including manual/video relationships), recomputes hashes for every image, then replays v2 autofamily in SHA256 order. It never changes media, tags, or pools. The rebuild holds write-blocking table locks and commits once; errors or dry runs roll everything back. A failed run must be restarted, not resumed.
 
 ### Current database schema
 
-- **files**: sha256_hash (PK), md5_hash, file_size, original_filename, file_ext, file_type, width, height, rating enum, date_added, source, ai_generated
+- **files**: sha256_hash (PK), md5_hash, file_size, original_filename, file_ext, file_type, width, height, rating enum, date_added, source, ai_generated, phash, phash_center_80, phash_center_50, processing_status, processing_error, parent_family_id
 - **tags**: id (PK), name unique, category enum, count, created_at
 - **file_tags**: file_sha256_hash (FK), tag_id (FK), created_at, with helpful indexes
 

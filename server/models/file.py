@@ -13,7 +13,8 @@ if TYPE_CHECKING:
     from models.pool import PoolMember
     from models.family import FileFamily
 
-from sqlalchemy import String, Integer, BigInteger, DateTime, Boolean, ForeignKey, func, event, Enum as SQLEnum, Uuid
+from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, func, event, Enum as SQLEnum, Uuid
+from sqlalchemy.dialects.postgresql import BIT
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from database.config import Base
@@ -108,10 +109,17 @@ class File(Base):
         server_default=TagSource.ONNX.name
     )
     
-    phash: Mapped[Optional[int]] = mapped_column(
-        BigInteger,
+    phash: Mapped[Optional[str]] = mapped_column(
+        BIT(64),
         nullable=True,
-        index=True
+    )
+    phash_center_80: Mapped[Optional[str]] = mapped_column(
+        BIT(64),
+        nullable=True,
+    )
+    phash_center_50: Mapped[Optional[str]] = mapped_column(
+        BIT(64),
+        nullable=True,
     )
     
     # Processing status for background task tracking
@@ -218,4 +226,3 @@ def _delete_file_after_delete(mapper, connection, target: File) -> None:
     except (ValueError, OSError):
         # Silently handle errors (file might not exist, etc.)
         pass
-

@@ -1,128 +1,155 @@
-"""Automatic family creation based on visual similarity."""
+"""Automatic family creation based on verified visual similarity."""
 from __future__ import annotations
 
+import asyncio
 import logging
-import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from utils.image_similarity import VisualMatch, verify_file_similarity
 from utils.parent_determination import determine_parent
 
 if TYPE_CHECKING:
-    from models.file import File
     from models.family import FileFamily
+    from models.file import File
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _VerifiedCandidate:
+    file: "File"
+    phash_distance: int
+    visual_match: VisualMatch
+
+    @property
+    def rank(self) -> tuple[int, float, float, int]:
+        return (*self.visual_match.rank, -self.phash_distance)
+
+
+def _candidate_family(file: "File") -> "FileFamily | None":
+    if file.family_as_parent is not None:
+        return file.family_as_parent
+    if file.parent_family_id is not None:
+        return file.family_as_child
+    return None
 
 
 async def handle_similar_files(
     new_file: "File",
     similar_files: list[tuple["File", int]],
     db: AsyncSession,
+    *,
+    commit: bool = True,
+    strict: bool = False,
 ) -> None:
+    """Verify pHash candidates and safely create or extend one family.
+
+    A family is only extended when the new file matches its canonical parent.
+    Multiple family matches are considered ambiguous and never auto-merged.
+    When no family exists, only the strongest standalone match is used to start
+    a two-file family, preventing transitive similarity chains.
+
+    Rebuilds use commit=False to own the transaction and strict=True to propagate
+    image verification errors instead of treating them as non-matches.
     """
-    Handle automatic family creation/extension based on visually similar files.
-    
-    Logic:
-    1. If no similar files: do nothing
-    2. If similar files exist but none in families: create new family with best parent
-    3. If similar file is in a family: add new file to that family
-    4. If multiple similar files in different families: merge families
-    
-    Args:
-        new_file: The newly uploaded file
-        similar_files: List of (File, hamming_distance) tuples for similar files
-        db: Database session
-        
-    Note:
-        This function commits changes to the database.
-    """
-    from models.family import FileFamily
-    
     if not similar_files:
-        logger.debug(f"No similar files found for {new_file.sha256_hash}")
         return
-    
-    logger.info(
-        f"Found {len(similar_files)} similar file(s) for {new_file.sha256_hash} "
-        f"(distances: {[d for _, d in similar_files]})"
-    )
-    
-    # Collect all similar files and their family info
-    files_with_families: list[tuple["File", "FileFamily | None"]] = []
-    
-    for similar_file, distance in similar_files:
-        # Determine which family this file belongs to
-        if similar_file.family_as_parent:
-            # This file is a parent of a family
-            family = similar_file.family_as_parent
-        elif similar_file.parent_family_id:
-            # This file is a child in a family
-            family = similar_file.family_as_child
+
+    standalone_matches: list[_VerifiedCandidate] = []
+    family_matches: dict[object, tuple["FileFamily", _VerifiedCandidate]] = {}
+    evaluated_families: set[object] = set()
+
+    for candidate, phash_distance in similar_files:
+        family = _candidate_family(candidate)
+        comparison_file = (
+            candidate
+            if family is None or candidate.family_as_parent is family
+            else family.parent
+        )
+        family_key: object = family.id if family is not None else candidate.sha256_hash
+
+        if family is not None:
+            if family_key in evaluated_families:
+                continue
+            evaluated_families.add(family_key)
+
+        visual_match = await asyncio.to_thread(
+            verify_file_similarity,
+            new_file,
+            comparison_file,
+            strict=strict,
+        )
+        logger.info(
+            "Visual verification %s -> %s: matched=%s, pHash=%s, "
+            "good_matches=%s, inliers=%s, inlier_ratio=%.3f",
+            new_file.sha256_hash,
+            comparison_file.sha256_hash,
+            visual_match.matched,
+            phash_distance,
+            visual_match.good_matches,
+            visual_match.inliers,
+            visual_match.inlier_ratio,
+        )
+        if not visual_match.matched:
+            continue
+
+        verified = _VerifiedCandidate(candidate, phash_distance, visual_match)
+        if family is None:
+            standalone_matches.append(verified)
         else:
-            # This file is not in any family
-            family = None
-        
-        files_with_families.append((similar_file, family))
-    
-    # Get unique families (excluding None)
-    unique_families = {family for _, family in files_with_families if family is not None}
-    
-    if len(unique_families) == 0:
-        # Case 1: No existing families - create new family with best parent
-        await _create_new_family_from_similar(new_file, [f for f, _ in files_with_families], db)
-    
-    elif len(unique_families) == 1:
-        # Case 2: All similar files are in the same family - add new file to it
-        family = next(iter(unique_families))
+            family_matches[family_key] = (family, verified)
+
+    if len(family_matches) > 1:
+        logger.warning(
+            "Skipping automatic family assignment for %s: matched %s family parents",
+            new_file.sha256_hash,
+            len(family_matches),
+        )
+        return
+
+    if family_matches:
+        family, _ = next(iter(family_matches.values()))
         await _add_to_existing_family(new_file, family, db)
-    
-    else:
-        # Case 3: Multiple families - merge them and add new file
-        await _merge_families_and_add_file(new_file, list(unique_families), [f for f, _ in files_with_families], db)
+        if commit:
+            await db.commit()
+        return
+
+    if not standalone_matches:
+        return
+
+    best_match = max(standalone_matches, key=lambda match: match.rank)
+    await _create_new_family(new_file, best_match.file, db)
+    if commit:
+        await db.commit()
 
 
-async def _create_new_family_from_similar(
+async def _create_new_family(
     new_file: "File",
-    similar_files: list["File"],
+    similar_file: "File",
     db: AsyncSession,
 ) -> None:
-    """
-    Create a new family from a set of similar files (none currently in families).
-    
-    Determines the best parent using determine_parent() and creates a family with
-    all files as children (except the parent).
-    """
+    """Create a two-file family from a geometrically verified match."""
     from models.family import FileFamily
-    
-    # Include new file in the set of candidates
-    all_files = similar_files + [new_file]
-    
-    # Determine the best parent from all similar files
-    parent = all_files[0]
-    for file in all_files[1:]:
-        parent = determine_parent(parent, file)
-    
-    logger.info(
-        f"Creating new family with parent {parent.sha256_hash} "
-        f"from {len(all_files)} similar files"
-    )
-    
-    # Create the family
+
+    parent = determine_parent(similar_file, new_file)
+    child = new_file if parent.sha256_hash == similar_file.sha256_hash else similar_file
+
     family = FileFamily(parent_sha256_hash=parent.sha256_hash)
     db.add(family)
-    await db.flush()  # Get the family ID
-    
-    # Add all other files as children
-    for file in all_files:
-        if file.sha256_hash != parent.sha256_hash:
-            file.parent_family_id = family.id
-     
-    await db.commit()
-    logger.info(f"Created family {family.id} with {len(all_files) - 1} children")
+    await db.flush()
+    child.parent_family_id = family.id
+
+    logger.info(
+        "Created family %s with parent %s and child %s",
+        family.id,
+        parent.sha256_hash,
+        child.sha256_hash,
+    )
 
 
 async def _add_to_existing_family(
@@ -130,105 +157,27 @@ async def _add_to_existing_family(
     family: "FileFamily",
     db: AsyncSession,
 ) -> None:
-    """
-    Add a new file to an existing family.
-    
-    Checks if the new file should become the parent (better quality) and
-    reorganizes the family if needed.
-    """
-    # Load the current parent with tags for comparison
+    """Add a verified file to a family and select the preferred parent."""
+    from models.file import File
+
     result = await db.execute(
-        select(family.parent).options(selectinload(family.parent.tags))
+        select(File)
+        .options(selectinload(File.tags))
+        .where(File.sha256_hash == family.parent_sha256_hash)
     )
-    # Accessing the parent relationship which is already loaded
-    current_parent = family.parent
-    
-    # Check if new file should be the parent instead
+    current_parent = result.scalar_one()
     best_parent = determine_parent(current_parent, new_file)
-    
+
     if best_parent.sha256_hash == new_file.sha256_hash:
-        # New file should be the parent - reorganize family
-        logger.info(
-            f"New file {new_file.sha256_hash} is better quality than current parent "
-            f"{current_parent.sha256_hash}, reorganizing family {family.id}"
-        )
-        
-        # Current parent becomes a child
         current_parent.parent_family_id = family.id
-        
-        # New file becomes the parent
         family.parent_sha256_hash = new_file.sha256_hash
-    else:
-        # New file becomes a child
-        logger.info(f"Adding new file {new_file.sha256_hash} as child to family {family.id}")
-        new_file.parent_family_id = family.id
-    
-    await db.commit()
+        logger.info(
+            "Replaced parent %s with %s in family %s",
+            current_parent.sha256_hash,
+            new_file.sha256_hash,
+            family.id,
+        )
+        return
 
-
-async def _merge_families_and_add_file(
-    new_file: "File",
-    families: list["FileFamily"],
-    all_similar_files: list["File"],
-    db: AsyncSession,
-) -> None:
-    """
-    Merge multiple families into one and add the new file.
-    
-    Determines the best parent from all files across all families,
-    creates/updates a family with that parent, and moves all files to it.
-    """
-    logger.info(f"Merging {len(families)} families due to similar file {new_file.sha256_hash}")
-    
-    # Collect all files from all families (parents and children)
-    all_files: set[File] = {new_file}
-    
-    for family in families:
-        if family.parent:
-            all_files.add(family.parent)
-        all_files.update(family.children)
-    
-    # Add any standalone similar files not already included
-    all_files.update(all_similar_files)
-    
-    # Determine the best parent from all files
-    parent = all_files[0]
-    for file in all_files[1:]:
-        parent = determine_parent(parent, file)
-    
-    logger.info(f"Best parent for merged family: {parent.sha256_hash}")
-    
-    # Find or create the family with this parent
-    target_family = None
-    for family in families:
-        if family.parent_sha256_hash == parent.sha256_hash:
-            target_family = family
-            break
-    
-    if target_family is None:
-        # Create new family with the chosen parent
-        from models.family import FileFamily
-        target_family = FileFamily(parent_sha256_hash=parent.sha256_hash)
-        db.add(target_family)
-        await db.flush()
-        logger.info(f"Created new merged family {target_family.id}")
-    else:
-        logger.info(f"Using existing family {target_family.id} as merge target")
-    
-    # Move all non-parent files to this family as children
-    for file in all_files:
-        if file.sha256_hash != parent.sha256_hash:
-            file.parent_family_id = target_family.id
-    
-    # Delete the other families
-    for family in families:
-        if family.id != target_family.id:
-            logger.info(f"Deleting merged family {family.id}")
-            await db.delete(family)
-    
-    await db.commit()
-    logger.info(
-        f"Merged {len(families)} families into family {target_family.id} "
-        f"with {len(all_files) - 1} children"
-    )
-
+    new_file.parent_family_id = family.id
+    logger.info("Added %s to family %s", new_file.sha256_hash, family.id)
