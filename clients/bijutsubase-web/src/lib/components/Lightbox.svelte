@@ -442,6 +442,11 @@
 </dialog>
 
 <style>
+	/* The full-screen dialog receives focus while its controls are hidden. */
+	dialog[data-lightbox]:focus {
+		outline: none;
+	}
+
 	:global {
 		/* Literal color: iOS Safari dr ops custom properties in ::backdrop, rendering it transparent. */
 		dialog[data-lightbox]::backdrop {
