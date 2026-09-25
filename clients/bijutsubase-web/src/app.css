@@ -16,17 +16,17 @@
 		'Space Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
 		monospace;
 
-	/* Primary brand colors - one shade darker green */
-	--color-primary-50: var(--color-green-50);
-	--color-primary-100: var(--color-green-100);
-	--color-primary-200: var(--color-green-200);
-	--color-primary-300: var(--color-green-300);
-	--color-primary-400: var(--color-green-500);
-	--color-primary-500: var(--color-green-600);
-	--color-primary-600: var(--color-green-700);
-	--color-primary-700: var(--color-green-800);
-	--color-primary-800: var(--color-green-900);
-	--color-primary-900: var(--color-green-950);
+	/* Primary brand colors - the favicon pink (#e14e8c) at 500, on Tailwind pink's lightness steps */
+	--color-primary-50: #fcf3f5;
+	--color-primary-100: #fbe8ee;
+	--color-primary-200: #fad1dd;
+	--color-primary-300: #f8acc5;
+	--color-primary-400: #f075a4;
+	--color-primary-500: #e14e8c;
+	--color-primary-600: #d2397d;
+	--color-primary-700: #b32e6a;
+	--color-primary-800: #932957;
+	--color-primary-900: #7a274a;
 }
 
 html,

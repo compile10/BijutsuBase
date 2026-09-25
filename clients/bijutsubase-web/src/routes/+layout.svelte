@@ -3,7 +3,6 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import favicon from '$lib/assets/favicon.svg';
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { getAppState } from '$lib/state.svelte';
@@ -50,10 +49,6 @@
 		}
 	});
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
 
 <!-- Sidebar -->
 <Sidebar bind:isOpen={appState.isSidebarOpen} />
