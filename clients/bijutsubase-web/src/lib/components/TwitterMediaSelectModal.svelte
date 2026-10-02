@@ -30,6 +30,17 @@
 
 	const allSelected = $derived(post !== null && selectedIndexes.size === allIndexes.length);
 
+	// Tiles share the height left over in the modal (90svh panel minus header, footer
+	// and padding) so every image is fully visible without scrolling.
+	const rowCount = $derived(Math.ceil(allIndexes.length / 2));
+	const tileMaxHeight = $derived(
+		`max(8rem, calc((90svh - 15.5rem - ${(rowCount - 1) * 0.75}rem) / ${rowCount}))`
+	);
+
+	function getAspectRatio(media: TwitterMedia): number {
+		return media.width && media.height ? media.width / media.height : 1;
+	}
+
 	function toggleMedia(index: number) {
 		if (selectedIndexes.has(index)) {
 			selectedIndexes.delete(index);
@@ -77,15 +88,18 @@
 
 	{#if post}
 		<div class="overflow-y-auto p-6">
-			<div class="grid grid-cols-2 items-start gap-3">
+			<div class="grid grid-cols-2 place-items-center gap-3">
 				{#each post.media as media (media.index)}
 					{@const isSelected = selectedIndexes.has(media.index)}
+					{@const aspectRatio = getAspectRatio(media)}
 					<button
 						type="button"
 						onclick={() => toggleMedia(media.index)}
 						disabled={isSubmitting}
 						aria-pressed={isSelected}
 						aria-label="Media {media.index}"
+						style:aspect-ratio={aspectRatio}
+						style:width="min(100%, calc({tileMaxHeight} * {aspectRatio}))"
 						class="group relative overflow-hidden rounded-lg border-2 bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:bg-gray-900 {isSelected
 							? 'border-primary-500'
 							: 'border-transparent'}"
@@ -94,9 +108,9 @@
 							src={media.thumbnail_url}
 							alt="Media {media.index}"
 							referrerpolicy="no-referrer"
-							width={media.width}
-							height={media.height}
-							class="block h-auto w-full transition-opacity {isSelected ? '' : 'opacity-50'}"
+							class="block h-full w-full object-cover transition-opacity {isSelected
+								? ''
+								: 'opacity-50'}"
 						/>
 
 						{#if media.type !== 'photo'}
