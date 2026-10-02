@@ -197,6 +197,10 @@ class ResolveTwitterPostTests(unittest.IsolatedAsyncioTestCase):
                 {"__typename": "TweetTombstone", "tombstone": {"text": {"text": reason}}}
             )
 
+    async def test_reports_rate_limit_as_upstream_error(self) -> None:
+        with self.assertRaisesRegex(TwitterApiError, "rate limiting"):
+            await self._resolve(None, status_code=429)
+
     async def test_rejects_missing_post(self) -> None:
         with self.assertRaisesRegex(TwitterPostUnavailableError, "not found.*protected account"):
             await self._resolve(None, status_code=404)

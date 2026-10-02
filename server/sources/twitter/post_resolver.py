@@ -204,6 +204,11 @@ async def resolve_twitter_post(
             f"Post {post_id} was not found. It may have been deleted or belong to a "
             "protected account, which can't be read without logging in."
         )
+    if response.status_code == 429:
+        raise TwitterApiError(
+            f"Twitter is rate limiting requests while resolving post {post_id}; "
+            "try again in a few minutes"
+        )
     if 400 <= response.status_code < 500:
         raise TwitterPostUnavailableError(
             f"Post {post_id} could not be accessed ({response.status_code})"
