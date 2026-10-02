@@ -22,6 +22,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -573,11 +574,25 @@ async def upload_urls(
     so the response is always 200 with a per-item result in request order.
     """
     results: list[BatchUrlUploadResult] = []
-    for item in payload.items:
-        url = str(item.url)
+    for raw_item in payload.items:
+        url = raw_item.url
+        try:
+            item = UrlUploadRequest.model_validate(raw_item.model_dump())
+        except ValidationError as error:
+            first_error = error.errors()[0]
+            field = ".".join(str(part) for part in first_error["loc"])
+            results.append(
+                BatchUrlUploadResult(
+                    url=url,
+                    status="failed",
+                    error=f"Invalid {field}: {first_error['msg']}",
+                )
+            )
+            continue
+
         downloaded: _DownloadedFile | None = None
         try:
-            downloaded = await _download_url_to_temp(url)
+            downloaded = await _download_url_to_temp(str(item.url))
             file_response = await _persist_download(downloaded, item.source, db, background_tasks)
         except HTTPException as error:
             if error.status_code == status.HTTP_409_CONFLICT and downloaded is not None:
