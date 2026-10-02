@@ -22,11 +22,6 @@ TWITTER_POST_HOSTS = frozenset(
         "x.com",
         "www.x.com",
         "mobile.x.com",
-        # Embed-fixing mirrors that people commonly share
-        "fxtwitter.com",
-        "vxtwitter.com",
-        "fixupx.com",
-        "fixvx.com",
     }
 )
 TWITTER_IMAGE_HOST = "pbs.twimg.com"
