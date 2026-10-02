@@ -29,7 +29,7 @@ async def resolve_post(
     if get_twitter_post_id(source_url) is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="URL is not a Twitter/X post",
+            detail="Only x.com and twitter.com post URLs are supported",
         )
 
     try:

@@ -519,7 +519,7 @@ export interface TwitterPost {
 }
 
 const TWITTER_POST_URL_PATTERN =
-	/^https?:\/\/(?:(?:www|mobile)\.)?(?:twitter|x|fxtwitter|vxtwitter|fixupx|fixvx)\.com\/(?:i\/web|i|\w+)\/status(?:es)?\/\d+/i;
+	/^https?:\/\/(?:(?:www|mobile)\.)?(?:twitter|x)\.com\/(?:i\/web|i|\w+)\/status(?:es)?\/\d+/i;
 
 export function isTwitterPostUrl(url: string): boolean {
 	return TWITTER_POST_URL_PATTERN.test(url.trim());

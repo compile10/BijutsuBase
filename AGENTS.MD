@@ -244,7 +244,7 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 - `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru post URL; resolves Danbooru posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru and the ONNX model.
  - `GET /api/files/search?tags=<space+separated+tags>` — Search files containing ALL tags; returns thumbnails.
 - `GET /api/files/{sha256}` — Fetch file details including tags and computed URLs.
-- `POST /api/twitter/resolve` — Resolve a Twitter/X post URL (x.com, twitter.com, fxtwitter, etc.) via the unauthenticated syndication API; returns each media item with an original-quality download URL (`name=orig` for photos, highest bitrate MP4 for videos/GIFs) and a small thumbnail. 404 when the post is missing, login-gated, or has no media.
+- `POST /api/twitter/resolve` — Resolve an official X post URL (x.com or twitter.com, including www. and mobile.; third-party mirrors such as fxtwitter are rejected) via the unauthenticated syndication API; returns each media item with an original-quality download URL (`name=orig` for photos, highest bitrate MP4 for videos/GIFs) and a small thumbnail. 404 when the post is missing, login-gated, or has no media.
 - `POST /api/files/{sha256}/refetch-danbooru` — Re-run Danbooru enrichment for a stored file (used when tags came from the ONNX model); replaces existing tags on a hit, returns 404 and leaves metadata untouched on a miss.
 - `DELETE /api/files/{sha256}` — Delete file and associations; disk cleanup occurs.
 - `GET /media/original/...` — Serve original media.
