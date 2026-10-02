@@ -6,6 +6,7 @@ import logging
 import mimetypes
 import tempfile
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -21,13 +22,18 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.serializers.file import FileResponse
+from api.serializers.upload import (
+    BatchUrlUploadRequest,
+    BatchUrlUploadResponse,
+    BatchUrlUploadResult,
+    UrlUploadRequest,
+)
 from auth.users import current_active_user
 from database.config import get_db
 from models.file import File as FileModel
@@ -41,6 +47,7 @@ from sources.danbooru.url_resolver import (
     resolve_danbooru_post_url,
 )
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
+from sources.twitter.post_resolver import to_twimg_size_url
 from tasks.processing import process_file_background
 from utils.file_storage import generate_file_path, get_media_storage_dir
 
@@ -130,6 +137,7 @@ async def _persist_ingest(
     mime_type: str,
     db: AsyncSession,
     background_tasks: BackgroundTasks,
+    source: str | None = None,
 ) -> FileResponse:
     """
     Finalize an ingest after a file has been streamed to a temp path.
@@ -259,6 +267,7 @@ async def _persist_ingest(
         width=width,
         height=height,
         ai_generated=ai_generated,
+        source=source,
         phash=phash,
         phash_center_80=phash_center_80,
         phash_center_50=phash_center_50,
@@ -413,23 +422,24 @@ async def _persist_ingest(
 
     return FileResponse.model_validate(file_model)
 
-class UrlUploadRequest(BaseModel):
-    url: HttpUrl
+@dataclass(frozen=True)
+class _DownloadedFile:
+    temp_path: Path
+    sha256_hash: str
+    md5_hash: str
+    file_size: int
+    mime_type: str
+    original_filename: str
 
 
-@router.post("/url", response_model=FileResponse, status_code=status.HTTP_200_OK)
-async def upload_url(
-    payload: UrlUploadRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(current_active_user),
-):
+async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
     """
-    Upload a file by URL. Danbooru post page URLs are resolved to their original
-    media file before the normal download and ingest flow.
+    Download a URL to temp storage with hashing and media validation.
+
+    Danbooru post page URLs are resolved to their original media file, and
+    Twitter image URLs are upgraded to their original size.
     """
     chunk_size = 8192
-    source_url = str(payload.url)
 
     # Derive original filename
     original_filename = "download"
@@ -454,6 +464,7 @@ async def upload_url(
             headers=danbooru_style_headers,
         ) as client:
             download_url = await resolve_danbooru_post_url(source_url, client)
+            download_url = to_twimg_size_url(download_url, "orig")
 
             async with client.stream("GET", download_url) as resp:
                 if 400 <= resp.status_code < 500:
@@ -504,17 +515,95 @@ async def upload_url(
             detail=f"Failed to download URL: {str(error)}",
         ) from error
 
-    # Finalize ingest
-    return await _persist_ingest(
+    return _DownloadedFile(
         temp_path=temp_path,
         sha256_hash=sha256_hash,
         md5_hash=md5_hash,
         file_size=file_size,
-        original_filename=original_filename,
         mime_type=mime_type,
+        original_filename=original_filename,
+    )
+
+
+async def _persist_download(
+    downloaded: _DownloadedFile,
+    source: str | None,
+    db: AsyncSession,
+    background_tasks: BackgroundTasks,
+) -> FileResponse:
+    return await _persist_ingest(
+        temp_path=downloaded.temp_path,
+        sha256_hash=downloaded.sha256_hash,
+        md5_hash=downloaded.md5_hash,
+        file_size=downloaded.file_size,
+        original_filename=downloaded.original_filename,
+        mime_type=downloaded.mime_type,
         db=db,
         background_tasks=background_tasks,
+        source=source,
     )
+
+
+@router.post("/url", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def upload_url(
+    payload: UrlUploadRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """
+    Upload a file by URL. Danbooru post page URLs are resolved to their original
+    media file before the normal download and ingest flow.
+    """
+    downloaded = await _download_url_to_temp(str(payload.url))
+    return await _persist_download(downloaded, payload.source, db, background_tasks)
+
+
+@router.post("/urls", response_model=BatchUrlUploadResponse, status_code=status.HTTP_200_OK)
+async def upload_urls(
+    payload: BatchUrlUploadRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """
+    Upload several files by URL in one request.
+
+    Items are ingested one at a time and each succeeds or fails independently,
+    so the response is always 200 with a per-item result in request order.
+    """
+    results: list[BatchUrlUploadResult] = []
+    for item in payload.items:
+        url = str(item.url)
+        downloaded: _DownloadedFile | None = None
+        try:
+            downloaded = await _download_url_to_temp(url)
+            file_response = await _persist_download(downloaded, item.source, db, background_tasks)
+        except HTTPException as error:
+            if error.status_code == status.HTTP_409_CONFLICT and downloaded is not None:
+                results.append(
+                    BatchUrlUploadResult(
+                        url=url,
+                        status="duplicate",
+                        sha256_hash=downloaded.sha256_hash,
+                    )
+                )
+                continue
+
+            logger.warning("Batch URL upload failed for %s: %s", url, error.detail)
+            results.append(BatchUrlUploadResult(url=url, status="failed", error=str(error.detail)))
+            continue
+
+        results.append(
+            BatchUrlUploadResult(
+                url=url,
+                status="uploaded",
+                sha256_hash=file_response.sha256_hash,
+                file=file_response,
+            )
+        )
+
+    return BatchUrlUploadResponse(results=results)
 
 
 @router.put("/file", response_model=FileResponse, status_code=status.HTTP_200_OK)

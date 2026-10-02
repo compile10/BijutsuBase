@@ -242,6 +242,7 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 - `GET /api/health` — API readiness and DB connectivity.
 - `PUT /api/upload/file` — Upload image/video from multipart form data; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru and ONNX model.
 - `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru post URL; resolves Danbooru posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru and the ONNX model.
+- `POST /api/upload/urls` — Upload up to 20 URLs in one request (`{"items": [{"url", "source"?}]}`), ingested sequentially through the same path as `/upload/url`. Always 200 with a per-item `uploaded` / `duplicate` / `failed` result in request order. Both URL endpoints accept an optional `source` recorded on the file (Danbooru enrichment overrides it on a hit) and upgrade `pbs.twimg.com` image URLs to `name=orig`.
  - `GET /api/files/search?tags=<space+separated+tags>` — Search files containing ALL tags; returns thumbnails.
 - `GET /api/files/{sha256}` — Fetch file details including tags and computed URLs.
 - `POST /api/twitter/resolve` — Resolve a Twitter/X post URL (x.com, twitter.com, fxtwitter, etc.) via the unauthenticated syndication API; returns each media item with an original-quality download URL (`name=orig` for photos, highest bitrate MP4 for videos/GIFs) and a small thumbnail. 404 when the post is missing, login-gated, or has no media.

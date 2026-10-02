@@ -500,6 +500,40 @@ export async function uploadByUrl(url: string): Promise<FileResponse> {
 	return response.json();
 }
 
+export interface UrlUploadItem {
+	url: string;
+	source?: string | null;
+}
+
+export interface BatchUrlUploadResult {
+	url: string;
+	status: 'uploaded' | 'duplicate' | 'failed';
+	sha256_hash: string | null; // set for uploaded and duplicate
+	file: FileResponse | null; // set for uploaded
+	error: string | null; // set for failed
+}
+
+/**
+ * Upload several files by URL in one request. Each item succeeds or fails independently.
+ * @param items - URLs to ingest, with an optional source to record on each file
+ * @returns Per-item results in request order
+ */
+export async function uploadByUrls(items: UrlUploadItem[]): Promise<BatchUrlUploadResult[]> {
+	const response = await fetch('/api/upload/urls', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({ items })
+	});
+
+	if (!response.ok) {
+		throw new APIError(response, `URL upload failed: ${response.statusText}`);
+	}
+
+	const body: { results: BatchUrlUploadResult[] } = await response.json();
+	return body.results;
+}
+
 export interface TwitterMedia {
 	index: number;
 	type: 'photo' | 'video' | 'animated_gif';
