@@ -16,6 +16,8 @@
 		children: Snippet;
 	}>();
 
+	let overlayElement = $state<HTMLDivElement | null>(null);
+
 	function handleClose() {
 		if (onClose) {
 			onClose();
@@ -25,9 +27,13 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			handleClose();
-		}
+		if (event.key !== 'Escape') return;
+
+		// With stacked modals, only the most recently opened one should close
+		const openModals = document.querySelectorAll('[data-window-modal]');
+		if (openModals[openModals.length - 1] !== overlayElement) return;
+
+		handleClose();
 	}
 
 	$effect(() => {
@@ -47,6 +53,7 @@
 {#if isOpen}
 	<!-- data-window-modal lets an overlay underneath detect that a modal is stacked on it. -->
 	<div
+		bind:this={overlayElement}
 		data-window-modal
 		class="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm"
 		transition:fade={{ duration: 200 }}
