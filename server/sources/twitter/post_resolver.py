@@ -32,7 +32,8 @@ TWITTER_POST_HOSTS = frozenset(
 TWITTER_IMAGE_HOST = "pbs.twimg.com"
 SYNDICATION_URL = "https://cdn.syndication.twimg.com/tweet-result"
 
-_POST_PATH_PATTERN = re.compile(r"^/(?:i/web|i|[A-Za-z0-9_]+)/status(?:es)?/(\d+)(?:/|$)")
+# Post IDs are 64-bit snowflakes, so at most 20 digits
+_POST_PATH_PATTERN = re.compile(r"^/(?:i/web|i|[A-Za-z0-9_]+)/status(?:es)?/(\d{1,20})(?:/|$)")
 _BASE36_DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 
@@ -111,16 +112,25 @@ def _syndication_token(post_id: str) -> str:
 
 
 def _best_video_url(media: dict[str, Any]) -> str | None:
-    variants = (media.get("video_info") or {}).get("variants") or []
+    video_info = media.get("video_info")
+    variants = video_info.get("variants") if isinstance(video_info, dict) else None
+    if not isinstance(variants, list):
+        return None
+
     mp4_variants = [
         variant
         for variant in variants
-        if variant.get("content_type") == "video/mp4" and isinstance(variant.get("url"), str)
+        if isinstance(variant, dict)
+        and variant.get("content_type") == "video/mp4"
+        and isinstance(variant.get("url"), str)
     ]
     if not mp4_variants:
         return None
 
-    best = max(mp4_variants, key=lambda variant: variant.get("bitrate") or 0)
+    best = max(
+        mp4_variants,
+        key=lambda variant: variant["bitrate"] if isinstance(variant.get("bitrate"), int) else 0,
+    )
     return best["url"]
 
 
@@ -142,15 +152,19 @@ def _parse_media(media_details: list[dict[str, Any]]) -> list[TwitterMedia]:
         if download_url is None:
             continue
 
-        original_info = media.get("original_info") or {}
+        original_info = media.get("original_info")
+        if not isinstance(original_info, dict):
+            original_info = {}
+        width = original_info.get("width")
+        height = original_info.get("height")
         media_items.append(
             TwitterMedia(
                 index=len(media_items) + 1,
                 type=media_type,
                 url=download_url,
                 thumbnail_url=to_twimg_size_url(preview_url, "small"),
-                width=original_info.get("width"),
-                height=original_info.get("height"),
+                width=width if isinstance(width, int) else None,
+                height=height if isinstance(height, int) else None,
             )
         )
 
@@ -193,7 +207,13 @@ async def resolve_twitter_post(
     if post.get("__typename") == "TweetTombstone" or not isinstance(post.get("user"), dict):
         raise TwitterPostUnavailableError(f"Post {post_id} is unavailable")
 
-    media_items = _parse_media(post.get("mediaDetails") or [])
+    media_details = post.get("mediaDetails") or []
+    if not isinstance(media_details, list) or not all(
+        isinstance(media, dict) for media in media_details
+    ):
+        raise TwitterApiError(f"Twitter returned invalid media metadata for post {post_id}")
+
+    media_items = _parse_media(media_details)
     if not media_items:
         raise TwitterPostUnavailableError(f"Post {post_id} has no downloadable media")
 
