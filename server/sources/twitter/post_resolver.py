@@ -171,6 +171,21 @@ def _parse_media(media_details: list[dict[str, Any]]) -> list[TwitterMedia]:
     return media_items
 
 
+def _unavailable_message(post_id: str, post: dict[str, Any]) -> str:
+    """Explain a tombstone, using Twitter's own reason (e.g. age restriction) when given."""
+    login_hint = "BijutsuBase reads posts without logging in, so this one can't be imported."
+    tombstone = post.get("tombstone")
+    text = tombstone.get("text") if isinstance(tombstone, dict) else None
+    reason = text.get("text") if isinstance(text, dict) else None
+    if isinstance(reason, str) and reason.strip():
+        return f"Post {post_id} is unavailable: {reason.strip()} {login_hint}"
+
+    return (
+        f"Post {post_id} is unavailable. It may be age-restricted, from a protected or "
+        f"suspended account, or deleted. {login_hint}"
+    )
+
+
 async def resolve_twitter_post(
     source_url: str,
     client: httpx.AsyncClient,
@@ -185,7 +200,10 @@ async def resolve_twitter_post(
         params={"id": post_id, "token": _syndication_token(post_id), "lang": "en"},
     )
     if response.status_code == 404:
-        raise TwitterPostUnavailableError(f"Post {post_id} was not found")
+        raise TwitterPostUnavailableError(
+            f"Post {post_id} was not found. It may have been deleted or belong to a "
+            "protected account, which can't be read without logging in."
+        )
     if 400 <= response.status_code < 500:
         raise TwitterPostUnavailableError(
             f"Post {post_id} could not be accessed ({response.status_code})"
@@ -205,7 +223,7 @@ async def resolve_twitter_post(
 
     # Deleted, suspended, or login-gated posts come back as tombstones
     if post.get("__typename") == "TweetTombstone" or not isinstance(post.get("user"), dict):
-        raise TwitterPostUnavailableError(f"Post {post_id} is unavailable")
+        raise TwitterPostUnavailableError(_unavailable_message(post_id, post))
 
     media_details = post.get("mediaDetails") or []
     if not isinstance(media_details, list) or not all(
