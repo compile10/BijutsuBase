@@ -5,6 +5,7 @@ import unittest
 import httpx
 
 from sources.twitter.post_resolver import (
+    TwitterApiError,
     TwitterPostUnavailableError,
     get_twitter_post_id,
     resolve_twitter_post,
@@ -40,6 +41,8 @@ class GetTwitterPostIdTests(unittest.TestCase):
             "https://x.com/artist/likes",
             "https://example.com/artist/status/1231446342578397184",
             "https://pbs.twimg.com/media/ERb57C8WoAISEYi.jpg",
+            # Longer than any 64-bit snowflake ID
+            "https://x.com/artist/status/" + "9" * 400,
         ]
 
         for url in urls:
@@ -148,6 +151,36 @@ class ResolveTwitterPostTests(unittest.IsolatedAsyncioTestCase):
             await self._resolve(
                 {"__typename": "Tweet", "text": "hi", "user": {"screen_name": "a"}}
             )
+
+    async def test_rejects_malformed_media_metadata(self) -> None:
+        for media_details in ("oops", ["oops"], {"type": "photo"}):
+            with self.subTest(media_details=media_details):
+                with self.assertRaisesRegex(TwitterApiError, "invalid media metadata"):
+                    await self._resolve(
+                        {
+                            "__typename": "Tweet",
+                            "user": {"screen_name": "a"},
+                            "mediaDetails": media_details,
+                        }
+                    )
+
+    async def test_skips_video_with_malformed_variants(self) -> None:
+        post = await self._resolve(
+            {
+                "__typename": "Tweet",
+                "user": {"screen_name": "a"},
+                "mediaDetails": [
+                    _photo("AAA"),
+                    {
+                        "type": "video",
+                        "media_url_https": "https://pbs.twimg.com/x/BBB.jpg",
+                        "video_info": {"variants": ["oops", {"content_type": "video/mp4"}]},
+                    },
+                ],
+            }
+        )
+
+        self.assertEqual([media.type for media in post.media], ["photo"])
 
     async def test_rejects_tombstone(self) -> None:
         with self.assertRaisesRegex(TwitterPostUnavailableError, "unavailable"):
