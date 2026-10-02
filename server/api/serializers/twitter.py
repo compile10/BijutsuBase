@@ -9,7 +9,6 @@ class TwitterMedia(BaseModel):
     # 1-based position, matching the /photo/<n> and /video/<n> post URLs
     index: int
     type: Literal["photo", "video", "animated_gif"]
-    # Highest quality download URL (orig photo or highest bitrate MP4)
     url: str
     thumbnail_url: str
     width: int | None = None
