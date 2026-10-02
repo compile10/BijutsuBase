@@ -55,12 +55,26 @@ from utils.file_storage import generate_file_path, get_media_storage_dir
 router = APIRouter(prefix="/upload", tags=["upload"])
 logger = logging.getLogger(__name__)
 
+# Same cap Nginx puts on direct uploads (client_max_body_size 10240M)
+MAX_URL_DOWNLOAD_BYTES = 10240 * 1024 * 1024
+# Longest wait for the next chunk; slow but progressing downloads still finish
+URL_DOWNLOAD_READ_TIMEOUT_SECONDS = 120.0
+
+
+def _download_too_large_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+        detail=f"File is larger than the {MAX_URL_DOWNLOAD_BYTES // (1024 * 1024)} MiB download limit",
+    )
+
 async def _stream_to_temp_and_hash(
     chunk_iter: AsyncIterator[bytes],
+    max_bytes: int | None = None,
 ) -> tuple[Path, str, str, int, str]:
     """
     Stream chunks to a temp file, detect mime on first chunk, validate media type,
-    and compute sha256/md5 hashes and total size.
+    and compute sha256/md5 hashes and total size. Stops with a 413 once more than
+    max_bytes have been received.
     Returns: (temp_path, sha256_hash, md5_hash, file_size, mime_type)
     """
     temp_dir = get_media_storage_dir() / "temp"
@@ -92,11 +106,14 @@ async def _stream_to_temp_and_hash(
                         detail="File must be an image or video",
                     )
                 first_chunk = False
+            if max_bytes is not None and file_size + len(chunk) > max_bytes:
+                raise _download_too_large_error()
             sha256_hasher.update(chunk)
             md5_hasher.update(chunk)
             temp_file.write(chunk)
             file_size += len(chunk)
-    except HTTPException:
+    except (HTTPException, httpx.TimeoutException):
+        # Timeouts come from the source stream; the caller reports them
         temp_file.close()
         temp_path.unlink(missing_ok=True)
         raise
@@ -458,10 +475,13 @@ async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
         }
         async with httpx.AsyncClient(
             follow_redirects=True,
-            # Large files may take a long time to download; use generous timeouts
-            # connect: 60s to establish connection (increased for slow remote servers)
-            # read: None (no timeout) to allow slow downloads to complete
-            timeout=httpx.Timeout(None, connect=60.0),
+            # No overall deadline so large files can finish, but a server that stops
+            # sending data fails instead of blocking the request indefinitely
+            timeout=httpx.Timeout(
+                None,
+                connect=60.0,
+                read=URL_DOWNLOAD_READ_TIMEOUT_SECONDS,
+            ),
             headers=danbooru_style_headers,
         ) as client:
             download_url = await resolve_danbooru_post_url(source_url, client)
@@ -479,6 +499,14 @@ async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
                         detail=f"Failed to fetch URL: {resp.status_code}",
                     )
 
+                content_length = resp.headers.get("content-length")
+                if (
+                    content_length is not None
+                    and content_length.isdigit()
+                    and int(content_length) > MAX_URL_DOWNLOAD_BYTES
+                ):
+                    raise _download_too_large_error()
+
                 # Try filename from Content-Disposition
                 cd = resp.headers.get("content-disposition") or resp.headers.get("Content-Disposition")
                 if cd and "filename=" in cd:
@@ -495,7 +523,8 @@ async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
 
                 # Stream body to temp file with hashing and mime validation
                 temp_path, sha256_hash, md5_hash, file_size, mime_type = await _stream_to_temp_and_hash(
-                    resp.aiter_bytes(chunk_size=chunk_size)
+                    resp.aiter_bytes(chunk_size=chunk_size),
+                    max_bytes=MAX_URL_DOWNLOAD_BYTES,
                 )
     except HTTPException:
         raise
@@ -508,6 +537,11 @@ async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(error),
+        ) from error
+    except httpx.TimeoutException as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out downloading URL: the server stopped responding",
         ) from error
     except Exception as error:
         logger.exception("Error downloading URL")
