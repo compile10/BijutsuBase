@@ -27,7 +27,6 @@ class GetTwitterPostIdTests(unittest.TestCase):
             "https://x.com/artist/status/1231446342578397184",
             "https://twitter.com/artist/status/1231446342578397184?s=20",
             "https://mobile.twitter.com/artist/status/1231446342578397184/photo/2",
-            "https://fxtwitter.com/artist/status/1231446342578397184",
             "https://x.com/i/web/status/1231446342578397184",
         ]
 
@@ -41,6 +40,10 @@ class GetTwitterPostIdTests(unittest.TestCase):
             "https://x.com/artist/likes",
             "https://example.com/artist/status/1231446342578397184",
             "https://pbs.twimg.com/media/ERb57C8WoAISEYi.jpg",
+            # Third-party embed mirrors are not supported
+            "https://fxtwitter.com/artist/status/1231446342578397184",
+            "https://vxtwitter.com/artist/status/1231446342578397184",
+            "https://fixupx.com/artist/status/1231446342578397184",
             # Longer than any 64-bit snowflake ID
             "https://x.com/artist/status/" + "9" * 400,
         ]
