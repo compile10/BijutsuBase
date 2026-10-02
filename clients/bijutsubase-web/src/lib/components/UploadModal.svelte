@@ -42,9 +42,43 @@
 		}
 	});
 
+	// One poller per batch row that is still processing (videos)
+	let batchPollers: { stop: () => void }[] = [];
+
+	function stopBatchPollers() {
+		for (const batchPoller of batchPollers) {
+			batchPoller.stop();
+		}
+		batchPollers = [];
+	}
+
+	function pollPendingBatchResults() {
+		batchResults?.forEach(({ result }, index) => {
+			const file = result.file;
+			if (!file || file.processing_status === 'completed' || file.processing_status === 'failed') {
+				return;
+			}
+
+			const batchPoller = createProcessingPoller((update) => {
+				const row = batchResults?.[index];
+				if (!row?.result.file) return;
+				// A failed status check returns a stub file; keep the row's real one
+				if (update.file.processing_status) {
+					row.result.file = update.file;
+				} else {
+					row.result.file.processing_status = 'failed';
+					row.result.file.processing_error = update.error ?? null;
+				}
+			});
+			batchPoller.start(file.sha256_hash);
+			batchPollers.push(batchPoller);
+		});
+	}
+
 	// Cleanup polling on component destroy
 	onDestroy(() => {
 		poller.stop();
+		stopBatchPollers();
 	});
 
 	async function handleUploadComplete(result: FileResponse) {
@@ -121,6 +155,7 @@
 		}
 
 		batchResults = results.map((result, index) => ({ media: media[index], result }));
+		pollPendingBatchResults();
 	}
 
 	async function handleTwitterSelection(media: TwitterMedia[]) {
@@ -166,6 +201,7 @@
 
 	function handleClose() {
 		poller.stop();
+		stopBatchPollers();
 		isOpen = false;
 		selectedFile = null;
 		error = null;
@@ -352,11 +388,18 @@
 								class="h-16 w-16 shrink-0 rounded object-cover"
 							/>
 							<div class="min-w-0 flex-1">
-								{#if result.status === 'uploaded'}
+								{#if result.status === 'uploaded' && result.file?.processing_status === 'failed'}
+									<p class="text-sm font-medium text-red-700 dark:text-red-400">
+										Uploaded, processing failed
+									</p>
+									<p class="truncate text-xs text-red-600 dark:text-red-400">
+										{result.file.processing_error ?? 'Processing failed'}
+									</p>
+								{:else if result.status === 'uploaded'}
 									<p class="text-sm font-medium text-green-700 dark:text-green-400">
 										{result.file?.processing_status === 'completed'
 											? 'Uploaded'
-											: 'Uploaded, processing'}
+											: 'Uploaded, processing...'}
 									</p>
 								{:else if result.status === 'duplicate'}
 									<p class="text-sm font-medium text-gray-700 dark:text-gray-300">
