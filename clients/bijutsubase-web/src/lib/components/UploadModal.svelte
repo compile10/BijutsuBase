@@ -134,8 +134,12 @@
 		}
 	}
 
-	async function uploadTwitterMedia(post: TwitterPost, media: TwitterMedia[]) {
+	// Bumped on close so requests still in flight don't update a closed or reopened modal
+	let modalSession = 0;
+
+	async function uploadTwitterMedia(post: TwitterPost, media: TwitterMedia[], session: number) {
 		const results = await uploadByUrls(media.map((item) => ({ url: item.url, source: post.url })));
+		if (session !== modalSession) return;
 		urlString = '';
 		twitterPost = null;
 		isMediaSelectOpen = false;
@@ -160,11 +164,13 @@
 
 	async function handleTwitterSelection(media: TwitterMedia[]) {
 		if (!twitterPost) return;
+		const session = modalSession;
 		isUploading = true;
 		error = null;
 		try {
-			await uploadTwitterMedia(twitterPost, media);
+			await uploadTwitterMedia(twitterPost, media, session);
 		} catch (err) {
+			if (session !== modalSession) return;
 			error = err instanceof Error ? err.message : 'Upload failed';
 			isMediaSelectOpen = false;
 		} finally {
@@ -174,14 +180,16 @@
 
 	async function handleUploadUrl() {
 		if (!urlString) return;
+		const session = modalSession;
 		isUploading = true;
 		error = null;
 		try {
 			if (isTwitterPostUrl(urlString)) {
 				const post = await resolveTwitterPost(urlString);
+				if (session !== modalSession) return;
 				// A single image or video needs no choice; upload it straight away
 				if (post.media.length === 1) {
-					await uploadTwitterMedia(post, post.media);
+					await uploadTwitterMedia(post, post.media, session);
 				} else {
 					twitterPost = post;
 					isMediaSelectOpen = true;
@@ -190,9 +198,11 @@
 			}
 
 			const result = await uploadByUrl(urlString);
+			if (session !== modalSession) return;
 			urlString = '';
 			await handleUploadComplete(result);
 		} catch (err) {
+			if (session !== modalSession) return;
 			error = err instanceof Error ? err.message : 'Upload failed';
 		} finally {
 			isUploading = false;
@@ -200,6 +210,7 @@
 	}
 
 	function handleClose() {
+		modalSession += 1;
 		poller.stop();
 		stopBatchPollers();
 		isOpen = false;
