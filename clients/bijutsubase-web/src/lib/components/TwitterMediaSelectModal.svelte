@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { TwitterMedia, TwitterPost } from '$lib/api';
 	import WindowModal from './WindowModal.svelte';
 	import IconClose from '~icons/mdi/close';
@@ -20,29 +21,29 @@
 		onCancel?: () => void;
 	}>();
 
-	let selectedIndexes = $state<Set<number>>(new Set());
-
 	// Everything starts selected; most multi-image posts are a set the user wants whole
-	$effect(() => {
-		selectedIndexes = new Set(post?.media.map((media: TwitterMedia) => media.index) ?? []);
-	});
+	const selectedIndexes = $derived(
+		new SvelteSet<number>(post?.media.map((media: TwitterMedia) => media.index) ?? [])
+	);
 
 	const allSelected = $derived(post !== null && selectedIndexes.size === post.media.length);
 
 	function toggleMedia(index: number) {
-		const next = new Set(selectedIndexes);
-		if (next.has(index)) {
-			next.delete(index);
+		if (selectedIndexes.has(index)) {
+			selectedIndexes.delete(index);
 		} else {
-			next.add(index);
+			selectedIndexes.add(index);
 		}
-		selectedIndexes = next;
 	}
 
 	function toggleAll() {
-		selectedIndexes = allSelected
-			? new Set()
-			: new Set(post?.media.map((media: TwitterMedia) => media.index) ?? []);
+		if (allSelected) {
+			selectedIndexes.clear();
+			return;
+		}
+		for (const media of post?.media ?? []) {
+			selectedIndexes.add(media.index);
+		}
 	}
 
 	function handleConfirm() {
