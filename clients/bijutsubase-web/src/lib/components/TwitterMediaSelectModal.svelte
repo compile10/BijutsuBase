@@ -30,12 +30,9 @@
 
 	const allSelected = $derived(post !== null && selectedIndexes.size === allIndexes.length);
 
-	// Tiles share the height left over in the modal (90svh panel minus header, footer
-	// and padding) so every image is fully visible without scrolling.
-	const rowCount = $derived(Math.ceil(allIndexes.length / 2));
-	const tileMaxHeight = $derived(
-		`max(8rem, calc((90svh - 15.5rem - ${(rowCount - 1) * 0.75}rem) / ${rowCount}))`
-	);
+	// A tile is never taller than the modal's body (90svh panel minus header, footer and
+	// padding), so one row is always fully visible; further rows scroll.
+	const tileMaxHeight = 'max(8rem, calc(90svh - 15.5rem))';
 
 	function getAspectRatio(media: TwitterMedia): number {
 		return media.width && media.height ? media.width / media.height : 1;
