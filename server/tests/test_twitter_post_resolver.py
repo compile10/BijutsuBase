@@ -183,11 +183,22 @@ class ResolveTwitterPostTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([media.type for media in post.media], ["photo"])
 
     async def test_rejects_tombstone(self) -> None:
-        with self.assertRaisesRegex(TwitterPostUnavailableError, "unavailable"):
+        with self.assertRaisesRegex(TwitterPostUnavailableError, "age-restricted.*without logging in"):
             await self._resolve({"__typename": "TweetTombstone"})
 
+    async def test_tombstone_includes_twitter_reason(self) -> None:
+        reason = "Age-restricted adult content. To view this media, you'll need to log in to X."
+
+        with self.assertRaisesRegex(
+            TwitterPostUnavailableError,
+            "Post 1231446342578397184 is unavailable: Age-restricted adult content.*without logging in",
+        ):
+            await self._resolve(
+                {"__typename": "TweetTombstone", "tombstone": {"text": {"text": reason}}}
+            )
+
     async def test_rejects_missing_post(self) -> None:
-        with self.assertRaisesRegex(TwitterPostUnavailableError, "not found"):
+        with self.assertRaisesRegex(TwitterPostUnavailableError, "not found.*protected account"):
             await self._resolve(None, status_code=404)
 
 
