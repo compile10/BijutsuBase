@@ -21,12 +21,14 @@
 		onCancel?: () => void;
 	}>();
 
-	// Everything starts selected; most multi-image posts are a set the user wants whole
-	const selectedIndexes = $derived(
-		new SvelteSet<number>(post?.media.map((media: TwitterMedia) => media.index) ?? [])
+	const allIndexes = $derived<number[]>(
+		post?.media.map((media: TwitterMedia) => media.index) ?? []
 	);
 
-	const allSelected = $derived(post !== null && selectedIndexes.size === post.media.length);
+	// Everything starts selected; most multi-image posts are a set the user wants whole
+	let selectedIndexes = $derived(new SvelteSet(allIndexes));
+
+	const allSelected = $derived(post !== null && selectedIndexes.size === allIndexes.length);
 
 	function toggleMedia(index: number) {
 		if (selectedIndexes.has(index)) {
@@ -37,13 +39,7 @@
 	}
 
 	function toggleAll() {
-		if (allSelected) {
-			selectedIndexes.clear();
-			return;
-		}
-		for (const media of post?.media ?? []) {
-			selectedIndexes.add(media.index);
-		}
+		selectedIndexes = new SvelteSet(allSelected ? [] : allIndexes);
 	}
 
 	function handleConfirm() {
