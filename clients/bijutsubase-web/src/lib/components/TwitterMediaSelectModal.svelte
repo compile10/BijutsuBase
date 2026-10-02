@@ -77,7 +77,7 @@
 
 	{#if post}
 		<div class="overflow-y-auto p-6">
-			<div class="grid grid-cols-2 gap-3">
+			<div class="grid grid-cols-2 items-start gap-3">
 				{#each post.media as media (media.index)}
 					{@const isSelected = selectedIndexes.has(media.index)}
 					<button
@@ -86,7 +86,7 @@
 						disabled={isSubmitting}
 						aria-pressed={isSelected}
 						aria-label="Media {media.index}"
-						class="group relative aspect-square overflow-hidden rounded-lg border-2 bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:bg-gray-900 {isSelected
+						class="group relative overflow-hidden rounded-lg border-2 bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:bg-gray-900 {isSelected
 							? 'border-primary-500'
 							: 'border-transparent'}"
 					>
@@ -94,7 +94,9 @@
 							src={media.thumbnail_url}
 							alt="Media {media.index}"
 							referrerpolicy="no-referrer"
-							class="h-full w-full object-cover transition-opacity {isSelected ? '' : 'opacity-50'}"
+							width={media.width}
+							height={media.height}
+							class="block h-auto w-full transition-opacity {isSelected ? '' : 'opacity-50'}"
 						/>
 
 						{#if media.type !== 'photo'}
