@@ -500,6 +500,52 @@ export async function uploadByUrl(url: string): Promise<FileResponse> {
 	return response.json();
 }
 
+export interface TwitterMedia {
+	index: number;
+	type: 'photo' | 'video' | 'animated_gif';
+	url: string; // original-quality photo or highest bitrate MP4
+	thumbnail_url: string;
+	width: number | null;
+	height: number | null;
+}
+
+export interface TwitterPost {
+	id: string;
+	url: string;
+	author_screen_name: string;
+	author_name: string;
+	text: string;
+	media: TwitterMedia[];
+}
+
+const TWITTER_POST_URL_PATTERN =
+	/^https?:\/\/(?:(?:www|mobile)\.)?(?:twitter|x)\.com\/(?:i\/web|i|\w+)\/status(?:es)?\/\d+/i;
+
+export function isTwitterPostUrl(url: string): boolean {
+	return TWITTER_POST_URL_PATTERN.test(url.trim());
+}
+
+/**
+ * Resolve a Twitter/X post to its media
+ * @param url - Twitter/X post URL
+ * @returns Post details with original-quality media URLs and thumbnails
+ */
+export async function resolveTwitterPost(url: string): Promise<TwitterPost> {
+	const response = await fetch('/api/twitter/resolve', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({ url })
+	});
+
+	if (!response.ok) {
+		const error = await response.json().catch(() => ({ detail: response.statusText }));
+		throw new APIError(response, error.detail || 'Failed to resolve post');
+	}
+
+	return response.json();
+}
+
 /**
  * Associate a tag with a file
  * @param request - Request containing file_sha256, tag_name, and category
@@ -603,7 +649,7 @@ export async function refetchDanbooruMetadata(sha256: string): Promise<FileRespo
 
 	return response.json();
 }
- 
+
 /**
  * Get tags common to all specified files
  * @param hashes - List of file SHA256 hashes

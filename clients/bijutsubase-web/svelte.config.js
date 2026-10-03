@@ -28,7 +28,8 @@ const config = {
 				'style-src': ['self', 'unsafe-inline'],
 
 				// Images: same origin + blob/data URLs (for canvas/image processing)
-				'img-src': ['self', 'blob:', 'data:'],
+				// + Twitter's image CDN (post media previews before upload)
+				'img-src': ['self', 'blob:', 'data:', 'https://pbs.twimg.com'],
 
 				// Fonts: only from same origin
 				'font-src': ['self'],
