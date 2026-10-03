@@ -1,9 +1,20 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { uploadFile, uploadByUrl, type FileResponse } from '$lib/api';
+	import {
+		uploadFile,
+		uploadByUrl,
+		uploadByUrls,
+		isTwitterPostUrl,
+		resolveTwitterPost,
+		type BatchUrlUploadResult,
+		type FileResponse,
+		type TwitterMedia,
+		type TwitterPost
+	} from '$lib/api';
 	import { processTagSource, createProcessingPoller } from '$lib/utils';
 	import WindowModal from './WindowModal.svelte';
 	import TagSection from './TagSection.svelte';
+	import TwitterMediaSelectModal from './TwitterMediaSelectModal.svelte';
 	import IconClose from '~icons/mdi/close';
 
 	let { isOpen = $bindable(false) } = $props();
@@ -16,6 +27,9 @@
 	let fileInputElement: HTMLInputElement | null = $state(null);
 	let mode = $state<'url' | 'file'>('url');
 	let urlString = $state('');
+	let twitterPost = $state<TwitterPost | null>(null);
+	let isMediaSelectOpen = $state(false);
+	let batchResults = $state<{ media: TwitterMedia; result: BatchUrlUploadResult }[] | null>(null);
 
 	// Create polling controller
 	const poller = createProcessingPoller((result) => {
@@ -28,9 +42,43 @@
 		}
 	});
 
+	// One poller per batch row that is still processing (videos)
+	let batchPollers: { stop: () => void }[] = [];
+
+	function stopBatchPollers() {
+		for (const batchPoller of batchPollers) {
+			batchPoller.stop();
+		}
+		batchPollers = [];
+	}
+
+	function pollPendingBatchResults() {
+		batchResults?.forEach(({ result }, index) => {
+			const file = result.file;
+			if (!file || file.processing_status === 'completed' || file.processing_status === 'failed') {
+				return;
+			}
+
+			const batchPoller = createProcessingPoller((update) => {
+				const row = batchResults?.[index];
+				if (!row?.result.file) return;
+				// A failed status check returns a stub file; keep the row's real one
+				if (update.file.processing_status) {
+					row.result.file = update.file;
+				} else {
+					row.result.file.processing_status = 'failed';
+					row.result.file.processing_error = update.error ?? null;
+				}
+			});
+			batchPoller.start(file.sha256_hash);
+			batchPollers.push(batchPoller);
+		});
+	}
+
 	// Cleanup polling on component destroy
 	onDestroy(() => {
 		poller.stop();
+		stopBatchPollers();
 	});
 
 	async function handleUploadComplete(result: FileResponse) {
@@ -86,15 +134,75 @@
 		}
 	}
 
-	async function handleUploadUrl() {
-		if (!urlString) return;
+	// Bumped on close so requests still in flight don't update a closed or reopened modal
+	let modalSession = 0;
+
+	async function uploadTwitterMedia(post: TwitterPost, media: TwitterMedia[], session: number) {
+		const results = await uploadByUrls(media.map((item) => ({ url: item.url, source: post.url })));
+		if (session !== modalSession) return;
+		urlString = '';
+		twitterPost = null;
+		isMediaSelectOpen = false;
+
+		if (results.length === 1) {
+			const [result] = results;
+			if (result.status === 'uploaded' && result.file) {
+				await handleUploadComplete(result.file);
+				return;
+			}
+			if (result.status === 'duplicate') {
+				error = 'This file is already in your library';
+				return;
+			}
+			error = result.error ?? 'Upload failed';
+			return;
+		}
+
+		batchResults = results.map((result, index) => ({ media: media[index], result }));
+		pollPendingBatchResults();
+	}
+
+	async function handleTwitterSelection(media: TwitterMedia[]) {
+		if (!twitterPost) return;
+		const session = modalSession;
 		isUploading = true;
 		error = null;
 		try {
+			await uploadTwitterMedia(twitterPost, media, session);
+		} catch (err) {
+			if (session !== modalSession) return;
+			error = err instanceof Error ? err.message : 'Upload failed';
+			isMediaSelectOpen = false;
+		} finally {
+			isUploading = false;
+		}
+	}
+
+	async function handleUploadUrl() {
+		if (!urlString) return;
+		const session = modalSession;
+		isUploading = true;
+		error = null;
+		try {
+			if (isTwitterPostUrl(urlString)) {
+				const post = await resolveTwitterPost(urlString);
+				if (session !== modalSession) return;
+				// A single image or video needs no choice; upload it straight away
+				if (post.media.length === 1) {
+					await uploadTwitterMedia(post, post.media, session);
+				} else {
+					twitterPost = post;
+					isMediaSelectOpen = true;
+				}
+				return;
+			}
+
 			const result = await uploadByUrl(urlString);
+			if (session !== modalSession) return;
 			urlString = '';
 			await handleUploadComplete(result);
 		} catch (err) {
+			if (session !== modalSession) return;
 			error = err instanceof Error ? err.message : 'Upload failed';
 		} finally {
 			isUploading = false;
@@ -102,12 +210,17 @@
 	}
 
 	function handleClose() {
+		modalSession += 1;
 		poller.stop();
+		stopBatchPollers();
 		isOpen = false;
 		selectedFile = null;
 		error = null;
 		uploaded = null;
 		isProcessing = false;
+		twitterPost = null;
+		isMediaSelectOpen = false;
+		batchResults = null;
 		if (fileInputElement) {
 			fileInputElement.value = '';
 		}
@@ -266,6 +379,66 @@
 					</button>
 				</div>
 			</div>
+		{:else if batchResults}
+			<!-- Multiple uploads: per-item results -->
+			<div class="space-y-4">
+				<h3 class="text-center text-lg font-semibold text-gray-900 dark:text-white">
+					{batchResults.filter(({ result }) => result.status === 'uploaded').length} of {batchResults.length}
+					uploaded
+				</h3>
+
+				<ul
+					class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+				>
+					{#each batchResults as { media, result } (media.index)}
+						<li class="flex items-center gap-4 p-3">
+							<img
+								src={result.file?.thumbnail_url ?? media.thumbnail_url}
+								alt="Media {media.index}"
+								referrerpolicy="no-referrer"
+								class="h-16 w-16 shrink-0 rounded object-cover"
+							/>
+							<div class="min-w-0 flex-1">
+								{#if result.status === 'uploaded' && result.file?.processing_status === 'failed'}
+									<p class="text-sm font-medium text-red-700 dark:text-red-400">
+										Uploaded, processing failed
+									</p>
+									<p class="truncate text-xs text-red-600 dark:text-red-400">
+										{result.file.processing_error ?? 'Processing failed'}
+									</p>
+								{:else if result.status === 'uploaded'}
+									<p class="text-sm font-medium text-green-700 dark:text-green-400">
+										{result.file?.processing_status === 'completed'
+											? 'Uploaded'
+											: 'Uploaded, processing...'}
+									</p>
+								{:else if result.status === 'duplicate'}
+									<p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+										Already in your library
+									</p>
+								{:else}
+									<p class="text-sm font-medium text-red-700 dark:text-red-400">Failed</p>
+									<p class="truncate text-xs text-red-600 dark:text-red-400">{result.error}</p>
+								{/if}
+								{#if result.sha256_hash}
+									<p class="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+										{result.sha256_hash}
+									</p>
+								{/if}
+							</div>
+						</li>
+					{/each}
+				</ul>
+
+				<div class="flex justify-end">
+					<button
+						onclick={handleClose}
+						class="rounded-lg bg-primary-600 px-6 py-2 font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:bg-primary-500 dark:hover:bg-primary-600"
+					>
+						Close
+					</button>
+				</div>
+			</div>
 		{:else}
 			<!-- Upload form -->
 			<div class="space-y-4">
@@ -296,7 +469,7 @@
 					<div class="flex items-center gap-3">
 						<input
 							type="url"
-							placeholder="Direct media URL or Danbooru post URL"
+							placeholder="Direct media URL, Danbooru post, or Twitter/X post URL"
 							class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder:text-gray-500"
 							bind:value={urlString}
 							spellcheck="false"
@@ -380,3 +553,11 @@
 		{/if}
 	</div>
 </WindowModal>
+
+<TwitterMediaSelectModal
+	bind:isOpen={isMediaSelectOpen}
+	post={twitterPost}
+	isSubmitting={isUploading}
+	onConfirm={handleTwitterSelection}
+	onCancel={() => (twitterPost = null)}
+/>
