@@ -6,6 +6,7 @@ import logging
 import mimetypes
 import tempfile
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -21,13 +22,19 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, HttpUrl
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.serializers.file import FileResponse
+from api.serializers.upload import (
+    BatchUrlUploadRequest,
+    BatchUrlUploadResponse,
+    BatchUrlUploadResult,
+    UrlUploadRequest,
+)
 from auth.users import current_active_user
 from database.config import get_db
 from models.file import File as FileModel
@@ -41,18 +48,33 @@ from sources.danbooru.url_resolver import (
     resolve_danbooru_post_url,
 )
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
+from sources.twitter.post_resolver import to_twimg_size_url
 from tasks.processing import process_file_background
 from utils.file_storage import generate_file_path, get_media_storage_dir
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 logger = logging.getLogger(__name__)
 
+# Same cap Nginx puts on direct uploads (client_max_body_size 10240M)
+MAX_URL_DOWNLOAD_BYTES = 10240 * 1024 * 1024
+# Longest wait for the next chunk; slow but progressing downloads still finish
+URL_DOWNLOAD_READ_TIMEOUT_SECONDS = 120.0
+
+
+def _download_too_large_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+        detail=f"File is larger than the {MAX_URL_DOWNLOAD_BYTES // (1024 * 1024)} MiB download limit",
+    )
+
 async def _stream_to_temp_and_hash(
     chunk_iter: AsyncIterator[bytes],
+    max_bytes: int | None = None,
 ) -> tuple[Path, str, str, int, str]:
     """
     Stream chunks to a temp file, detect mime on first chunk, validate media type,
-    and compute sha256/md5 hashes and total size.
+    and compute sha256/md5 hashes and total size. Stops with a 413 once more than
+    max_bytes have been received.
     Returns: (temp_path, sha256_hash, md5_hash, file_size, mime_type)
     """
     temp_dir = get_media_storage_dir() / "temp"
@@ -84,11 +106,14 @@ async def _stream_to_temp_and_hash(
                         detail="File must be an image or video",
                     )
                 first_chunk = False
+            if max_bytes is not None and file_size + len(chunk) > max_bytes:
+                raise _download_too_large_error()
             sha256_hasher.update(chunk)
             md5_hasher.update(chunk)
             temp_file.write(chunk)
             file_size += len(chunk)
-    except HTTPException:
+    except (HTTPException, httpx.TimeoutException):
+        # Timeouts come from the source stream; the caller reports them
         temp_file.close()
         temp_path.unlink(missing_ok=True)
         raise
@@ -130,6 +155,7 @@ async def _persist_ingest(
     mime_type: str,
     db: AsyncSession,
     background_tasks: BackgroundTasks,
+    source: str | None = None,
 ) -> FileResponse:
     """
     Finalize an ingest after a file has been streamed to a temp path.
@@ -259,6 +285,7 @@ async def _persist_ingest(
         width=width,
         height=height,
         ai_generated=ai_generated,
+        source=source,
         phash=phash,
         phash_center_80=phash_center_80,
         phash_center_50=phash_center_50,
@@ -413,23 +440,24 @@ async def _persist_ingest(
 
     return FileResponse.model_validate(file_model)
 
-class UrlUploadRequest(BaseModel):
-    url: HttpUrl
+@dataclass(frozen=True)
+class _DownloadedFile:
+    temp_path: Path
+    sha256_hash: str
+    md5_hash: str
+    file_size: int
+    mime_type: str
+    original_filename: str
 
 
-@router.post("/url", response_model=FileResponse, status_code=status.HTTP_200_OK)
-async def upload_url(
-    payload: UrlUploadRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(current_active_user),
-):
+async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
     """
-    Upload a file by URL. Danbooru post page URLs are resolved to their original
-    media file before the normal download and ingest flow.
+    Download a URL to temp storage with hashing and media validation.
+
+    Danbooru post page URLs are resolved to their original media file, and
+    Twitter image URLs are upgraded to their original size.
     """
     chunk_size = 8192
-    source_url = str(payload.url)
 
     # Derive original filename
     original_filename = "download"
@@ -447,13 +475,17 @@ async def upload_url(
         }
         async with httpx.AsyncClient(
             follow_redirects=True,
-            # Large files may take a long time to download; use generous timeouts
-            # connect: 60s to establish connection (increased for slow remote servers)
-            # read: None (no timeout) to allow slow downloads to complete
-            timeout=httpx.Timeout(None, connect=60.0),
+            # No overall deadline so large files can finish, but a server that stops
+            # sending data fails instead of blocking the request indefinitely
+            timeout=httpx.Timeout(
+                None,
+                connect=60.0,
+                read=URL_DOWNLOAD_READ_TIMEOUT_SECONDS,
+            ),
             headers=danbooru_style_headers,
         ) as client:
             download_url = await resolve_danbooru_post_url(source_url, client)
+            download_url = to_twimg_size_url(download_url, "orig")
 
             async with client.stream("GET", download_url) as resp:
                 if 400 <= resp.status_code < 500:
@@ -466,6 +498,14 @@ async def upload_url(
                         status_code=status.HTTP_502_BAD_GATEWAY,
                         detail=f"Failed to fetch URL: {resp.status_code}",
                     )
+
+                content_length = resp.headers.get("content-length")
+                if (
+                    content_length is not None
+                    and content_length.isdigit()
+                    and int(content_length) > MAX_URL_DOWNLOAD_BYTES
+                ):
+                    raise _download_too_large_error()
 
                 # Try filename from Content-Disposition
                 cd = resp.headers.get("content-disposition") or resp.headers.get("Content-Disposition")
@@ -483,7 +523,8 @@ async def upload_url(
 
                 # Stream body to temp file with hashing and mime validation
                 temp_path, sha256_hash, md5_hash, file_size, mime_type = await _stream_to_temp_and_hash(
-                    resp.aiter_bytes(chunk_size=chunk_size)
+                    resp.aiter_bytes(chunk_size=chunk_size),
+                    max_bytes=MAX_URL_DOWNLOAD_BYTES,
                 )
     except HTTPException:
         raise
@@ -497,6 +538,11 @@ async def upload_url(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(error),
         ) from error
+    except httpx.TimeoutException as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out downloading URL: the server stopped responding",
+        ) from error
     except Exception as error:
         logger.exception("Error downloading URL")
         raise HTTPException(
@@ -504,17 +550,109 @@ async def upload_url(
             detail=f"Failed to download URL: {str(error)}",
         ) from error
 
-    # Finalize ingest
-    return await _persist_ingest(
+    return _DownloadedFile(
         temp_path=temp_path,
         sha256_hash=sha256_hash,
         md5_hash=md5_hash,
         file_size=file_size,
-        original_filename=original_filename,
         mime_type=mime_type,
+        original_filename=original_filename,
+    )
+
+
+async def _persist_download(
+    downloaded: _DownloadedFile,
+    source: str | None,
+    db: AsyncSession,
+    background_tasks: BackgroundTasks,
+) -> FileResponse:
+    return await _persist_ingest(
+        temp_path=downloaded.temp_path,
+        sha256_hash=downloaded.sha256_hash,
+        md5_hash=downloaded.md5_hash,
+        file_size=downloaded.file_size,
+        original_filename=downloaded.original_filename,
+        mime_type=downloaded.mime_type,
         db=db,
         background_tasks=background_tasks,
+        source=source,
     )
+
+
+@router.post("/url", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def upload_url(
+    payload: UrlUploadRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """
+    Upload a file by URL. Danbooru post page URLs are resolved to their original
+    media file before the normal download and ingest flow.
+    """
+    downloaded = await _download_url_to_temp(str(payload.url))
+    return await _persist_download(downloaded, payload.source, db, background_tasks)
+
+
+@router.post("/urls", response_model=BatchUrlUploadResponse, status_code=status.HTTP_200_OK)
+async def upload_urls(
+    payload: BatchUrlUploadRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """
+    Upload several files by URL in one request.
+
+    Items are ingested one at a time and each succeeds or fails independently,
+    so the response is always 200 with a per-item result in request order.
+    """
+    results: list[BatchUrlUploadResult] = []
+    for raw_item in payload.items:
+        url = raw_item.url
+        try:
+            item = UrlUploadRequest.model_validate(raw_item.model_dump())
+        except ValidationError as error:
+            first_error = error.errors()[0]
+            field = ".".join(str(part) for part in first_error["loc"])
+            results.append(
+                BatchUrlUploadResult(
+                    url=url,
+                    status="failed",
+                    error=f"Invalid {field}: {first_error['msg']}",
+                )
+            )
+            continue
+
+        downloaded: _DownloadedFile | None = None
+        try:
+            downloaded = await _download_url_to_temp(str(item.url))
+            file_response = await _persist_download(downloaded, item.source, db, background_tasks)
+        except HTTPException as error:
+            if error.status_code == status.HTTP_409_CONFLICT and downloaded is not None:
+                results.append(
+                    BatchUrlUploadResult(
+                        url=url,
+                        status="duplicate",
+                        sha256_hash=downloaded.sha256_hash,
+                    )
+                )
+                continue
+
+            logger.warning("Batch URL upload failed for %s: %s", url, error.detail)
+            results.append(BatchUrlUploadResult(url=url, status="failed", error=str(error.detail)))
+            continue
+
+        results.append(
+            BatchUrlUploadResult(
+                url=url,
+                status="uploaded",
+                sha256_hash=file_response.sha256_hash,
+                file=file_response,
+            )
+        )
+
+    return BatchUrlUploadResponse(results=results)
 
 
 @router.put("/file", response_model=FileResponse, status_code=status.HTTP_200_OK)
