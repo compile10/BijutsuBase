@@ -73,6 +73,25 @@ class ToTwimgSizeUrlTests(unittest.TestCase):
             "https://pbs.twimg.com/media/ABC?format=png&name=orig",
         )
 
+    def test_rewrites_video_thumbnails(self) -> None:
+        urls = {
+            "https://pbs.twimg.com/amplify_video_thumb/1/img/ABC.jpg": (
+                "https://pbs.twimg.com/amplify_video_thumb/1/img/ABC?format=jpg&name=small"
+            ),
+            "https://pbs.twimg.com/tweet_video_thumb/ABC.jpg": (
+                "https://pbs.twimg.com/tweet_video_thumb/ABC?format=jpg&name=small"
+            ),
+        }
+
+        for url, expected in urls.items():
+            with self.subTest(url=url):
+                self.assertEqual(to_twimg_size_url(url, "small"), expected)
+
+    def test_leaves_profile_images_unchanged(self) -> None:
+        url = "https://pbs.twimg.com/profile_images/1661201415899951105/azNjKOSH_normal.jpg"
+
+        self.assertEqual(to_twimg_size_url(url, "orig"), url)
+
     def test_leaves_other_hosts_unchanged(self) -> None:
         url = "https://cdn.donmai.us/original/c4/29/image.jpg"
 

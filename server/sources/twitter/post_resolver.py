@@ -25,6 +25,13 @@ TWITTER_POST_HOSTS = frozenset(
     }
 )
 TWITTER_IMAGE_HOST = "pbs.twimg.com"
+# Paths that accept ?format=<ext>&name=<size>; others, like profile_images,
+# use a different scheme and 404 when rewritten
+TWITTER_SIZED_IMAGE_PATH_PREFIXES = (
+    "/media/",
+    "/amplify_video_thumb/",
+    "/tweet_video_thumb/",
+)
 SYNDICATION_URL = "https://cdn.syndication.twimg.com/tweet-result"
 
 # Post IDs are 64-bit snowflakes, so at most 20 digits
@@ -59,10 +66,13 @@ def to_twimg_size_url(media_url: str, size: str) -> str:
     Handles the legacy ``<id>.jpg:large`` form, the extension form
     ``<id>.jpg`` and the query form ``<id>?format=jpg&name=small``. The format
     is preserved because requesting a different one (e.g. png for a jpg upload)
-    returns 404. Non-twimg URLs are returned unchanged.
+    returns 404. Any other URL, including pbs.twimg.com paths that don't use this
+    scheme, is returned unchanged.
     """
     parsed = urlparse(media_url)
     if parsed.hostname != TWITTER_IMAGE_HOST:
+        return media_url
+    if not parsed.path.startswith(TWITTER_SIZED_IMAGE_PATH_PREFIXES):
         return media_url
 
     path = parsed.path.split(":", 1)[0]
