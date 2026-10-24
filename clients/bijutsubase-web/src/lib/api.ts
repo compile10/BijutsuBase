@@ -527,7 +527,10 @@ export async function uploadByUrls(items: UrlUploadItem[]): Promise<BatchUrlUplo
 	});
 
 	if (!response.ok) {
-		throw new APIError(response, `URL upload failed: ${response.statusText}`);
+		const error = await response.json().catch(() => ({ detail: response.statusText }));
+		// Validation errors carry a list of issues rather than a message
+		const detail = typeof error.detail === 'string' ? error.detail : response.statusText;
+		throw new APIError(response, `URL upload failed: ${detail}`);
 	}
 
 	const body: { results: BatchUrlUploadResult[] } = await response.json();

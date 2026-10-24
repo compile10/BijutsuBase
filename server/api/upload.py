@@ -112,8 +112,8 @@ async def _stream_to_temp_and_hash(
             md5_hasher.update(chunk)
             temp_file.write(chunk)
             file_size += len(chunk)
-    except (HTTPException, httpx.TimeoutException):
-        # Timeouts come from the source stream; the caller reports them
+    except (HTTPException, httpx.TransportError):
+        # Transport errors come from the source stream; the caller reports them
         temp_file.close()
         temp_path.unlink(missing_ok=True)
         raise
@@ -145,6 +145,12 @@ async def _stream_to_temp_and_hash(
         file_size,
         mime_type,
     )
+
+def _remove_stored_media(sha256_hash: str, final_path: Path) -> None:
+    """Delete an ingest's original and thumbnail when it never reached the DB."""
+    final_path.unlink(missing_ok=True)
+    generate_file_path(sha256_hash, "webp", thumb=True).unlink(missing_ok=True)
+
 
 async def _persist_ingest(
     temp_path: Path,
@@ -306,7 +312,7 @@ async def _persist_ingest(
     except Exception as e:
         await db.rollback()
         # Cleanup disk if DB fails for other reasons
-        final_path.unlink(missing_ok=True)
+        _remove_stored_media(sha256_hash, final_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save file to database: {str(e)}",
@@ -346,6 +352,7 @@ async def _persist_ingest(
             )
 
     # For images, continue with synchronous enrichment
+    committed = False
     try:
         danbooru_success = await enrich_file_with_danbooru(file_model, db)
         if not danbooru_success:
@@ -359,6 +366,7 @@ async def _persist_ingest(
 
         # Now commit everything together
         await db.commit()
+        committed = True
 
         # Reload file with all relationships needed for response
         # We need to reload after commit because commit expires the instance
@@ -433,6 +441,8 @@ async def _persist_ingest(
 
     except Exception as e:
         await db.rollback()
+        if not committed:
+            _remove_stored_media(sha256_hash, final_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to enrich file with metadata: {str(e)}",
@@ -473,6 +483,8 @@ async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
             **({"Referer": f"{origin}/"} if origin else {}),
             **({"Origin": origin} if origin else {}),
         }
+        # TODO: Guard against SSRF. Any URL (and redirect target) is fetched as-is,
+        # including loopback, private, and link-local addresses.
         async with httpx.AsyncClient(
             follow_redirects=True,
             # No overall deadline so large files can finish, but a server that stops
@@ -542,6 +554,11 @@ async def _download_url_to_temp(source_url: str) -> _DownloadedFile:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Timed out downloading URL: the server stopped responding",
+        ) from error
+    except httpx.TransportError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to download URL: {error}",
         ) from error
     except Exception as error:
         logger.exception("Error downloading URL")
