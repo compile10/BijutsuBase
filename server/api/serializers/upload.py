@@ -16,7 +16,7 @@ class UrlUploadRequest(BaseModel):
 
 
 class BatchUrlUploadItem(BaseModel):
-    """Loosely typed so a bad item fails on its own instead of rejecting the batch."""
+    """Loosely typed so an invalid URL or over-long source fails only its own item."""
 
     url: str
     source: str | None = None

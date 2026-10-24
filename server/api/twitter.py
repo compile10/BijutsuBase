@@ -43,6 +43,11 @@ async def resolve_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
+    except httpx.TimeoutException as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out resolving post: Twitter stopped responding",
+        ) from error
     except (TwitterApiError, httpx.HTTPError) as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
