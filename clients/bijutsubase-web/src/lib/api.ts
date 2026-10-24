@@ -552,11 +552,30 @@ export interface TwitterPost {
 	media: TwitterMedia[];
 }
 
-const TWITTER_POST_URL_PATTERN =
-	/^https?:\/\/(?:(?:www|mobile)\.)?(?:twitter|x)\.com\/(?:i\/web|i|\w+)\/status(?:es)?\/\d+/i;
+// Mirrors get_twitter_post_id on the server
+const TWITTER_POST_HOSTS = new Set([
+	'twitter.com',
+	'www.twitter.com',
+	'mobile.twitter.com',
+	'x.com',
+	'www.x.com',
+	'mobile.x.com'
+]);
+const TWITTER_POST_PATH_PATTERN = /^\/(?:i\/web|i|[A-Za-z0-9_]+)\/status(?:es)?\/\d{1,20}(?:\/|$)/;
 
 export function isTwitterPostUrl(url: string): boolean {
-	return TWITTER_POST_URL_PATTERN.test(url.trim());
+	let parsed: URL;
+	try {
+		parsed = new URL(url.trim());
+	} catch {
+		return false;
+	}
+
+	return (
+		(parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+		TWITTER_POST_HOSTS.has(parsed.hostname) &&
+		TWITTER_POST_PATH_PATTERN.test(parsed.pathname)
+	);
 }
 
 /**

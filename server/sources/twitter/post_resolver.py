@@ -30,6 +30,7 @@ TWITTER_IMAGE_HOST = "pbs.twimg.com"
 TWITTER_SIZED_IMAGE_PATH_PREFIXES = (
     "/media/",
     "/amplify_video_thumb/",
+    "/ext_tw_video_thumb/",
     "/tweet_video_thumb/",
 )
 SYNDICATION_URL = "https://cdn.syndication.twimg.com/tweet-result"
@@ -141,7 +142,7 @@ def _best_video_url(media: dict[str, Any]) -> str | None:
 
 def _parse_media(media_details: list[dict[str, Any]]) -> list[TwitterMedia]:
     media_items: list[TwitterMedia] = []
-    for media in media_details:
+    for index, media in enumerate(media_details, start=1):
         media_type = media.get("type")
         preview_url = media.get("media_url_https")
         if not isinstance(preview_url, str):
@@ -164,7 +165,7 @@ def _parse_media(media_details: list[dict[str, Any]]) -> list[TwitterMedia]:
         height = original_info.get("height")
         media_items.append(
             TwitterMedia(
-                index=len(media_items) + 1,
+                index=index,
                 type=media_type,
                 url=download_url,
                 thumbnail_url=to_twimg_size_url(preview_url, "small"),
