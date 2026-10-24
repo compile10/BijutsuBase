@@ -15,6 +15,7 @@ from api.tags import router as tags_router
 from api.pools import router as pools_router
 from api.families import router as families_router
 from api.setup import router as setup_router
+from api.twitter import router as twitter_router
 from auth import fastapi_users, auth_backend, UserRead, UserCreate, UserUpdate
 from models.user import User  # noqa: F401 - Import to register with Alembic
 
@@ -71,6 +72,7 @@ app.include_router(tags_router, prefix="/api")
 app.include_router(pools_router, prefix="/api")
 app.include_router(families_router, prefix="/api")
 app.include_router(setup_router, prefix="/api")
+app.include_router(twitter_router, prefix="/api")
 
 # Register auth routers
 app.include_router(
