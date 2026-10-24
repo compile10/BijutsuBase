@@ -81,6 +81,9 @@ class ToTwimgSizeUrlTests(unittest.TestCase):
             "https://pbs.twimg.com/tweet_video_thumb/ABC.jpg": (
                 "https://pbs.twimg.com/tweet_video_thumb/ABC?format=jpg&name=small"
             ),
+            "https://pbs.twimg.com/ext_tw_video_thumb/1/pu/img/ABC.jpg": (
+                "https://pbs.twimg.com/ext_tw_video_thumb/1/pu/img/ABC?format=jpg&name=small"
+            ),
         }
 
         for url, expected in urls.items():
@@ -198,11 +201,14 @@ class ResolveTwitterPostTests(unittest.IsolatedAsyncioTestCase):
                         "media_url_https": "https://pbs.twimg.com/x/BBB.jpg",
                         "video_info": {"variants": ["oops", {"content_type": "video/mp4"}]},
                     },
+                    _photo("CCC"),
                 ],
             }
         )
 
-        self.assertEqual([media.type for media in post.media], ["photo"])
+        self.assertEqual([media.type for media in post.media], ["photo", "photo"])
+        # Indexes keep the post's numbering past the skipped video
+        self.assertEqual([media.index for media in post.media], [1, 3])
 
     async def test_rejects_tombstone(self) -> None:
         with self.assertRaisesRegex(TwitterPostUnavailableError, "age-restricted.*without logging in"):
