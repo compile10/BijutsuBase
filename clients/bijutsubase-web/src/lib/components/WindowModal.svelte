@@ -16,6 +16,9 @@
 		children: Snippet;
 	}>();
 
+	let overlayElement = $state<HTMLDivElement | null>(null);
+	let panelElement = $state<HTMLDivElement | null>(null);
+
 	function handleClose() {
 		if (onClose) {
 			onClose();
@@ -25,9 +28,14 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			handleClose();
-		}
+		if (event.key !== 'Escape') return;
+
+		// With stacked modals, only the most recently opened one should close.
+		// Svelte marks a modal inert while it fades out, so closing ones don't count.
+		const openModals = document.querySelectorAll('[data-window-modal]:not([inert])');
+		if (openModals[openModals.length - 1] !== overlayElement) return;
+
+		handleClose();
 	}
 
 	$effect(() => {
@@ -42,11 +50,19 @@
 			};
 		}
 	});
+
+	// Move focus into the dialog so Enter/Space don't re-trigger the control that opened it
+	$effect(() => {
+		if (panelElement && !panelElement.contains(document.activeElement)) {
+			panelElement.focus({ preventScroll: true });
+		}
+	});
 </script>
 
 {#if isOpen}
 	<!-- data-window-modal lets an overlay underneath detect that a modal is stacked on it. -->
 	<div
+		bind:this={overlayElement}
 		data-window-modal
 		class="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm"
 		transition:fade={{ duration: 200 }}
@@ -56,7 +72,8 @@
 		<!-- The dimming covers the screen; the panel is confined to the safe rectangle. -->
 		<div class="absolute inset-safe flex items-center justify-center p-4">
 			<div
-				class="relative flex max-h-[90svh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800 {maxWidth}"
+				bind:this={panelElement}
+				class="relative flex max-h-[90svh] w-full flex-col rounded-xl bg-white shadow-xl outline-none dark:bg-gray-800 {maxWidth}"
 				transition:fly={{ y: 20, duration: 200 }}
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={() => {}}
