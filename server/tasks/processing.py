@@ -12,7 +12,7 @@ from models.file import File as FileModel, ProcessingStatus
 from utils.file_storage import generate_file_path
 from utils.thumbnail_gen import generate_video_thumbnail
 from utils.file_info import get_video_dimensions
-from sources.danbooru.enrich_file import enrich_file_with_danbooru
+from sources.booru_enrichment import enrich_file_from_boorus
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 
 
@@ -115,12 +115,12 @@ async def process_file_background(sha256_hash: str) -> None:
                 logger.info(f"Generating video thumbnail for {sha256_hash}")
                 await _generate_video_thumbnail_for_file(file)
             
-            # Run enrichment (Danbooru first, fallback to ONNX)
+            # Run enrichment (Danbooru, then Gelbooru, fallback to ONNX)
             logger.info(f"Running enrichment for {sha256_hash}")
             try:
-                danbooru_success = await enrich_file_with_danbooru(file, db)
-                if not danbooru_success:
-                    logger.info(f"Danbooru lookup failed for {sha256_hash}, falling back to ONNX")
+                booru_success = await enrich_file_from_boorus(file, db)
+                if not booru_success:
+                    logger.info(f"Booru lookups failed for {sha256_hash}, falling back to ONNX")
                     try:
                         await enrich_file_with_onnx(file, db)
                     except Exception as e:

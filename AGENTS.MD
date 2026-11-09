@@ -16,6 +16,7 @@ This document orients AI agents and contributors to work effectively in the Biju
   - Alembic initial migration for `files`, `tags`, and `file_tags` (includes `rating`, `source`, `ai_generated`).
   - File upload endpoint streams to disk, validates MIME with `python-magic`, computes MD5/SHA256, extracts dimensions (PIL/OpenCV), and persists.
   - Automatic Danbooru metadata enrichment on upload (rating/source/tags) via `sources/danbooru/*` with in-process caching.
+  - Gelbooru fallback enrichment (`sources/gelbooru/*`) when Danbooru misses; orchestrated by `sources/booru_enrichment.py` before falling back to ONNX. Requires `GELBOORU_API_KEY` and `GELBOORU_USER_ID` (Gelbooru rejects anonymous API calls); skipped when unset.
   - Thumbnail generation (images and animated WebP for videos) on `before_insert`; disk cleanup on `after_delete`.
   - File search by tags (`/api/files/search`) returning thumbnail URLs.
   - Automatic image-family creation uses crop-aware pHash candidate retrieval followed by OpenCV SIFT/RANSAC verification; existing families are parent-gated and never auto-merged.
@@ -34,7 +35,7 @@ This document orients AI agents and contributors to work effectively in the Biju
 - `server/api/`: API routers (`health.py`, `files.py`, `media.py`, `tags.py`).
 - `server/api/serializers/`: Pydantic serializers (e.g., `file.py`, `danbooru.py`).
 - `server/utils/`: Utilities (`file_storage.py`, `file_info.py`, `thumbnail_gen.py`).
-- `server/sources/`: External integrations (Danbooru, ONNX models).
+- `server/sources/`: External integrations (Danbooru, Gelbooru, ONNX models).
 - `server/alembic/`: migrations config and versions.
 - `clients/bijutsubase-web/`: SvelteKit web client (SSR build for Docker).
 - `nginx/nginx.conf`: reverse proxy for API (`/api`), media (`/media`) and web (all other routes).
@@ -56,6 +57,7 @@ This document orients AI agents and contributors to work effectively in the Biju
   - Local host: `postgresql+psycopg://postgres:postgres@localhost:5432/bijutsubase`
   - In Docker: `postgresql+psycopg://postgres:postgres@postgres:5432/bijutsubase`
 - Optional (Docker compose provides): `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
+- **GELBOORU_API_KEY** / **GELBOORU_USER_ID**: Optional Gelbooru credentials (from Gelbooru account options) enabling the Gelbooru tag fallback. Both must be set.
 - In dev, SQLAlchemy engine uses `echo=True`; ensure it is `False` in production.
 
 ### Build and run
@@ -240,11 +242,11 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 ### API quick reference
 
 - `GET /api/health` — API readiness and DB connectivity.
-- `PUT /api/upload/file` — Upload image/video from multipart form data; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru and ONNX model.
-- `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru post URL; resolves Danbooru posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru and the ONNX model.
+- `PUT /api/upload/file` — Upload image/video from multipart form data; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru, then Gelbooru, then the ONNX model.
+- `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru post URL; resolves Danbooru posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru, then Gelbooru, then the ONNX model.
  - `GET /api/files/search?tags=<space+separated+tags>` — Search files containing ALL tags; returns thumbnails.
 - `GET /api/files/{sha256}` — Fetch file details including tags and computed URLs.
-- `POST /api/files/{sha256}/refetch-danbooru` — Re-run Danbooru enrichment for a stored file (used when tags came from the ONNX model); replaces existing tags on a hit, returns 404 and leaves metadata untouched on a miss.
+- `POST /api/files/{sha256}/refetch-tags` — Re-run booru enrichment (Danbooru, then Gelbooru) for a stored file (offered in the UI when tags came from Gelbooru or the ONNX model); replaces existing tags on a hit, returns 404 and leaves metadata untouched on a miss.
 - `DELETE /api/files/{sha256}` — Delete file and associations; disk cleanup occurs.
 - `GET /media/original/...` — Serve original media.
 - `GET /media/thumb/...` — Serve generated WebP thumbnails.

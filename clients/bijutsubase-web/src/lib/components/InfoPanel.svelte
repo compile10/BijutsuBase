@@ -5,7 +5,7 @@
 		APIError,
 		createFamily,
 		deleteFamily,
-		refetchDanbooruMetadata,
+		refetchBooruMetadata,
 		removeChildFromFamily,
 		updateFileAiGenerated,
 		updateFileRating
@@ -47,11 +47,12 @@
 	let aiError = $state<string | null>(null);
 	let isEditingAi = $state(false);
 
-	// Danbooru refetch state management (only offered for AI generated tags)
+	// Booru refetch state management (offered unless tags already came from Danbooru, so
+	// files that fell back to Gelbooru or the AI model can upgrade once Danbooru has them)
 	let isRefetchingTags = $state(false);
 	let isNotFoundModalOpen = $state(false);
 	let notFoundMessage = $state('');
-	let hasAiTags = $derived(file.tag_source === 'onnx');
+	let canRefetchTags = $derived(file.tag_source !== 'danbooru');
 
 	// Family state management
 	let isEditingFamily = $state(false);
@@ -151,21 +152,21 @@
 		}
 	}
 
-	// Retry Danbooru enrichment for files that fell back to AI generated tags
+	// Retry booru enrichment for files that fell back to Gelbooru or AI generated tags
 	async function handleRefetchTags() {
 		if (isRefetchingTags) return;
 
 		isRefetchingTags = true;
 
 		try {
-			file = await refetchDanbooruMetadata(file.sha256_hash);
+			file = await refetchBooruMetadata(file.sha256_hash);
 		} catch (error) {
 			notFoundMessage =
 				error instanceof APIError && error.status === 404
-					? 'This image could not be found on Danbooru. Its existing tags were left unchanged.'
-					: 'Could not refetch tags from Danbooru. Its existing tags were left unchanged.';
+					? 'This image could not be found on any configured booru. Its existing tags were left unchanged.'
+					: 'Could not refetch tags. Its existing tags were left unchanged.';
 			isNotFoundModalOpen = true;
-			console.error('Danbooru refetch error:', error);
+			console.error('Booru refetch error:', error);
 		} finally {
 			isRefetchingTags = false;
 		}
@@ -408,7 +409,7 @@
 					</div>
 				</div>
 
-				{#if hasAiTags}
+				{#if canRefetchTags}
 					<button
 						type="button"
 						onclick={handleRefetchTags}
@@ -416,7 +417,7 @@
 						class="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 					>
 						<IconRefresh class="h-4 w-4 {isRefetchingTags ? 'animate-spin' : ''}" />
-						{isRefetchingTags ? 'Refetching...' : 'Refetch tags from Danbooru'}
+						{isRefetchingTags ? 'Refetching...' : 'Refetch tags from boorus'}
 					</button>
 				{/if}
 			</section>

@@ -23,7 +23,7 @@ from utils.rating import get_allowed_ratings
 from api.serializers.file import FileResponse, FileThumb, BulkFileRequest, BulkUpdateFileRequest, FileSearchResponse
 from api.serializers.tag import TagResponse
 from auth.users import current_active_user
-from sources.danbooru.enrich_file import refetch_file_from_danbooru
+from sources.booru_enrichment import refetch_file_from_boorus
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -582,16 +582,17 @@ async def update_file_ai_generated(
     return FileResponse.model_validate(file_model)
 
 
-@router.post("/{sha256}/refetch-danbooru", response_model=FileResponse, status_code=status.HTTP_200_OK)
-async def refetch_danbooru_metadata(
+@router.post("/{sha256}/refetch-tags", response_model=FileResponse, status_code=status.HTTP_200_OK)
+async def refetch_booru_metadata(
     sha256: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
-    """Re-run Danbooru enrichment for a file, replacing its tags when a post is found.
+    """Re-run booru enrichment (Danbooru, then Gelbooru) for a file, replacing its tags when a post is found.
 
-    Used to upgrade files whose tags came from the ONNX model. If the file has no
-    matching Danbooru post, a 404 is returned and the existing metadata is kept.
+    Used to upgrade files whose tags came from the ONNX model or from Gelbooru. If no
+    configured booru has a matching post, a 404 is returned and the existing metadata
+    is kept.
     """
     result = await db.execute(select(FileModel).where(FileModel.sha256_hash == sha256))
     file_model = result.scalar_one_or_none()
@@ -599,11 +600,11 @@ async def refetch_danbooru_metadata(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     try:
-        found = await refetch_file_from_danbooru(file_model, db)
-        if not found:
+        tag_source = await refetch_file_from_boorus(file_model, db)
+        if tag_source is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No Danbooru post found for this file"
+                detail="No booru post was found for this image."
             )
         await db.commit()
     except HTTPException:
@@ -611,10 +612,10 @@ async def refetch_danbooru_metadata(
         raise
     except Exception as e:
         await db.rollback()
-        logger.error(f"Failed to refetch Danbooru metadata for file {sha256}: {str(e)}")
+        logger.error(f"Failed to refetch booru metadata for file {sha256}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refetch Danbooru metadata: {str(e)}"
+            detail=f"Failed to refetch booru metadata: {str(e)}"
         )
 
     # Tag counts are maintained by connection-level events, so drop cached state

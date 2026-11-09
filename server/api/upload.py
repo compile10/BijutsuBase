@@ -34,7 +34,7 @@ from models.file import File as FileModel
 from models.file import ProcessingStatus
 from models.pool import Pool, PoolMember
 from models.user import User
-from sources.danbooru.enrich_file import enrich_file_with_danbooru
+from sources.booru_enrichment import enrich_file_from_boorus
 from sources.danbooru.url_resolver import (
     DanbooruApiError,
     DanbooruPostUnavailableError,
@@ -320,8 +320,8 @@ async def _persist_ingest(
 
     # For images, continue with synchronous enrichment
     try:
-        danbooru_success = await enrich_file_with_danbooru(file_model, db)
-        if not danbooru_success:
+        booru_success = await enrich_file_from_boorus(file_model, db)
+        if not booru_success:
             try:
                 await enrich_file_with_onnx(file_model, db)
             except Exception as e:

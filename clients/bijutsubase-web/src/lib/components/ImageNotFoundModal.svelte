@@ -4,7 +4,7 @@
 
 	let {
 		isOpen = $bindable(false),
-		message = 'This image could not be found on Danbooru, so its tags were left unchanged.'
+		message = 'This image could not be found on any configured booru, so its tags were left unchanged.'
 	} = $props<{
 		isOpen: boolean;
 		message?: string;
