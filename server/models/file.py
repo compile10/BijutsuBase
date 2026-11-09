@@ -31,6 +31,7 @@ class Rating(str, enum.Enum):
 class TagSource(str, enum.Enum):
     """Tag source enum for file tags."""
     DANBOORU = "danbooru"
+    GELBOORU = "gelbooru"
     ONNX = "onnx"
 
 

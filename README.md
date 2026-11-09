@@ -7,6 +7,7 @@ BijutsuBase is a modern, self-hosted web application for organizing and storing 
 *   **Media Organization**: Store and manage large collections of images and videos.
 *   **Smart Tagging**:
     *   **Danbooru Integration**: Automatically identifies files by hash and fetches metadata (tags, ratings, source) directly from Danbooru.
+    *   **Gelbooru Fallback**: When Danbooru has no match, looks the file up on Gelbooru instead. Set `GELBOORU_API_KEY` and `GELBOORU_USER_ID` (from your Gelbooru account options) to enable it.
     *   **AI Auto-Tagging**: Fallback on-device tagging using an ONNX model (e.g., WD 1.4 Tagger) for files not found online. Includes frame-sampling support for video files.
 *   **Advanced Search**: Filter your collection by tags, rating (Safe, Questionable, Explicit), and other metadata.
 *   **High-Performance UI**: Built with Svelte 5 and SvelteKit.
@@ -99,7 +100,7 @@ The frontend usually runs on `http://localhost:5173` in dev mode. You may need t
     *   `api/`: API routes and endpoints.
     *   `database/`: Database models and configuration.
     *   `ml/`: Machine learning configuration and models.
-    *   `sources/`: External data source integrations (Danbooru, ONNX).
+    *   `sources/`: External data source integrations (Danbooru, Gelbooru, ONNX).
 *   `nginx/`: Nginx configuration for the reverse proxy.
 *   `docker-compose.yml`: Service orchestration.
 

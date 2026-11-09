@@ -1,124 +1,36 @@
 """Functions for enriching File models with Danbooru metadata."""
-from typing import TYPE_CHECKING
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 
 from models.file import File, Rating, TagSource
-from models.tag import Tag, TagCategory, FileTag
-from .danbooru_client import DanbooruClient
+from models.tag import TagCategory
+from sources.tag_utils import associate_tags
 from api.serializers.danbooru import DanbooruPost
 
-if TYPE_CHECKING:
-    pass
 
-
-async def enrich_file_with_danbooru(
+async def apply_danbooru_post(
     file: File,
     db: AsyncSession,
-) -> bool:
-    """Make a Danbooru API request and enrich the file with metadata.
-    
-    Creates a Danbooru client, fetches post information, and calls
-    the enrichment functions to set rating, source, and tags.
-    
+    post: DanbooruPost,
+) -> None:
+    """Set rating, source, tags, and tag source on a file from a Danbooru post.
+
     Args:
         file: The File model instance to enrich
         db: AsyncSession for database operations
-        
-    Returns:
-        True if Danbooru metadata was successfully applied, False if file not found
-        
-    Raises:
-        ValueError: If multiple posts are found for the same MD5 hash
-        Other exceptions from the enrichment functions are propagated
+        post: The Danbooru post matching the file
     """
-    danbooru_client = DanbooruClient()
-    posts = await danbooru_client.get_post(file.md5_hash)
-    
-    if not posts:
-        # File not found on Danbooru
-        return False
-    
-    # Validate there's exactly one post
-    if len(posts) > 1:
-        raise ValueError("Multiple posts found for the same MD5 hash")
-    
-    # Enrich file with Danbooru metadata
-    set_rating_from_danbooru(file, posts)
-    set_source_from_danbooru(file, posts)
-    await add_tags_from_danbooru(file, db, posts)
+    set_rating_from_danbooru(file, post)
+    set_source_from_danbooru(file, post)
+    await add_tags_from_danbooru(file, db, post)
     file.tag_source = TagSource.DANBOORU
-
-    return True
-
-
-async def refetch_file_from_danbooru(
-    file: File,
-    db: AsyncSession,
-) -> bool:
-    """Re-fetch Danbooru metadata for a stored file, replacing its existing tags.
-
-    Unlike `enrich_file_with_danbooru`, existing tag associations are cleared before
-    the Danbooru tags are applied. Removal only happens once a matching post is found,
-    so a lookup miss leaves the file's current metadata untouched.
-
-    Args:
-        file: The File model instance to refresh
-        db: AsyncSession for database operations
-
-    Returns:
-        True if Danbooru metadata was applied, False if the post was not found
-
-    Raises:
-        ValueError: If multiple posts are found for the same MD5 hash
-    """
-    danbooru_client = DanbooruClient()
-    posts = await danbooru_client.get_post(file.md5_hash)
-
-    if not posts:
-        return False
-
-    if len(posts) > 1:
-        raise ValueError("Multiple posts found for the same MD5 hash")
-
-    await remove_tags_from_file(file, db)
-
-    set_rating_from_danbooru(file, posts)
-    set_source_from_danbooru(file, posts)
-    await add_tags_from_danbooru(file, db, posts)
-    file.tag_source = TagSource.DANBOORU
-
-    return True
-
-
-async def remove_tags_from_file(file: File, db: AsyncSession) -> None:
-    """Delete every tag association for a file.
-
-    Associations are deleted through the ORM so the `FileTag` delete events keep
-    tag counts accurate and prune orphaned tags.
-
-    Args:
-        file: The File model instance to strip tags from
-        db: AsyncSession for database operations
-    """
-    result = await db.execute(
-        select(FileTag).where(FileTag.file_sha256_hash == file.sha256_hash)
-    )
-
-    for association in result.scalars().all():
-        await db.delete(association)
-
-    await db.flush()
 
 
 def _map_danbooru_rating(danbooru_rating: str | None) -> Rating:
     """Map Danbooru rating string to Rating enum.
-    
+
     Args:
         danbooru_rating: Danbooru rating string (g, s, q, e) or None
-        
+
     Returns:
         Rating enum value
     """
@@ -138,30 +50,15 @@ def _map_danbooru_rating(danbooru_rating: str | None) -> Rating:
 async def add_tags_from_danbooru(
     file: File,
     db: AsyncSession,
-    posts: list[DanbooruPost]
-) -> AsyncSession:
-    """Add tags to a File from Danbooru post data.
-    
-    Creates/associates tags with the file, correctly mapping tag categories.
-    
+    post: DanbooruPost,
+) -> None:
+    """Add tags to a File from Danbooru post data, mapping tag categories.
+
     Args:
         file: The File model instance to add tags to
         db: AsyncSession for database operations
-        posts: List of DanbooruPost objects (should contain exactly one post)
-        
-    Returns:
-        The same db session for transaction management
-        
-    Raises:
-        ValueError: If multiple posts are provided
+        post: The Danbooru post matching the file
     """
-    # Validate there's exactly one post
-    if len(posts) > 1:
-        raise ValueError("Multiple posts found for the same MD5 hash")
-    
-    post = posts[0]
-    
-    # Map tag strings to categories
     tag_mappings = [
         (post.tag_string_general, TagCategory.GENERAL),
         (post.tag_string_artist, TagCategory.ARTIST),
@@ -170,97 +67,31 @@ async def add_tags_from_danbooru(
         (post.tag_string_meta, TagCategory.META),
     ]
 
-    # Process each tag string
     for tag_string, category in tag_mappings:
-        if not tag_string:
-            continue
-
-        # Split tag string (tags are space-separated)
-        tag_names = [name.strip() for name in tag_string.split() if name.strip()]
-
-        for tag_name in tag_names:
-            # First, try to insert the Tag optimistically and handle existing rows
-            tag: Tag | None = None
-            try:
-                async with db.begin_nested():
-                    tag = Tag(name=tag_name, category=category)
-                    db.add(tag)
-            except IntegrityError:
-                # Tag with this name already exists; load it instead
-                tag = await db.scalar(select(Tag).where(Tag.name == tag_name))
-                if tag is None:
-                    # If we still can't find it, re-raise so the caller can handle
-                    raise
-
-            # Next, try to insert the FileTag association and ignore duplicates
-            try:
-                async with db.begin_nested():
-                    file_tag = FileTag(
-                        file_sha256_hash=file.sha256_hash,
-                        tag_id=tag.id,
-                    )
-                    db.add(file_tag)
-            except IntegrityError:
-                # Association already exists; safe to ignore
-                continue
-
-    return db
+        await associate_tags(file, db, tag_string.split(), category)
 
 
-def set_rating_from_danbooru(
-    file: File,
-    posts: list[DanbooruPost]
-) -> None:
+def set_rating_from_danbooru(file: File, post: DanbooruPost) -> None:
     """Set rating on a File from Danbooru post data.
-    
-    This function only modifies the File object and should be called before
-    adding the file to the database in a transaction.
-    
+
     Args:
         file: The File model instance to set rating on
-        posts: List of DanbooruPost objects (should contain exactly one post)
-        
-    Raises:
-        ValueError: If multiple posts are provided
+        post: The Danbooru post matching the file
     """
-    # Validate there's exactly one post
-    if len(posts) > 1:
-        raise ValueError("Multiple posts found for the same MD5 hash")
-    
-    post = posts[0]
-    
-    # Map and set rating
     file.rating = _map_danbooru_rating(post.rating)
 
 
-def set_source_from_danbooru(
-    file: File,
-    posts: list[DanbooruPost]
-) -> None:
+def set_source_from_danbooru(file: File, post: DanbooruPost) -> None:
     """Set source on a File from Danbooru post data.
-    
-    This function only modifies the File object and should be called before
-    adding the file to the database in a transaction.
-    
+
     Prefers Pixiv artwork page URL over direct image URLs when pixiv_id is available.
-    
+
     Args:
         file: The File model instance to set source on
-        posts: List of DanbooruPost objects (should contain exactly one post)
-        
-    Raises:
-        ValueError: If multiple posts are provided
+        post: The Danbooru post matching the file
     """
-    # Validate there's exactly one post
-    if len(posts) > 1:
-        raise ValueError("Multiple posts found for the same MD5 hash")
-    
-    post = posts[0]
-    
-    # Prefer Pixiv artwork page URL if pixiv_id is available
     if post.pixiv_id:
         file.source = f"https://www.pixiv.net/artworks/{post.pixiv_id}"
     elif post.source:
         # Fall back to the source field (may be direct image URL or other source)
         file.source = post.source
-

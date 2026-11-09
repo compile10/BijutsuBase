@@ -90,19 +90,19 @@ class DanbooruClient:
                 data = response.json()
                 if isinstance(data, dict):
                     # Single post returned as dict - wrap in list
-                    result = [DanbooruPost(**data)]
+                    result = [DanbooruPost.model_validate(data)]
                 elif isinstance(data, list):
                     # Multiple posts or empty list
-                    result = [DanbooruPost(**post) for post in data]
+                    result = [DanbooruPost.model_validate(post) for post in data]
                 else:
                     # Unexpected format
                     logger.warning(f"Unexpected response format from Danbooru API: {type(data)}")
                     return []
 
                 return result
-        # TODO: Transport failures are indistinguishable from a genuine miss here, so
-        # /api/files/{sha256}/refetch-danbooru answers 404 either way and the UI always
-        # claims the image was not found. Offer an opt-in raising variant for refetch so
+        # TODO: Transport failures are indistinguishable from a genuine miss here (and in
+        # GelbooruClient), so /api/files/{sha256}/refetch-tags answers 404 either way and the
+        # UI claims the image was not found. Offer an opt-in raising variant for refetch so
         # it can report "Danbooru seems to be down, try later" while uploads stay forgiving.
         except httpx.HTTPStatusError as e:
             # Handle other HTTP errors gracefully (e.g., 500, 503, etc.)
@@ -115,6 +115,11 @@ class DanbooruClient:
             # Network errors (connection errors, timeouts, etc.) - log and return empty list
             logger.error(f"Network error when querying Danbooru API for MD5 {md5}: {e}")
             # Return empty list to allow upload to proceed without Danbooru metadata
+            return []
+        except ValueError as e:
+            # Non-JSON bodies (e.g. a 200 maintenance or challenge page) and posts that fail
+            # validation; treated as a miss so enrichment can fall back to Gelbooru/ONNX
+            logger.error(f"Invalid Danbooru API response for MD5 {md5}: {str(e)[:200]}")
             return []
 
     async def search_tags(self, query: str, limit: int = 20) -> list[DanbooruTag]:
