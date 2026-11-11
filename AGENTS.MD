@@ -57,7 +57,7 @@ This document orients AI agents and contributors to work effectively in the Biju
   - Local host: `postgresql+psycopg://postgres:postgres@localhost:5432/bijutsubase`
   - In Docker: `postgresql+psycopg://postgres:postgres@postgres:5432/bijutsubase`
 - Optional (Docker compose provides): `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
-- **GELBOORU_API_KEY** / **GELBOORU_USER_ID**: Optional Gelbooru credentials (from Gelbooru account options) enabling the Gelbooru tag fallback. Both must be set.
+- **GELBOORU_API_KEY** / **GELBOORU_USER_ID**: Optional Gelbooru credentials (from Gelbooru account options) enabling the Gelbooru tag fallback and Gelbooru post URL uploads. Both must be set.
 - In dev, SQLAlchemy engine uses `echo=True`; ensure it is `False` in production.
 
 ### Build and run
@@ -243,7 +243,7 @@ async def list_files(db: AsyncSession = Depends(get_db)):
 
 - `GET /api/health` — API readiness and DB connectivity.
 - `PUT /api/upload/file` — Upload image/video from multipart form data; validates type; computes hashes; extracts dimensions; persists; auto-enriches from Danbooru, then Gelbooru, then the ONNX model.
-- `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru post URL; resolves Danbooru posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru, then Gelbooru, then the ONNX model.
+- `POST /api/upload/url` — Upload image/video from a direct media URL or Danbooru/Gelbooru post URL; resolves Danbooru and Gelbooru (requires Gelbooru credentials) posts to their original file, downloads to temp storage, validates type, computes hashes, extracts dimensions, persists, and auto-enriches from Danbooru, then Gelbooru, then the ONNX model.
  - `GET /api/files/search?tags=<space+separated+tags>` — Search files containing ALL tags; returns thumbnails.
 - `GET /api/files/{sha256}` — Fetch file details including tags and computed URLs.
 - `POST /api/files/{sha256}/refetch-tags` — Re-run booru enrichment (Danbooru, then Gelbooru) for a stored file (offered in the UI when tags came from Gelbooru or the ONNX model); replaces existing tags on a hit, returns 404 and leaves metadata untouched on a miss.

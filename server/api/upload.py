@@ -35,10 +35,17 @@ from models.file import ProcessingStatus
 from models.pool import Pool, PoolMember
 from models.user import User
 from sources.booru_enrichment import enrich_file_from_boorus
-from sources.danbooru.url_resolver import (
-    DanbooruApiError,
-    DanbooruPostUnavailableError,
-    resolve_danbooru_post_url,
+from sources.danbooru.errors import DanbooruApiError, DanbooruPostUnavailableError
+from sources.danbooru.url_resolver import resolve_danbooru_post_url
+from sources.gelbooru.errors import (
+    GelbooruApiError,
+    GelbooruNotConfiguredError,
+    GelbooruPostUnavailableError,
+)
+from sources.gelbooru.gelbooru_client import GelbooruClient
+from sources.gelbooru.url_resolver import (
+    get_gelbooru_post_id,
+    resolve_gelbooru_post_url,
 )
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from tasks.processing import process_file_background
@@ -425,8 +432,8 @@ async def upload_url(
     user: User = Depends(current_active_user),
 ):
     """
-    Upload a file by URL. Danbooru post page URLs are resolved to their original
-    media file before the normal download and ingest flow.
+    Upload a file by URL. Danbooru and Gelbooru post page URLs are resolved to
+    their original media file before the normal download and ingest flow.
     """
     chunk_size = 8192
     source_url = str(payload.url)
@@ -453,7 +460,10 @@ async def upload_url(
             timeout=httpx.Timeout(None, connect=60.0),
             headers=danbooru_style_headers,
         ) as client:
-            download_url = await resolve_danbooru_post_url(source_url, client)
+            if get_gelbooru_post_id(source_url) is not None:
+                download_url = await resolve_gelbooru_post_url(source_url, GelbooruClient())
+            else:
+                download_url = await resolve_danbooru_post_url(source_url, client)
 
             async with client.stream("GET", download_url) as resp:
                 if 400 <= resp.status_code < 500:
@@ -487,12 +497,17 @@ async def upload_url(
                 )
     except HTTPException:
         raise
-    except DanbooruPostUnavailableError as error:
+    except (DanbooruPostUnavailableError, GelbooruPostUnavailableError) as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error),
         ) from error
-    except DanbooruApiError as error:
+    except GelbooruNotConfiguredError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+    except (DanbooruApiError, GelbooruApiError) as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(error),

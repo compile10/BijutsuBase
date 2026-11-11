@@ -44,8 +44,11 @@ async def fetch_gelbooru_metadata(md5: str) -> GelbooruMetadata | None:
         md5: The MD5 hash of the file
 
     Returns:
-        The post and its categorized tags, or None if Gelbooru has no post, is not
-        configured, or the tag category lookup failed
+        The post and its categorized tags, or None if Gelbooru has no post for the hash
+
+    Raises:
+        GelbooruNotConfiguredError: If Gelbooru credentials are not configured
+        GelbooruApiError: If the post or tag category lookup fails
     """
     client = GelbooruClient()
     posts = await client.get_post(md5)
@@ -57,8 +60,6 @@ async def fetch_gelbooru_metadata(md5: str) -> GelbooruMetadata | None:
     tag_names = get_gelbooru_tag_names(post)
 
     tag_types = await client.get_tag_types(tag_names)
-    if tag_types is None:
-        return None
 
     return GelbooruMetadata(
         post=post,

@@ -4,20 +4,14 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .errors import DanbooruApiError, DanbooruPostUnavailableError
+
 DANBOORU_POST_HOSTS = frozenset(
     {
         "danbooru.donmai.us",
         "www.danbooru.donmai.us",
     }
 )
-
-
-class DanbooruPostUnavailableError(ValueError):
-    """Raised when a Danbooru post has no downloadable original file."""
-
-
-class DanbooruApiError(RuntimeError):
-    """Raised when Danbooru returns an invalid or unsuccessful API response."""
 
 
 def get_danbooru_post_id(url: str) -> int | None:

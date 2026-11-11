@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.file import File, TagSource
 from sources.danbooru.danbooru_client import DanbooruClient
 from sources.danbooru.enrich_file import apply_danbooru_post
+from sources.danbooru.errors import DanbooruApiError
 from sources.gelbooru.enrich_file import apply_gelbooru_metadata, fetch_gelbooru_metadata
+from sources.gelbooru.errors import GelbooruApiError, GelbooruNotConfiguredError
 from sources.tag_utils import remove_tags_from_file
 
 logger = logging.getLogger(__name__)
@@ -52,7 +54,16 @@ async def _apply_booru_metadata(
     db: AsyncSession,
     replace_existing_tags: bool,
 ) -> TagSource | None:
-    danbooru_posts = await DanbooruClient().get_post(file.md5_hash)
+    # TODO: Booru failures are logged and treated as misses, so
+    # /api/files/{sha256}/refetch-tags answers 404 when a booru is down and the UI
+    # claims the image was not found. Surface failures to refetch so it can report
+    # "try later" while uploads stay forgiving.
+    try:
+        danbooru_posts = await DanbooruClient().get_post(file.md5_hash)
+    except DanbooruApiError as error:
+        logger.warning(f"Danbooru lookup failed for {file.sha256_hash}: {error}")
+        danbooru_posts = []
+
     if len(danbooru_posts) > 1:
         raise ValueError("Multiple posts found for the same MD5 hash")
 
@@ -64,11 +75,19 @@ async def _apply_booru_metadata(
 
     logger.info(f"Danbooru lookup missed for {file.sha256_hash}, trying Gelbooru")
 
-    gelbooru_metadata = await fetch_gelbooru_metadata(file.md5_hash)
-    if gelbooru_metadata is not None:
-        if replace_existing_tags:
-            await remove_tags_from_file(file, db)
-        await apply_gelbooru_metadata(file, db, gelbooru_metadata)
-        return TagSource.GELBOORU
+    try:
+        gelbooru_metadata = await fetch_gelbooru_metadata(file.md5_hash)
+    except GelbooruNotConfiguredError:
+        logger.debug("Gelbooru credentials not configured; skipping lookup")
+        return None
+    except GelbooruApiError as error:
+        logger.warning(f"Gelbooru lookup failed for {file.sha256_hash}: {error}")
+        return None
 
-    return None
+    if gelbooru_metadata is None:
+        return None
+
+    if replace_existing_tags:
+        await remove_tags_from_file(file, db)
+    await apply_gelbooru_metadata(file, db, gelbooru_metadata)
+    return TagSource.GELBOORU

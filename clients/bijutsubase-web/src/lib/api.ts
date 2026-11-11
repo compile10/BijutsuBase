@@ -482,7 +482,7 @@ export async function uploadFile(file: File): Promise<FileResponse> {
 
 /**
  * Upload by URL
- * @param url - Direct media URL or Danbooru post URL
+ * @param url - Direct media URL or Danbooru/Gelbooru post URL
  * @returns Uploaded file details
  */
 export async function uploadByUrl(url: string): Promise<FileResponse> {
@@ -494,7 +494,9 @@ export async function uploadByUrl(url: string): Promise<FileResponse> {
 	});
 
 	if (!response.ok) {
-		throw new Error(`URL upload failed: ${response.statusText}`);
+		const error = await response.json().catch(() => null);
+		const detail = typeof error?.detail === 'string' ? error.detail : response.statusText;
+		throw new APIError(response, `URL upload failed: ${detail}`);
 	}
 
 	return response.json();

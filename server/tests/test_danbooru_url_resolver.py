@@ -4,8 +4,8 @@ import unittest
 
 import httpx
 
+from sources.danbooru.errors import DanbooruPostUnavailableError
 from sources.danbooru.url_resolver import (
-    DanbooruPostUnavailableError,
     get_danbooru_post_id,
     resolve_danbooru_post_url,
 )

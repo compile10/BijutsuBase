@@ -4,8 +4,10 @@ import logging
 from typing import Optional
 
 import httpx
+from pydantic import ValidationError
 
 from api.serializers.danbooru import DanbooruPost, DanbooruTag
+from .errors import DanbooruApiError
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ class DanbooruClient:
         base_url: str = "https://danbooru.donmai.us",
         username: Optional[str] = None,
         api_key: Optional[str] = None,
+        transport: Optional[httpx.AsyncBaseTransport] = None,
     ):
         """
         Initialize the Danbooru client.
@@ -29,6 +32,7 @@ class DanbooruClient:
             base_url: The base URL for the Danbooru instance (default: production)
             username: Optional username for authentication
             api_key: Optional API key for authentication
+            transport: Optional httpx transport, used to stub requests in tests
 
         Raises:
             ValueError: If only one of username or api_key is provided
@@ -41,7 +45,8 @@ class DanbooruClient:
 
         self.username = username
         self.api_key = api_key
-        
+        self.transport = transport
+
         # Shared headers for API requests
         self.headers = {
             "User-Agent": "BijutsuBase/0.1.0",
@@ -59,68 +64,48 @@ class DanbooruClient:
             md5: The MD5 hash of the file to search for
 
         Returns:
-            A list of DanbooruPost objects matching the MD5 (typically 0 or 1 result).
-            Returns an empty list if the file is not found or if there's an error.
-            All errors are handled gracefully to allow the upload process to continue.
-        """
-        url = f"{self.base_url}/posts.json"
-        params = {"md5": md5}
+            A list of DanbooruPost objects matching the MD5 (typically 0 or 1 result)
 
-        # Set up authentication if credentials are provided
+        Raises:
+            DanbooruApiError: If the request fails or the response is malformed
+        """
         auth = None
         if self.username and self.api_key:
             auth = (self.username, self.api_key)
 
-        # Make the API request
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, params=params, auth=auth, headers=self.headers)
-                
-                # Handle 404 (file not found) gracefully
-                if response.status_code == 404:
-                    logger.debug(f"File with MD5 {md5} not found on Danbooru")
-                    result = []
-                    return result
-                
-                # Raise for other HTTP errors
-                response.raise_for_status()
+            async with httpx.AsyncClient(transport=self.transport) as client:
+                response = await client.get(
+                    f"{self.base_url}/posts.json",
+                    params={"md5": md5},
+                    auth=auth,
+                    headers=self.headers,
+                )
+        except httpx.RequestError as error:
+            raise DanbooruApiError(f"Failed to reach Danbooru: {error}") from error
 
-                # Parse the JSON response
-                # Danbooru returns a dict for single post, list for multiple/empty
-                data = response.json()
-                if isinstance(data, dict):
-                    # Single post returned as dict - wrap in list
-                    result = [DanbooruPost.model_validate(data)]
-                elif isinstance(data, list):
-                    # Multiple posts or empty list
-                    result = [DanbooruPost.model_validate(post) for post in data]
-                else:
-                    # Unexpected format
-                    logger.warning(f"Unexpected response format from Danbooru API: {type(data)}")
-                    return []
+        if response.status_code == 404:
+            logger.debug(f"File with MD5 {md5} not found on Danbooru")
+            return []
+        if not response.is_success:
+            raise DanbooruApiError(f"Danbooru returned {response.status_code} for MD5 {md5}")
 
-                return result
-        # TODO: Transport failures are indistinguishable from a genuine miss here (and in
-        # GelbooruClient), so /api/files/{sha256}/refetch-tags answers 404 either way and the
-        # UI claims the image was not found. Offer an opt-in raising variant for refetch so
-        # it can report "Danbooru seems to be down, try later" while uploads stay forgiving.
-        except httpx.HTTPStatusError as e:
-            # Handle other HTTP errors gracefully (e.g., 500, 503, etc.)
-            logger.warning(
-                f"Danbooru API returned error {e.response.status_code} for MD5 {md5}: {e.response.text[:200]}"
-            )
-            # Return empty list to allow upload to proceed without Danbooru metadata
-            return []
-        except httpx.RequestError as e:
-            # Network errors (connection errors, timeouts, etc.) - log and return empty list
-            logger.error(f"Network error when querying Danbooru API for MD5 {md5}: {e}")
-            # Return empty list to allow upload to proceed without Danbooru metadata
-            return []
-        except ValueError as e:
-            # Non-JSON bodies (e.g. a 200 maintenance or challenge page) and posts that fail
-            # validation; treated as a miss so enrichment can fall back to Gelbooru/ONNX
-            logger.error(f"Invalid Danbooru API response for MD5 {md5}: {str(e)[:200]}")
-            return []
+        try:
+            data = response.json()
+        except ValueError:
+            # Maintenance and challenge pages are served as HTML with a 200
+            raise DanbooruApiError(f"Danbooru returned invalid JSON for MD5 {md5}") from None
+
+        # A single match is returned as an object, multiple or none as a list
+        if isinstance(data, dict):
+            data = [data]
+        if not isinstance(data, list):
+            raise DanbooruApiError(f"Unexpected Danbooru response type: {type(data).__name__}")
+
+        try:
+            return [DanbooruPost.model_validate(post) for post in data]
+        except ValidationError as error:
+            raise DanbooruApiError(f"Danbooru returned an invalid post for MD5 {md5}") from error
 
     async def search_tags(self, query: str, limit: int = 20) -> list[DanbooruTag]:
         """

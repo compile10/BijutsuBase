@@ -8,11 +8,13 @@ import httpx
 
 from api.serializers.gelbooru import GelbooruPost
 from models.tag import TagCategory
+from sources.booru_enrichment import enrich_file_from_boorus
 from sources.gelbooru.enrich_file import (
     categorize_gelbooru_tags,
     get_gelbooru_source,
     get_gelbooru_tag_names,
 )
+from sources.gelbooru.errors import GelbooruApiError, GelbooruNotConfiguredError
 from sources.gelbooru.gelbooru_client import GelbooruClient
 from sources.tag_utils import TAG_NAME_MAX_LENGTH, associate_tags
 
@@ -62,13 +64,14 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(await make_client(handle_request).get_post("abc123"), [])
 
-    async def test_get_post_returns_empty_on_unauthorized(self) -> None:
+    async def test_get_post_raises_on_unauthorized(self) -> None:
         def handle_request(request: httpx.Request) -> httpx.Response:
             return httpx.Response(401, text="")
 
-        self.assertEqual(await make_client(handle_request).get_post("abc123"), [])
+        with self.assertRaisesRegex(GelbooruApiError, "credentials"):
+            await make_client(handle_request).get_post("abc123")
 
-    async def test_unconfigured_client_skips_requests(self) -> None:
+    async def test_unconfigured_client_raises_without_requests(self) -> None:
         def fail_on_request(request: httpx.Request) -> httpx.Response:
             self.fail(f"Unexpected request to {request.url}")
 
@@ -76,8 +79,10 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
             client = GelbooruClient(transport=httpx.MockTransport(fail_on_request))
 
         self.assertFalse(client.is_configured)
-        self.assertEqual(await client.get_post("abc123"), [])
-        self.assertIsNone(await client.get_tag_types(["1girl"]))
+        with self.assertRaises(GelbooruNotConfiguredError):
+            await client.get_post("abc123")
+        with self.assertRaises(GelbooruNotConfiguredError):
+            await client.get_tag_types(["1girl"])
 
     async def test_get_tag_types_batches_and_unescapes(self) -> None:
         requested_batches: list[list[str]] = []
@@ -104,9 +109,10 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
                 json={"tag": [{"id": 1, "name": "artist_a", "count": 12, "type": "artist"}]},
             )
 
-        self.assertIsNone(await make_client(handle_request).get_tag_types(["artist_a"]))
+        with self.assertRaises(GelbooruApiError):
+            await make_client(handle_request).get_tag_types(["artist_a"])
 
-    async def test_malformed_responses_are_treated_as_misses(self) -> None:
+    async def test_malformed_responses_raise(self) -> None:
         def handle_request(request: httpx.Request) -> httpx.Response:
             if request.url.params["s"] == "post":
                 return httpx.Response(200, json={"post": [{"tags": "1girl"}]})
@@ -114,8 +120,10 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
 
         client = make_client(handle_request)
 
-        self.assertEqual(await client.get_post("abc123"), [])
-        self.assertIsNone(await client.get_tag_types(["1girl"]))
+        with self.assertRaises(GelbooruApiError):
+            await client.get_post("abc123")
+        with self.assertRaises(GelbooruApiError):
+            await client.get_tag_types(["1girl"])
 
     async def test_unusable_tag_envelopes_fail_the_lookup(self) -> None:
         unusable_payloads = [
@@ -132,15 +140,17 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
                 def handle_request(request: httpx.Request, payload=payload) -> httpx.Response:
                     return httpx.Response(200, json=payload)
 
-                self.assertIsNone(await make_client(handle_request).get_tag_types(["1girl"]))
+                with self.assertRaises(GelbooruApiError):
+                    await make_client(handle_request).get_tag_types(["1girl"])
 
-    async def test_malformed_post_items_are_treated_as_misses(self) -> None:
+    async def test_malformed_post_items_raise(self) -> None:
         for payload in [[], {"post": ["not-an-object"]}, {"post": 5}]:
             with self.subTest(payload=payload):
                 def handle_request(request: httpx.Request, payload=payload) -> httpx.Response:
                     return httpx.Response(200, json=payload)
 
-                self.assertEqual(await make_client(handle_request).get_post("abc123"), [])
+                with self.assertRaises(GelbooruApiError):
+                    await make_client(handle_request).get_post("abc123")
 
     async def test_post_without_tags_skips_tag_lookup(self) -> None:
         def fail_on_request(request: httpx.Request) -> httpx.Response:
@@ -148,12 +158,12 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(await make_client(fail_on_request).get_tag_types([]), {})
 
-    async def test_get_tag_types_returns_none_on_error(self) -> None:
+    async def test_get_tag_types_raises_on_error(self) -> None:
         def handle_request(request: httpx.Request) -> httpx.Response:
             return httpx.Response(503)
 
-        self.assertIsNone(await make_client(handle_request).get_tag_types(["1girl"]))
-
+        with self.assertRaisesRegex(GelbooruApiError, "503"):
+            await make_client(handle_request).get_tag_types(["1girl"])
 
     async def test_logs_do_not_contain_api_key(self) -> None:
         def handle_request(request: httpx.Request) -> httpx.Response:
@@ -165,12 +175,36 @@ class GelbooruClientTests(unittest.IsolatedAsyncioTestCase):
             transport=httpx.MockTransport(handle_request),
         )
 
-        with self.assertLogs(level="INFO") as captured:
+        with self.assertLogs(level="INFO") as captured, self.assertRaises(GelbooruApiError):
             await client.get_tag_types(["1girl"])
 
         output = "\n".join(captured.output)
         self.assertIn("api_key=[REDACTED]", output)
         self.assertNotIn("secret-key", output)
+
+
+class BooruEnrichmentTests(unittest.IsolatedAsyncioTestCase):
+    async def enrich_with_gelbooru_error(self, error: Exception) -> bool:
+        file = SimpleNamespace(sha256_hash="f" * 64, md5_hash="abc123")
+
+        with (
+            mock.patch("sources.booru_enrichment.DanbooruClient") as danbooru,
+            mock.patch("sources.booru_enrichment.fetch_gelbooru_metadata", side_effect=error),
+        ):
+            danbooru.return_value.get_post = mock.AsyncMock(return_value=[])
+            return await enrich_file_from_boorus(file, mock.MagicMock())
+
+    async def test_gelbooru_api_errors_are_logged_as_misses(self) -> None:
+        with self.assertLogs("sources.booru_enrichment", level="WARNING") as captured:
+            enriched = await self.enrich_with_gelbooru_error(GelbooruApiError("Gelbooru returned 503"))
+
+        self.assertFalse(enriched)
+        self.assertIn("Gelbooru returned 503", "\n".join(captured.output))
+
+    async def test_unconfigured_gelbooru_is_skipped(self) -> None:
+        enriched = await self.enrich_with_gelbooru_error(GelbooruNotConfiguredError("not configured"))
+
+        self.assertFalse(enriched)
 
 
 class AssociateTagsTests(unittest.IsolatedAsyncioTestCase):
