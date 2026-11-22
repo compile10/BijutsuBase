@@ -25,14 +25,12 @@ from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from api.serializers.file import FileResponse
 from auth.users import current_active_user
 from database.config import get_db
 from models.file import File as FileModel
 from models.file import ProcessingStatus
-from models.pool import Pool, PoolMember
 from models.user import User
 from sources.booru_enrichment import enrich_file_from_boorus
 from sources.danbooru.errors import DanbooruApiError, DanbooruPostUnavailableError
@@ -49,6 +47,7 @@ from sources.gelbooru.url_resolver import (
 )
 from sources.onnxmodel.enrich_file import enrich_file_with_onnx
 from tasks.processing import process_file_background
+from utils.file_queries import get_file_response, get_file_with_relations
 from utils.file_storage import generate_file_path, get_media_storage_dir
 
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -302,21 +301,7 @@ async def _persist_ingest(
             background_tasks.add_task(process_file_background, sha256_hash)
             logger.info(f"Queued background processing for video {sha256_hash}")
 
-            # Reload with minimal relationships to avoid lazy-load errors in serializer
-            # (FileResponse's model_validator accesses family_as_child/family_as_parent)
-            result = await db.execute(
-                select(FileModel)
-                .options(
-                    selectinload(FileModel.tags),
-                    selectinload(FileModel.pool_entries),
-                    selectinload(FileModel.family_as_child),
-                    selectinload(FileModel.family_as_parent),
-                )
-                .where(FileModel.sha256_hash == sha256_hash)
-            )
-            file_model = result.scalar_one()
-
-            return FileResponse.model_validate(file_model)
+            return await get_file_response(db, sha256_hash)
 
         except Exception as e:
             await db.rollback()
@@ -340,21 +325,8 @@ async def _persist_ingest(
         # Now commit everything together
         await db.commit()
 
-        # Reload file with all relationships needed for response
-        # We need to reload after commit because commit expires the instance
-        # and we need to eager load relationships to avoid MissingGreenlet error
-        result = await db.execute(
-            select(FileModel)
-            .options(
-                selectinload(FileModel.tags),
-                selectinload(FileModel.pool_entries)
-                .selectinload(PoolMember.pool)
-                .selectinload(Pool.members)
-                .selectinload(PoolMember.file)
-            )
-            .where(FileModel.sha256_hash == sha256_hash)
-        )
-        file_model = result.scalar_one()
+        # Reload file with relationships needed for similarity handling and response
+        file_model = await get_file_with_relations(db, sha256_hash)
 
         # Check for visually similar files and create/extend families
         if phash is not None:
@@ -374,42 +346,12 @@ async def _persist_ingest(
                 if similar_files:
                     logger.info(f"Found {len(similar_files)} pHash candidates for {sha256_hash}")
                     await handle_similar_files(file_model, similar_files, db)
-
-                    # Reload file with updated family relationships
-                    from models.family import FileFamily
-                    result = await db.execute(
-                        select(FileModel)
-                        .options(
-                            selectinload(FileModel.tags),
-                            selectinload(FileModel.pool_entries)
-                            .selectinload(PoolMember.pool)
-                            .selectinload(Pool.members)
-                            .selectinload(PoolMember.file),
-                            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-                            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
-                        )
-                        .where(FileModel.sha256_hash == sha256_hash)
-                    )
-                    file_model = result.scalar_one()
+                    file_model = await get_file_with_relations(db, sha256_hash)
             except Exception as e:
                 await db.rollback()
                 logger.error(f"Failed to process visual similarity for {sha256_hash}: {str(e)}", exc_info=True)
                 # Don't fail the upload if similarity detection fails
-                from models.family import FileFamily
-                result = await db.execute(
-                    select(FileModel)
-                    .options(
-                        selectinload(FileModel.tags),
-                        selectinload(FileModel.pool_entries)
-                        .selectinload(PoolMember.pool)
-                        .selectinload(Pool.members)
-                        .selectinload(PoolMember.file),
-                        selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-                        selectinload(FileModel.family_as_parent).selectinload(FileFamily.children),
-                    )
-                    .where(FileModel.sha256_hash == sha256_hash)
-                )
-                file_model = result.scalar_one()
+                file_model = await get_file_with_relations(db, sha256_hash)
 
     except Exception as e:
         await db.rollback()

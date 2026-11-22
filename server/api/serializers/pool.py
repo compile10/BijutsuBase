@@ -18,6 +18,9 @@ class PoolSimple(BaseModel):
     member_count: int = 0
     thumbnail_url: Optional[str] = None
 
+    class Config:
+        from_attributes = True
+
 
 class CreatePoolRequest(BaseModel):
     """Request model for creating a new pool."""

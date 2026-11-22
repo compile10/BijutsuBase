@@ -9,14 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func, update, exists
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, aliased
+from sqlalchemy.orm import aliased
 
 from database.config import get_db
 from models.file import File as FileModel, Rating
 from models.tag import Tag, FileTag, TagCategory
-from models.pool import PoolMember, Pool
-from models.family import FileFamily
+from models.pool import PoolMember
 from models.user import User
+from utils.file_queries import get_file_response
 from utils.file_storage import generate_file_path
 from utils.pagination import encode_cursor, decode_cursor
 from utils.rating import get_allowed_ratings
@@ -409,24 +409,7 @@ async def get_file(
     user: User = Depends(current_active_user),
 ):
     """Fetch a file by its SHA-256 hash and return serialized details including tags."""
-    result = await db.execute(
-        select(FileModel)
-        .options(
-            selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries)
-            .selectinload(PoolMember.pool)
-            .selectinload(Pool.members)
-            .selectinload(PoolMember.file),
-            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
-        )
-        .where(FileModel.sha256_hash == sha256)
-    )
-    file_model = result.scalar_one_or_none()
-    if file_model is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-
-    return FileResponse.model_validate(file_model)
+    return await get_file_response(db, sha256)
 
 
 @router.get("/{sha256}/status", response_model=FileResponse, status_code=status.HTTP_200_OK)
@@ -446,24 +429,7 @@ async def get_file_status(
     - processing_error: error message if processing failed
     - thumbnail_url: available once processing is completed
     """
-    result = await db.execute(
-        select(FileModel)
-        .options(
-            selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries)
-            .selectinload(PoolMember.pool)
-            .selectinload(Pool.members)
-            .selectinload(PoolMember.file),
-            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
-        )
-        .where(FileModel.sha256_hash == sha256)
-    )
-    file_model = result.scalar_one_or_none()
-    if file_model is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-
-    return FileResponse.model_validate(file_model)
+    return await get_file_response(db, sha256)
 
 
 @router.patch("/rating/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
@@ -502,18 +468,7 @@ async def update_file_rating(
         await db.flush()
         await db.commit()
         
-        # Re-fetch with all relationships for response
-        result = await db.execute(
-            select(FileModel)
-            .options(
-                selectinload(FileModel.tags),
-                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool),
-                selectinload(FileModel.family_as_child),
-                selectinload(FileModel.family_as_parent)
-            )
-            .where(FileModel.sha256_hash == sha256)
-        )
-        file_model = result.scalar_one()
+        return await get_file_response(db, sha256)
         
     except HTTPException:
         await db.rollback()
@@ -525,8 +480,6 @@ async def update_file_rating(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update file rating: {str(e)}"
         )
-
-    return FileResponse.model_validate(file_model)
 
 
 @router.patch("/ai_generated/{sha256}", response_model=FileResponse, status_code=status.HTTP_200_OK)
@@ -555,18 +508,7 @@ async def update_file_ai_generated(
         await db.flush()
         await db.commit()
         
-        # Re-fetch with all relationships for response
-        result = await db.execute(
-            select(FileModel)
-            .options(
-                selectinload(FileModel.tags),
-                selectinload(FileModel.pool_entries).selectinload(PoolMember.pool),
-                selectinload(FileModel.family_as_child),
-                selectinload(FileModel.family_as_parent)
-            )
-            .where(FileModel.sha256_hash == sha256)
-        )
-        file_model = result.scalar_one()
+        return await get_file_response(db, sha256)
         
     except HTTPException:
         await db.rollback()
@@ -578,8 +520,6 @@ async def update_file_ai_generated(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update file ai_generated status: {str(e)}"
         )
-
-    return FileResponse.model_validate(file_model)
 
 
 @router.post("/{sha256}/refetch-tags", response_model=FileResponse, status_code=status.HTTP_200_OK)
@@ -622,21 +562,7 @@ async def refetch_booru_metadata(
     # before re-reading the file with all relationships for the response
     db.expire_all()
 
-    result = await db.execute(
-        select(FileModel)
-        .options(
-            selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries)
-            .selectinload(PoolMember.pool)
-            .selectinload(Pool.members)
-            .selectinload(PoolMember.file),
-            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
-        )
-        .where(FileModel.sha256_hash == sha256)
-    )
-
-    return FileResponse.model_validate(result.scalar_one())
+    return await get_file_response(db, sha256)
 
 
 @router.delete("/{sha256}", status_code=status.HTTP_200_OK)

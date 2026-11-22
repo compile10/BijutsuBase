@@ -5,15 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased, selectinload
+from sqlalchemy.orm import aliased
 
 from database.config import get_db
 from models.file import File as FileModel
 from models.tag import Tag, TagCategory, FileTag
 from models.user import User
-from models.pool import Pool, PoolMember
-from models.family import FileFamily
 from api.serializers.file import FileResponse
+from utils.file_queries import get_file_response
 from sources.danbooru import DanbooruClient
 from api.serializers.tag import (
     TagAssociateRequest,
@@ -231,26 +230,10 @@ async def associate_tag(
         # File can't be deleted due to row lock, so this must be a duplicate
         await db.rollback()
     
-    # Reload file with all relationships needed for FileResponse
-    result = await db.execute(
-        select(FileModel)
-        .options(
-            selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries)
-            .selectinload(PoolMember.pool)
-            .selectinload(Pool.members)
-            .selectinload(PoolMember.file),
-            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
-        )
-        .where(FileModel.sha256_hash == request.file_sha256)
-    )
-    file_model = result.scalar_one()
-    
-    # Now commit to release the lock
+    # Now commit to release the lock, then reload for response
     await db.commit()
     
-    return FileResponse.model_validate(file_model)
+    return await get_file_response(db, request.file_sha256)
 
 
 @router.post("/bulk-associate", status_code=status.HTTP_204_NO_CONTENT)
@@ -378,25 +361,9 @@ async def dissociate_tag(
     await db.delete(file_tag)
     await db.flush()
     
-    # Reload file with all relationships needed for FileResponse
-    result = await db.execute(
-        select(FileModel)
-        .options(
-            selectinload(FileModel.tags),
-            selectinload(FileModel.pool_entries)
-            .selectinload(PoolMember.pool)
-            .selectinload(Pool.members)
-            .selectinload(PoolMember.file),
-            selectinload(FileModel.family_as_child).selectinload(FileFamily.parent),
-            selectinload(FileModel.family_as_parent).selectinload(FileFamily.children)
-        )
-        .where(FileModel.sha256_hash == request.file_sha256)
-    )
-    file_model = result.scalar_one()
-    
     await db.commit()
     
-    return FileResponse.model_validate(file_model)
+    return await get_file_response(db, request.file_sha256)
 
 
 @router.post("/bulk-dissociate", status_code=status.HTTP_204_NO_CONTENT)
