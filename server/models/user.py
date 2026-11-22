@@ -1,9 +1,16 @@
 """User model for BijutsuBase authentication."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List
+
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.config import Base
+
+if TYPE_CHECKING:
+    from models.api_key import ApiKey
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -24,3 +31,9 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     """
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     avatar: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    api_keys: Mapped[List["ApiKey"]] = relationship(
+        "ApiKey",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

@@ -17,6 +17,7 @@ from api.families import router as families_router
 from api.setup import router as setup_router
 from auth import fastapi_users, auth_backend, UserRead, UserCreate, UserUpdate
 from models.user import User  # noqa: F401 - Import to register with Alembic
+from models.api_key import ApiKey  # noqa: F401 - Import to register with Alembic
 
 # Configure logging
 logging.basicConfig(
