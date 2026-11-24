@@ -42,6 +42,7 @@
 	},
 	"dependencies": {
 		"@fontsource/space-mono": "^5.2.9",
+		"date-fns": "^4.4.0",
 		"virtua": "^0.49.2"
 	}
 }

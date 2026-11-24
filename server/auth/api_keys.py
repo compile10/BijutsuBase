@@ -57,8 +57,6 @@ async def authenticate_api_key(
     api_key, user = row
     now = datetime.now(timezone.utc)
 
-    if api_key.revoked_at is not None:
-        return None, "API key has been revoked"
     if api_key.expires_at is not None and api_key.expires_at <= now:
         return None, "API key has expired"
     if not user.is_active:

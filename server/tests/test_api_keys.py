@@ -68,7 +68,6 @@ class AuthenticateApiKeyTests(unittest.IsolatedAsyncioTestCase):
         api_key = SimpleNamespace(
             id=uuid.uuid4(),
             key_hash=key_hash,
-            revoked_at=None,
             expires_at=datetime.now(timezone.utc) + timedelta(days=1),
             last_used_at=None,
         )
@@ -87,7 +86,6 @@ class AuthenticateApiKeyTests(unittest.IsolatedAsyncioTestCase):
         api_key = SimpleNamespace(
             id=uuid.uuid4(),
             key_hash=key_hash,
-            revoked_at=None,
             expires_at=None,
             last_used_at=datetime.now(timezone.utc) - timedelta(seconds=10),
         )
@@ -100,31 +98,17 @@ class AuthenticateApiKeyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(db.execute.await_count, 1)  # select only
         db.commit.assert_not_awaited()
 
-    async def test_rejects_missing_revoked_expired_and_inactive(self) -> None:
+    async def test_rejects_missing_expired_and_inactive(self) -> None:
         raw_key, _, key_hash = generate_api_key()
         now = datetime.now(timezone.utc)
 
         cases = {
             "not found": (None, "Invalid API key"),
-            "revoked": (
-                (
-                    SimpleNamespace(
-                        id=uuid.uuid4(),
-                        key_hash=key_hash,
-                        revoked_at=now - timedelta(minutes=5),
-                        expires_at=None,
-                        last_used_at=None,
-                    ),
-                    SimpleNamespace(id=uuid.uuid4(), is_active=True),
-                ),
-                "API key has been revoked",
-            ),
             "expired": (
                 (
                     SimpleNamespace(
                         id=uuid.uuid4(),
                         key_hash=key_hash,
-                        revoked_at=None,
                         expires_at=now - timedelta(seconds=1),
                         last_used_at=None,
                     ),
@@ -137,7 +121,6 @@ class AuthenticateApiKeyTests(unittest.IsolatedAsyncioTestCase):
                     SimpleNamespace(
                         id=uuid.uuid4(),
                         key_hash=key_hash,
-                        revoked_at=None,
                         expires_at=None,
                         last_used_at=None,
                     ),
@@ -186,7 +169,6 @@ class FastApiDependencyTests(unittest.IsolatedAsyncioTestCase):
         api_key = SimpleNamespace(
             id=uuid.uuid4(),
             key_hash=key_hash,
-            revoked_at=None,
             expires_at=None,
             last_used_at=datetime.now(timezone.utc),
         )
@@ -221,14 +203,13 @@ class FastApiDependencyTests(unittest.IsolatedAsyncioTestCase):
     async def test_pipes_explicit_rejection_reason_to_http_401(self) -> None:
         raw_key, _, key_hash = generate_api_key()
         user = SimpleNamespace(id=uuid.uuid4(), is_active=True, is_superuser=False)
-        revoked_key = SimpleNamespace(
+        expired_key = SimpleNamespace(
             id=uuid.uuid4(),
             key_hash=key_hash,
-            revoked_at=datetime.now(timezone.utc) - timedelta(minutes=1),
-            expires_at=None,
+            expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
             last_used_at=None,
         )
-        app = self._build_app(api_key_row=(revoked_key, user))
+        app = self._build_app(api_key_row=(expired_key, user))
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
@@ -239,7 +220,7 @@ class FastApiDependencyTests(unittest.IsolatedAsyncioTestCase):
                 headers={"Authorization": f"Bearer {raw_key}"},
             )
             self.assertEqual(response.status_code, 401)
-            self.assertEqual(response.json()["detail"], "API key has been revoked")
+            self.assertEqual(response.json()["detail"], "API key has expired")
 
     async def test_falls_back_to_cookie_user_when_no_api_key_header(self) -> None:
         cookie_user = SimpleNamespace(id=uuid.uuid4(), is_active=True, is_superuser=False)
@@ -334,6 +315,7 @@ class ApiKeyEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["name"], "CLI key")
         self.assertEqual(payload["key_prefix"], stored.key_prefix)
         self.assertNotIn("key_hash", payload)
+        self.assertNotIn("revoked_at", payload)
         db.commit.assert_awaited_once()
         db.refresh.assert_awaited_once_with(stored)
 
@@ -374,7 +356,6 @@ class ApiKeyEndpointTests(unittest.IsolatedAsyncioTestCase):
             created_at=now,
             last_used_at=None,
             expires_at=None,
-            revoked_at=None,
         )
         key_b = SimpleNamespace(
             id=uuid.uuid4(),
@@ -385,7 +366,6 @@ class ApiKeyEndpointTests(unittest.IsolatedAsyncioTestCase):
             created_at=now - timedelta(hours=1),
             last_used_at=now - timedelta(minutes=5),
             expires_at=now + timedelta(days=7),
-            revoked_at=None,
         )
 
         count_result = mock.MagicMock()
@@ -415,6 +395,7 @@ class ApiKeyEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["items"][0]["key_prefix"], "bb_aaaaaaaaa")
         self.assertNotIn("key_hash", payload["items"][0])
         self.assertNotIn("api_key", payload["items"][0])
+        self.assertNotIn("revoked_at", payload["items"][0])
 
         # Verify SQL queries scope to the current user and apply offset/limit
         count_stmt = db.execute.await_args_list[0].args[0]

@@ -3,6 +3,9 @@
  *
  * All API calls use credentials: 'include' to send cookies automatically.
  * Authentication is handled via HttpOnly cookies set by the server.
+ *
+ * TODO: Remove redundant `credentials: 'include'` across this file since all requests
+ * use same-origin relative `/api/...` URLs and fetch defaults to `credentials: 'same-origin'`.
  */
 
 import {
@@ -605,7 +608,7 @@ export async function refetchBooruMetadata(sha256: string): Promise<FileResponse
 
 	return response.json();
 }
- 
+
 /**
  * Get tags common to all specified files
  * @param hashes - List of file SHA256 hashes
@@ -925,4 +928,114 @@ export async function reorderPoolFiles(
 	}
 
 	return response.json();
+}
+
+export interface ApiKeyResponse {
+	id: string;
+	name: string;
+	key_prefix: string;
+	created_at: string;
+	last_used_at: string | null;
+	expires_at: string | null;
+}
+
+export interface CreateApiKeyRequest {
+	name: string;
+	expires_at?: string | null;
+}
+
+export interface CreateApiKeyResponse extends ApiKeyResponse {
+	api_key: string;
+}
+
+export interface ApiKeyListResponse {
+	items: ApiKeyResponse[];
+	total: number;
+	page: number;
+	page_size: number;
+}
+
+async function extractErrorDetail(response: Response, fallback: string): Promise<string> {
+	const errorData = await response.json().catch(() => null);
+	if (typeof errorData?.detail === 'string') {
+		return errorData.detail;
+	}
+	if (Array.isArray(errorData?.detail)) {
+		const messages = errorData.detail
+			.map((item: unknown) =>
+				typeof item === 'object' && item !== null && 'msg' in item && typeof item.msg === 'string'
+					? item.msg.trim()
+					: ''
+			)
+			.filter((msg: string) => msg.length > 0);
+		if (messages.length > 0) {
+			return messages.join('; ');
+		}
+	}
+	return fallback;
+}
+
+/**
+ * List personal API keys for the currently authenticated account
+ */
+export async function listApiKeys(
+	page = 1,
+	pageSize = 10,
+	signal?: AbortSignal
+): Promise<ApiKeyListResponse> {
+	const params = new URLSearchParams({
+		page: String(page),
+		page_size: String(pageSize)
+	});
+	const response = await fetch(`/api/api-keys?${params.toString()}`, {
+		credentials: 'include',
+		signal
+	});
+
+	if (!response.ok) {
+		const detail = await extractErrorDetail(response, 'Failed to load API keys');
+		throw new APIError(response, detail);
+	}
+
+	return response.json();
+}
+
+/**
+ * Create a new personal API key (the raw secret is returned once)
+ */
+export async function createApiKey(
+	name: string,
+	expiresAt: string | null = null
+): Promise<CreateApiKeyResponse> {
+	const response = await fetch('/api/api-keys', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({
+			name,
+			expires_at: expiresAt
+		} satisfies CreateApiKeyRequest)
+	});
+
+	if (!response.ok) {
+		const detail = await extractErrorDetail(response, 'Failed to create API key');
+		throw new APIError(response, detail);
+	}
+
+	return response.json();
+}
+
+/**
+ * Delete a personal API key belonging to the current account
+ */
+export async function deleteApiKey(apiKeyId: string): Promise<void> {
+	const response = await fetch(`/api/api-keys/${encodeURIComponent(apiKeyId)}`, {
+		method: 'DELETE',
+		credentials: 'include'
+	});
+
+	if (!response.ok) {
+		const detail = await extractErrorDetail(response, 'Failed to delete API key');
+		throw new APIError(response, detail);
+	}
 }

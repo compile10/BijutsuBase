@@ -1,5 +1,6 @@
 <script lang="ts">
 	import WindowModal from './WindowModal.svelte';
+	import ApiKeysSection from './ApiKeysSection.svelte';
 	import { getSettingsContext, type MaxRating } from '$lib/settings.svelte';
 	import { getAuthContext } from '$lib/auth.svelte';
 	import { updateUser } from '$lib/api';
@@ -14,6 +15,8 @@
 	let avatarInput = $state(authState.user?.avatar ?? '');
 	let avatarError = $state('');
 	let avatarSaving = $state(false);
+	let apiKeysBusy = $state(false);
+	let isBusy = $derived(avatarSaving || apiKeysBusy);
 
 	// Helper to construct avatar URL from sha256 hash
 	function getAvatarUrl(sha256: string): string {
@@ -87,6 +90,7 @@
 	}
 
 	function handleClose() {
+		if (isBusy) return;
 		isOpen = false;
 	}
 </script>
@@ -99,7 +103,8 @@
 		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Settings</h2>
 		<button
 			onclick={handleClose}
-			class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+			disabled={isBusy}
+			class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-700 dark:hover:text-gray-300"
 			aria-label="Close settings"
 		>
 			<IconClose class="h-6 w-6" />
@@ -171,6 +176,11 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- API Keys Section -->
+			<div class="mb-8 border-t border-gray-200 pt-8 dark:border-gray-700">
+				<ApiKeysSection onBusyChange={(busy) => (apiKeysBusy = busy)} />
+			</div>
 		{/if}
 
 		<!-- General Section -->
@@ -235,7 +245,8 @@
 	>
 		<button
 			onclick={handleClose}
-			class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+			disabled={isBusy}
+			class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600"
 		>
 			Done
 		</button>

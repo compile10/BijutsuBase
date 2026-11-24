@@ -54,10 +54,6 @@ class ApiKey(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
 
     user: Mapped["User"] = relationship("User", back_populates="api_keys")
 
