@@ -49,7 +49,6 @@ async def create_api_key(
         created_at=api_key.created_at,
         last_used_at=api_key.last_used_at,
         expires_at=api_key.expires_at,
-        revoked_at=api_key.revoked_at,
         api_key=raw_key,
     )
 
